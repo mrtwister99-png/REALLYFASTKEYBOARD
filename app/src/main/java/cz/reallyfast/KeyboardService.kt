@@ -114,11 +114,15 @@ class KeyboardService : InputMethodService(), KeyboardView.Listener,
         val root = LinearLayout(this)
         root.orientation = LinearLayout.VERTICAL
         root.setBackgroundColor(theme.background)
+        // Bublina nad klavesou a nabidka variant smi presahnout z plochy klaves nad listu navrhu.
+        root.clipChildren = false
+        root.clipToPadding = false
 
         val bar = SuggestionBar(this, theme, this)
         root.addView(bar, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, barHeight))
 
         val content = FrameLayout(this)
+        content.clipChildren = false
         val keyboard = KeyboardView(this)
         keyboard.listener = this
         keyboard.theme = theme
@@ -173,14 +177,28 @@ class KeyboardService : InputMethodService(), KeyboardView.Listener,
 
     private fun updateBarVisibility() {
         val s = settings
-        bar?.visibility = if (s.showSuggestions || s.clipboardEnabled || searchMode) View.VISIBLE else View.GONE
+        val visible = s.showSuggestions || s.clipboardEnabled || searchMode
+        bar?.visibility = if (visible) View.VISIBLE else View.GONE
         bar?.setClipboardVisible(s.clipboardEnabled)
+        keyboard?.overflowTop = if (visible) barHeight else 0
     }
 
     private fun applyWindowColors() {
         try {
+            val w = window?.window ?: return
             @Suppress("DEPRECATION")
-            window?.window?.navigationBarColor = theme.background
+            w.navigationBarColor = theme.background
+            // Svetle tema -> tmave ikony v navigacni liste (a naopak).
+            if (Build.VERSION.SDK_INT >= 30) {
+                val flag = android.view.WindowInsetsController.APPEARANCE_LIGHT_NAVIGATION_BARS
+                w.insetsController?.setSystemBarsAppearance(if (theme.isLight) flag else 0, flag)
+            } else if (Build.VERSION.SDK_INT >= 26) {
+                @Suppress("DEPRECATION")
+                val flag = View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR
+                @Suppress("DEPRECATION")
+                w.decorView.systemUiVisibility =
+                    if (theme.isLight) w.decorView.systemUiVisibility or flag else w.decorView.systemUiVisibility and flag.inv()
+            }
         } catch (t: Throwable) {
             // jen kosmetika
         }
@@ -214,6 +232,17 @@ class KeyboardService : InputMethodService(), KeyboardView.Listener,
         showKeyboard()
         keyboard?.let {
             it.swipeAllowed = !passwordField
+            it.popupAllowed = !passwordField
+            val options = info?.imeOptions ?: 0
+            it.enterAction = if (options and EditorInfo.IME_FLAG_NO_ENTER_ACTION != 0) KeyboardView.ENTER_DEFAULT else {
+                when (options and EditorInfo.IME_MASK_ACTION) {
+                    EditorInfo.IME_ACTION_SEARCH -> KeyboardView.ENTER_SEARCH
+                    EditorInfo.IME_ACTION_SEND -> KeyboardView.ENTER_SEND
+                    EditorInfo.IME_ACTION_NEXT, EditorInfo.IME_ACTION_GO -> KeyboardView.ENTER_NEXT
+                    EditorInfo.IME_ACTION_DONE -> KeyboardView.ENTER_DONE
+                    else -> KeyboardView.ENTER_DEFAULT
+                }
+            }
             it.desiredHeight = keysHeight()
             val numeric = cls == InputType.TYPE_CLASS_NUMBER || cls == InputType.TYPE_CLASS_PHONE || cls == InputType.TYPE_CLASS_DATETIME
             it.setMode(if (numeric) KeyboardView.MODE_SYMBOLS else KeyboardView.MODE_LETTERS)
@@ -645,7 +674,9 @@ class KeyboardService : InputMethodService(), KeyboardView.Listener,
     // ------------------------------------------------------------------ panely
 
     private fun showKeyboard() {
+        val wasHidden = keyboard?.visibility != View.VISIBLE
         keyboard?.visibility = View.VISIBLE
+        if (wasHidden) keyboard?.reveal()
         emojiPanel?.visibility = View.GONE
         clipPanel?.visibility = View.GONE
     }
@@ -667,6 +698,7 @@ class KeyboardService : InputMethodService(), KeyboardView.Listener,
         keyboard?.visibility = View.GONE
         clipPanel?.visibility = View.GONE
         panel.visibility = View.VISIBLE
+        panel.reveal()
     }
 
     override fun onClipboardClicked() {
@@ -688,6 +720,7 @@ class KeyboardService : InputMethodService(), KeyboardView.Listener,
         keyboard?.visibility = View.GONE
         emojiPanel?.visibility = View.GONE
         panel.visibility = View.VISIBLE
+        panel.reveal()
     }
 
     override fun onPanelBack() = showKeyboard()

@@ -42,6 +42,10 @@ class KeyboardView(context: Context) : View(context) {
         var pressed = false
         var changedAt = 0L
         val isLetter: Boolean get() = kind == KIND_CHAR && code in 'a'.code..'z'.code
+
+        /** Prvni varianta dlouheho stisku - mala napoveda v rohu klavesy. */
+        val hint: String =
+            if (kind == KIND_CHAR && alts.isNotEmpty()) String(Character.toChars(alts.codePointAt(0))) else ""
     }
 
     interface Listener {
@@ -79,7 +83,18 @@ class KeyboardView(context: Context) : View(context) {
         const val SHIFT_ONCE = 1
         const val SHIFT_CAPS = 2
 
+        const val ENTER_DEFAULT = 0
+        const val ENTER_SEARCH = 1
+        const val ENTER_SEND = 2
+        const val ENTER_NEXT = 3
+        const val ENTER_DONE = 4
+
         private const val PRESS_ANIM_MS = 80f
+        private const val RELEASE_ANIM_MS = 140f
+        private const val PREVIEW_IN_MS = 60f
+        private const val PREVIEW_OUT_MS = 90f
+        private const val TRAIL_FADE_MS = 180f
+        private const val TRAIL_POINTS = 56
         private const val MAX_SAMPLES = 2000
 
         private const val T_NONE = 0
@@ -103,9 +118,22 @@ class KeyboardView(context: Context) : View(context) {
                 requestLayout()
             }
         }
+    /** Bubliny nad klavesou lze vypnout (pole pro hesla - nikdo nema videt, co se pise). */
+    var popupAllowed = true
+
+    /** O kolik px smi bublina / nabidka variant presahnout nad horni okraj (vyska listy navrhu). */
+    var overflowTop = 0
+    var enterAction = ENTER_DEFAULT
+        set(value) {
+            if (field != value) {
+                field = value
+                invalidate()
+            }
+        }
     var theme: Theme = Theme.from(RustBridge.settings)
         set(value) {
             field = value
+            applyAppearance()
             invalidate()
         }
     var shiftState = SHIFT_OFF
@@ -122,6 +150,48 @@ class KeyboardView(context: Context) : View(context) {
     private var unitW = 1f
     private var rowH = 1f
     private val density = resources.displayMetrics.density
+
+    // --- vzhled z nastaveni (cte se jen pri zmene, ne v onDraw)
+    private var animate = true
+    private var drawShadow = true
+    private var drawHints = true
+    private var drawTrailEnabled = true
+    private var showPreview = true
+    private var keyRadius = 10f * density
+    private val shadowOffset = 1.5f * density
+    private var fontScale = 1f
+
+    private fun applyAppearance() {
+        val s = RustBridge.settings
+        animate = s.animations
+        drawShadow = s.keyShadow
+        drawHints = s.keyHints
+        drawTrailEnabled = s.swipeTrail
+        showPreview = s.keyPopup
+        keyRadius = s.keyRadiusDp * density
+        fontScale = resources.configuration.fontScale
+    }
+
+    // --- bublina nad klavesou a stopa swipe
+    private var previewKey: Key? = null
+    private var previewStartedAt = 0L
+    private var previewEndedAt = 0L
+    private var trailCount = 0
+    private var trailEndedAt = 0L
+
+    private fun startPreview(k: Key) {
+        if (!showPreview || !popupAllowed || k.kind != KIND_CHAR) return
+        previewKey = k
+        previewStartedAt = SystemClock.uptimeMillis()
+        previewEndedAt = 0L
+    }
+
+    private fun endPreview() {
+        if (previewKey != null && previewEndedAt == 0L) {
+            previewEndedAt = SystemClock.uptimeMillis()
+            invalidate()
+        }
+    }
 
     // --- kresleni (vse predalokovano)
     private val fill = Paint(Paint.ANTI_ALIAS_FLAG)
@@ -190,13 +260,21 @@ class KeyboardView(context: Context) : View(context) {
         if (mode != newMode) {
             mode = newMode
             reloadLayout()
+            if (animate && !preview) {
+                // Jemne prolnuti pri prepnuti pismena / symboly.
+                alpha = 0.5f
+                animate().alpha(1f).setDuration(130).start()
+            }
         }
     }
 
     /** Nacte geometrii klaves z Rustu pro aktualni velikost a rezim. */
     fun reloadLayout() {
+        applyAppearance()
         if (width <= 0 || height <= 0) return
         cancelTouch()
+        previewKey = null
+        trailCount = 0
         val parsed = ArrayList<Key>(48)
         try {
             val root = JSONObject(RustBridge.layout(width, height, mode, preview))
@@ -253,8 +331,14 @@ class KeyboardView(context: Context) : View(context) {
     // ------------------------------------------------------------------ kresleni
 
     private fun pressAmount(k: Key, now: Long): Float {
-        val t = min(1f, (now - k.changedAt) / PRESS_ANIM_MS)
-        return if (k.pressed) t else 1f - t
+        if (!animate) return if (k.pressed) 1f else 0f
+        // Stisk je rychly (80 ms), uvolneni doznniva pomaleji a mekceji.
+        return if (k.pressed) {
+            min(1f, (now - k.changedAt) / PRESS_ANIM_MS)
+        } else {
+            val t = 1f - min(1f, (now - k.changedAt) / RELEASE_ANIM_MS)
+            t * t
+        }
     }
 
     override fun onDraw(canvas: Canvas) {
@@ -263,12 +347,13 @@ class KeyboardView(context: Context) : View(context) {
         var animating = false
         val padX = 2.5f * density
         val padY = 4f * density
-        val radius = 9f * density
+        val radius = keyRadius
         val upper = shiftState != SHIFT_OFF && mode == MODE_LETTERS
+        val labelSize = min(rowH * 0.40f, unitW * 0.52f)
 
         for (k in keys) {
             val p = if (k.changedAt == 0L) 0f else pressAmount(k, now)
-            if (k.changedAt != 0L && now - k.changedAt < PRESS_ANIM_MS) animating = true
+            if (animate && k.changedAt != 0L && now - k.changedAt < RELEASE_ANIM_MS) animating = true
 
             val accentKey = k.kind == KIND_ENTER || (k.kind == KIND_SHIFT && shiftState == SHIFT_CAPS)
             val base = when {
@@ -276,27 +361,39 @@ class KeyboardView(context: Context) : View(context) {
                 k.kind == KIND_CHAR || k.kind == KIND_SPACE -> theme.key
                 else -> theme.keySpecial
             }
-            fill.color = if (p > 0f) Theme.blend(base, if (accentKey) theme.text else theme.keyPressed, if (accentKey) 0.25f * p else p) else base
-
             val scale = 1f - 0.04f * p
             val cx = k.vx + k.vw / 2f
             val cy = k.y + k.h / 2f
             val hw = (k.vw / 2f - padX) * scale
             val hh = (k.h / 2f - padY) * scale
+
+            if (drawShadow && p < 1f) {
+                // Plochy "stin" = tmavsi obrys posunuty o 1.5 dp dolu (zadny blur -> zadna cena navic).
+                fill.color = theme.keyShadow
+                rect.set(cx - hw, cy - hh + shadowOffset * (1f - p), cx + hw, cy + hh + shadowOffset * (1f - p))
+                canvas.drawRoundRect(rect, radius, radius, fill)
+            }
+            fill.color = if (p > 0f) Theme.blend(base, if (accentKey) theme.text else theme.keyPressed, if (accentKey) 0.25f * p else p) else base
             rect.set(cx - hw, cy - hh, cx + hw, cy + hh)
             canvas.drawRoundRect(rect, radius, radius, fill)
 
             val fg = if (accentKey) theme.onAccent else theme.text
             when (k.kind) {
                 KIND_CHAR -> {
+                    if (drawHints && k.hint.isNotEmpty()) {
+                        textPaint.color = theme.hint
+                        textPaint.textSize = labelSize * 0.46f
+                        canvas.drawText(k.hint, cx + hw - labelSize * 0.34f, cy - hh + labelSize * 0.52f, textPaint)
+                    }
                     textPaint.color = fg
-                    textPaint.textSize = min(rowH * 0.40f, unitW * 0.52f)
+                    textPaint.textSize = labelSize
                     val n = labelChars(k.label, upper)
-                    canvas.drawText(charBuf, 0, n, cx, cy - (textPaint.ascent() + textPaint.descent()) / 2f, textPaint)
+                    val shift = if (drawHints && k.hint.isNotEmpty()) labelSize * 0.06f else 0f
+                    canvas.drawText(charBuf, 0, n, cx, cy + shift - (textPaint.ascent() + textPaint.descent()) / 2f, textPaint)
                 }
                 KIND_SPACE -> {
                     textPaint.color = theme.textDim
-                    textPaint.textSize = min(rowH * 0.24f, 13f * resources.displayMetrics.scaledDensity)
+                    textPaint.textSize = min(rowH * 0.24f, 13f * fontScale * density)
                     canvas.drawText(k.label, cx, cy - (textPaint.ascent() + textPaint.descent()) / 2f, textPaint)
                 }
                 KIND_MODE -> {
@@ -308,7 +405,8 @@ class KeyboardView(context: Context) : View(context) {
             }
         }
 
-        drawTrail(canvas)
+        if (drawTrail(canvas, now)) animating = true
+        if (drawPreview(canvas, now)) animating = true
         drawPopup(canvas)
         if (animating) postInvalidateOnAnimation()
     }
@@ -343,6 +441,11 @@ class KeyboardView(context: Context) : View(context) {
                     if (shiftState == SHIFT_ONCE) stroke.color = theme.accent
                 }
                 canvas.drawPath(path, stroke)
+                if (shiftState == SHIFT_CAPS) {
+                    // Caps Lock: carka pod sipkou.
+                    stroke.style = Paint.Style.STROKE
+                    canvas.drawLine(cx - s * 0.5f, cy + s * 1.35f, cx + s * 0.5f, cy + s * 1.35f, stroke)
+                }
             }
             KIND_BACKSPACE -> {
                 path.moveTo(cx - s * 1.3f, cy)
@@ -357,15 +460,7 @@ class KeyboardView(context: Context) : View(context) {
                 path.lineTo(cx - s * 0.1f, cy + s * 0.35f)
                 canvas.drawPath(path, stroke)
             }
-            KIND_ENTER -> {
-                path.moveTo(cx + s * 0.9f, cy - s * 0.7f)
-                path.lineTo(cx + s * 0.9f, cy + s * 0.25f)
-                path.lineTo(cx - s * 0.8f, cy + s * 0.25f)
-                path.moveTo(cx - s * 0.3f, cy - s * 0.25f)
-                path.lineTo(cx - s * 0.8f, cy + s * 0.25f)
-                path.lineTo(cx - s * 0.3f, cy + s * 0.75f)
-                canvas.drawPath(path, stroke)
-            }
+            KIND_ENTER -> drawEnterIcon(canvas, cx, cy, s)
             KIND_GLOBE -> {
                 canvas.drawCircle(cx, cy, s, stroke)
                 rect.set(cx - s * 0.45f, cy - s, cx + s * 0.45f, cy + s)
@@ -383,24 +478,140 @@ class KeyboardView(context: Context) : View(context) {
         }
     }
 
-    private fun drawTrail(canvas: Canvas) {
-        if (touchMode != T_SWIPE || sampleCount < 2) return
-        val first = max(0, sampleCount - 48)
-        path.reset()
-        path.moveTo(samples[first * 3], samples[first * 3 + 1])
-        for (i in first + 1 until sampleCount) path.lineTo(samples[i * 3], samples[i * 3 + 1])
+    /** Ikona Enteru podle akce pole: hledat, odeslat, dalsi, hotovo, jinak novy radek. */
+    private fun drawEnterIcon(canvas: Canvas, cx: Float, cy: Float, s: Float) {
+        when (enterAction) {
+            ENTER_SEARCH -> {
+                canvas.drawCircle(cx - s * 0.2f, cy - s * 0.2f, s * 0.7f, stroke)
+                canvas.drawLine(cx + s * 0.35f, cy + s * 0.35f, cx + s, cy + s, stroke)
+            }
+            ENTER_SEND -> {
+                path.moveTo(cx - s, cy - s * 0.85f)
+                path.lineTo(cx + s * 1.1f, cy)
+                path.lineTo(cx - s, cy + s * 0.85f)
+                path.lineTo(cx - s * 0.55f, cy)
+                path.close()
+                path.moveTo(cx - s * 0.55f, cy)
+                path.lineTo(cx + s * 0.3f, cy)
+                canvas.drawPath(path, stroke)
+            }
+            ENTER_NEXT -> {
+                path.moveTo(cx - s, cy)
+                path.lineTo(cx + s, cy)
+                path.moveTo(cx + s * 0.35f, cy - s * 0.65f)
+                path.lineTo(cx + s, cy)
+                path.lineTo(cx + s * 0.35f, cy + s * 0.65f)
+                canvas.drawPath(path, stroke)
+            }
+            ENTER_DONE -> {
+                path.moveTo(cx - s * 0.9f, cy + s * 0.05f)
+                path.lineTo(cx - s * 0.25f, cy + s * 0.7f)
+                path.lineTo(cx + s * 0.95f, cy - s * 0.6f)
+                canvas.drawPath(path, stroke)
+            }
+            else -> {
+                path.moveTo(cx + s * 0.9f, cy - s * 0.7f)
+                path.lineTo(cx + s * 0.9f, cy + s * 0.25f)
+                path.lineTo(cx - s * 0.8f, cy + s * 0.25f)
+                path.moveTo(cx - s * 0.3f, cy - s * 0.25f)
+                path.lineTo(cx - s * 0.8f, cy + s * 0.25f)
+                path.lineTo(cx - s * 0.3f, cy + s * 0.75f)
+                canvas.drawPath(path, stroke)
+            }
+        }
+    }
+
+    /**
+     * Stopa za prstem: zuzuje se a blednne smerem k ocasu. Po zvednuti prstu jeste kratce
+     * dozniva. Vraci true, dokud dobiha animace.
+     */
+    private fun drawTrail(canvas: Canvas, now: Long): Boolean {
+        if (!drawTrailEnabled || trailCount < 2) return false
+        val fade = if (touchMode == T_SWIPE) 1f else {
+            if (!animate) return false
+            1f - (now - trailEndedAt) / TRAIL_FADE_MS
+        }
+        if (fade <= 0f) {
+            trailCount = 0
+            return false
+        }
+        val first = max(0, trailCount - TRAIL_POINTS)
+        val span = (trailCount - first).toFloat()
+        val rgb = theme.accent and 0x00FFFFFF
         stroke.style = Paint.Style.STROKE
-        stroke.color = (theme.accent and 0x00FFFFFF) or (0xB0 shl 24)
-        stroke.strokeWidth = 5f * density
-        canvas.drawPath(path, stroke)
+        var px = samples[first * 3]
+        var py = samples[first * 3 + 1]
+        for (i in first + 1 until trailCount) {
+            val f = (i - first) / span
+            val x = samples[i * 3]
+            val y = samples[i * 3 + 1]
+            stroke.color = rgb or ((200f * f * fade).toInt().coerceIn(0, 255) shl 24)
+            stroke.strokeWidth = (1.5f + 5f * f) * density
+            canvas.drawLine(px, py, x, y, stroke)
+            px = x
+            py = y
+        }
+        fill.color = rgb or ((255f * fade).toInt().coerceIn(0, 255) shl 24)
+        canvas.drawCircle(px, py, 4.5f * density, fill)
+        return touchMode != T_SWIPE
+    }
+
+    /** Bublina s pismenem nad stisknutou klavesou. Vraci true, dokud bezi animace. */
+    private fun drawPreview(canvas: Canvas, now: Long): Boolean {
+        val k = previewKey ?: return false
+        var a = 1f
+        var running = false
+        if (animate) {
+            if (previewEndedAt == 0L) {
+                a = min(1f, (now - previewStartedAt) / PREVIEW_IN_MS)
+                running = a < 1f
+            } else {
+                a = 1f - (now - previewEndedAt) / PREVIEW_OUT_MS
+                running = true
+            }
+        } else if (previewEndedAt != 0L) {
+            a = 0f
+        }
+        if (a <= 0f) {
+            previewKey = null
+            return false
+        }
+        val w = max(k.vw * 1.25f, 44f * density)
+        val h = rowH * 1.02f
+        val cx = (k.vx + k.vw / 2f).coerceIn(w / 2f + density, width - w / 2f - density)
+        val bottom = k.y + 2f * density
+        val top = max(-overflowTop.toFloat() + 2f * density, bottom - h)
+        val grow = 0.85f + 0.15f * a
+        val hw = w / 2f * grow
+        val mid = (top + bottom) / 2f
+        val hh = (bottom - top) / 2f * grow
+        val alpha = (255f * a).toInt().coerceIn(0, 255)
+        if (drawShadow) {
+            fill.color = (theme.keyShadow and 0x00FFFFFF) or (alpha shl 24)
+            rect.set(cx - hw, mid - hh + shadowOffset, cx + hw, mid + hh + shadowOffset)
+            canvas.drawRoundRect(rect, keyRadius * 1.3f, keyRadius * 1.3f, fill)
+        }
+        fill.color = (theme.popup and 0x00FFFFFF) or (alpha shl 24)
+        rect.set(cx - hw, mid - hh, cx + hw, mid + hh)
+        canvas.drawRoundRect(rect, keyRadius * 1.3f, keyRadius * 1.3f, fill)
+        textPaint.color = (theme.text and 0x00FFFFFF) or (alpha shl 24)
+        textPaint.textSize = min(rowH * 0.56f, unitW * 0.72f)
+        val n = labelChars(k.label, shiftState != SHIFT_OFF && mode == MODE_LETTERS)
+        canvas.drawText(charBuf, 0, n, cx, mid - (textPaint.ascent() + textPaint.descent()) / 2f, textPaint)
+        return running
     }
 
     private fun drawPopup(canvas: Canvas) {
         if (popupKey == null || popupAlts.isEmpty()) return
         val n = popupAlts.size
-        val radius = 12f * density
+        val radius = keyRadius * 1.3f
+        if (drawShadow) {
+            fill.color = theme.keyShadow
+            rect.set(popupLeft, popupTop + shadowOffset, popupLeft + popupCell * n, popupTop + rowH + shadowOffset)
+            canvas.drawRoundRect(rect, radius, radius, fill)
+        }
         rect.set(popupLeft, popupTop, popupLeft + popupCell * n, popupTop + rowH)
-        fill.color = theme.keyPressed
+        fill.color = theme.popup
         canvas.drawRoundRect(rect, radius, radius, fill)
         textPaint.textSize = min(rowH * 0.42f, unitW * 0.55f)
         val baseline = popupTop + rowH / 2f - (textPaint.ascent() + textPaint.descent()) / 2f
@@ -431,6 +642,11 @@ class KeyboardView(context: Context) : View(context) {
     private fun cancelTouch() {
         handler.removeCallbacks(longPress)
         handler.removeCallbacks(repeat)
+        endPreview()
+        if (touchMode == T_SWIPE) {
+            trailEndedAt = SystemClock.uptimeMillis()
+            invalidate()
+        }
         press(downKey, false)
         press(secondKey, false)
         touchMode = T_NONE
@@ -469,6 +685,7 @@ class KeyboardView(context: Context) : View(context) {
                     secondId = e.getPointerId(i)
                     secondKey = keyAt(e.getX(i), e.getY(i))
                     press(secondKey, true)
+                    secondKey?.let { startPreview(it) }
                     secondKey?.let { listener?.onPressFeedback(it) }
                     span0 = span(e)
                     lastSpan = span0
@@ -569,7 +786,9 @@ class KeyboardView(context: Context) : View(context) {
         repeatCount = 0
         sampleCount = 0
         addSample(x, y, time)
+        trailCount = 0
         press(k, true)
+        startPreview(k)
         listener?.onPressFeedback(k)
         touchMode = when (k.kind) {
             KIND_BACKSPACE -> T_BACKSPACE
@@ -609,10 +828,15 @@ class KeyboardView(context: Context) : View(context) {
                 handler.removeCallbacks(longPress)
                 if (swipeAllowed && k.isLetter && mode == MODE_LETTERS && RustBridge.settings.swipeEnabled) {
                     touchMode = T_SWIPE
+                    endPreview()
+                    trailCount = sampleCount
                     invalidate()
                 }
             }
-            T_SWIPE -> invalidate()
+            T_SWIPE -> {
+                trailCount = sampleCount
+                invalidate()
+            }
             T_SPACE -> if (abs(dx) > slop) {
                 moved = true
                 handler.removeCallbacks(longPress)
@@ -693,7 +917,8 @@ class KeyboardView(context: Context) : View(context) {
         popupCell = max(unitW, 44f * density)
         val total = popupCell * alts.size
         popupLeft = (k.vx + k.vw / 2f - total / 2f).coerceIn(0f, max(0f, width - total))
-        popupTop = max(0f, k.y - rowH)
+        popupTop = max(-overflowTop.toFloat(), k.y - rowH)
+        previewKey = null
         longPressFired = true
         touchMode = T_POPUP
         listener?.onPressFeedback(k)

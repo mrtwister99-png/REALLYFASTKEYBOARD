@@ -5,7 +5,10 @@ import android.graphics.Canvas
 import android.graphics.Paint
 import android.graphics.Path
 import android.graphics.RectF
+import android.content.res.ColorStateList
+import android.graphics.drawable.Drawable
 import android.graphics.drawable.GradientDrawable
+import android.graphics.drawable.RippleDrawable
 import android.text.TextUtils
 import android.util.TypedValue
 import android.view.Gravity
@@ -28,6 +31,23 @@ private fun rounded(color: Int, radius: Float): GradientDrawable =
         setColor(color)
         cornerRadius = radius
     }
+
+/** Pruhledne pozadi, ktere se pri dotyku jemne zvyrazni (zaoblena "pilulka"). */
+private fun pressable(color: Int, radius: Float): Drawable =
+    RippleDrawable(ColorStateList.valueOf(color), null, rounded(0xFFFFFFFF.toInt(), radius))
+
+/** Plynule zobrazeni panelu: prolnuti + kratky posun zdola. Respektuje vypnute animace. */
+internal fun View.reveal() {
+    animate().cancel()
+    if (!RustBridge.settings.animations) {
+        alpha = 1f
+        translationY = 0f
+        return
+    }
+    alpha = 0f
+    translationY = 10f * resources.displayMetrics.density
+    animate().alpha(1f).translationY(0f).setDuration(150).start()
+}
 
 /** Jednoducha carova ikona kreslena na Canvas (zadne bitmapy, zadne zavislosti na fontu). */
 class IconView(context: Context, private val icon: Int) : View(context) {
@@ -157,7 +177,9 @@ class SuggestionBar(context: Context, private var theme: Theme, private val call
                 setOnClickListener { words.getOrNull(i)?.let { w -> callbacks.onSuggestionPicked(i, w) } }
             }
             slots.add(tv)
-            normalRow.addView(tv, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 1f))
+            val slp = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 1f)
+            slp.setMargins(dp(3f), dp(5f), dp(3f), dp(5f))
+            normalRow.addView(tv, slp)
             if (i < 2) {
                 val d = View(context)
                 dividers.add(d)
@@ -193,7 +215,10 @@ class SuggestionBar(context: Context, private var theme: Theme, private val call
     fun applyTheme(t: Theme) {
         theme = t
         setBackgroundColor(t.background)
-        for (d in dividers) d.setBackgroundColor(Theme.blend(t.background, t.text, 0.14f))
+        for (d in dividers) d.setBackgroundColor(t.divider)
+        for (tv in slots) tv.background = pressable(t.keyPressed, dp(10f).toFloat())
+        clipButton.background = pressable(t.keyPressed, dp(10f).toFloat())
+        closeButton.background = pressable(t.keyPressed, dp(10f).toFloat())
         clipButton.color = t.textDim
         closeButton.color = t.textDim
         queryView.setTextColor(t.text)
@@ -207,7 +232,15 @@ class SuggestionBar(context: Context, private var theme: Theme, private val call
         for (i in 0 until 3) {
             val tv = slots[i]
             val w = list.getOrNull(i)
+            val changed = (w ?: "") != tv.text.toString()
             tv.text = w ?: ""
+            if (changed && w != null && RustBridge.settings.animations) {
+                tv.animate().cancel()
+                tv.alpha = 0.3f
+                tv.animate().alpha(1f).setDuration(110).start()
+            } else if (changed) {
+                tv.alpha = 1f
+            }
             tv.isClickable = w != null
             tv.setTextColor(if (i == highlight) theme.accent else theme.text)
             tv.contentDescription = w
@@ -230,6 +263,7 @@ class SuggestionBar(context: Context, private var theme: Theme, private val call
                 gravity = Gravity.CENTER
                 setTextSize(TypedValue.COMPLEX_UNIT_SP, 22f)
                 setTextColor(theme.text)
+                background = pressable(theme.keyPressed, dp(10f).toFloat())
                 setOnClickListener { callbacks.onSearchResultPicked(e) }
             }
             resultsRow.addView(tv, LinearLayout.LayoutParams(dp(46f), ViewGroup.LayoutParams.MATCH_PARENT))
@@ -451,7 +485,7 @@ class ClipboardPanel(context: Context, private val theme: Theme, private val cal
             val row = LinearLayout(context)
             row.orientation = HORIZONTAL
             row.gravity = Gravity.CENTER_VERTICAL
-            row.background = rounded(theme.key, dp(12f).toFloat())
+            row.background = rounded(theme.key, dp(14f).toFloat())
             val text = TextView(context).apply {
                 this.text = item.text
                 maxLines = 2

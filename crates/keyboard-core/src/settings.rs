@@ -32,6 +32,19 @@ pub struct Settings {
     pub custom_background: String,
     pub custom_key: String,
     pub custom_text: String,
+    // --- vzhled (Faze 2) ---
+    /// Bublina s pismenem nad stisknutou klavesou.
+    pub key_popup: bool,
+    /// Male napovedy znaku pro dlouhy stisk v rohu klaves.
+    pub key_hints: bool,
+    /// Jemny stin pod klavesami.
+    pub key_shadow: bool,
+    /// Zaobleni klaves v dp.
+    pub key_radius_dp: u32,
+    /// Animace (stisk, prechody panelu, navrhy).
+    pub animations: bool,
+    /// Stopa za prstem pri swipe.
+    pub swipe_trail: bool,
     // --- gesta (kazde lze vypnout) ---
     pub gesture_delete_word: bool,
     pub gesture_space_cursor: bool,
@@ -67,6 +80,12 @@ impl Default for Settings {
             custom_background: "#111113".into(),
             custom_key: "#26262B".into(),
             custom_text: "#F4F4F5".into(),
+            key_popup: true,
+            key_hints: true,
+            key_shadow: true,
+            key_radius_dp: 10,
+            animations: true,
+            swipe_trail: true,
             gesture_delete_word: true,
             gesture_space_cursor: true,
             gesture_swipe_up_caps: true,
@@ -114,6 +133,7 @@ impl Settings {
         self.keyboard_height_percent = self.keyboard_height_percent.clamp(30, 50);
         self.long_press_delay_ms = self.long_press_delay_ms.clamp(150, 500);
         self.clipboard_ttl_minutes = self.clipboard_ttl_minutes.clamp(1, 1440);
+        self.key_radius_dp = self.key_radius_dp.clamp(2, 22);
         fix_color(&mut self.accent_color, &d.accent_color);
         fix_color(&mut self.custom_background, &d.custom_background);
         fix_color(&mut self.custom_key, &d.custom_key);
@@ -224,6 +244,19 @@ mod tests {
         assert_eq!(s.theme, "dark");
         assert_eq!(s.accent_color, "#F59E0B");
         assert!(Settings::from_json("not json").is_none());
+    }
+
+    #[test]
+    fn appearance_defaults_and_limits() {
+        let s = Settings::default();
+        assert!(s.key_popup && s.key_hints && s.key_shadow && s.animations && s.swipe_trail);
+        assert_eq!(s.key_radius_dp, 10);
+        let s = Settings::from_json(r#"{"key_radius_dp":99,"animations":false}"#).unwrap();
+        assert_eq!(s.key_radius_dp, 22);
+        assert!(!s.animations);
+        // stary settings.json z Faze 1 (bez novych poli) se nacte s vychozimi hodnotami
+        let old = Settings::from_json(r#"{"theme":"light"}"#).unwrap();
+        assert!(old.key_popup && old.swipe_trail);
     }
 
     #[test]

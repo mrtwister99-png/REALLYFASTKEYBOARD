@@ -4,8 +4,9 @@ Offline klávesnice pro Android (cíleno na Samsung Galaxy S25 Ultra, One UI). L
 (`crates/keyboard-core`), Kotlin je tenká slupka (`InputMethodService`, Canvas, haptika).
 Žádný internet, žádná reklama, žádná telemetrie – jediné oprávnění je `VIBRATE`.
 
-**Stav: Fáze 1** – plná funkčnost, záměrně jednoduchý vzhled. Fáze 2 (témata, animace, detaily UI)
-přijde až po otestování.
+**Stav: Fáze 1 (funkce) + Fáze 2 (vzhled) hotové.** Identifikátor balíčku je `cz.reallyfast`
+(název aplikace „reallyFAST!“ – vykřičník může být jen v zobrazovaném názvu, ne v ID balíčku).
+Pokud máš v telefonu starší build „RustBoard“ (`cz.rustboard`), odinstaluj ho – systém ho bere jako jinou aplikaci.
 
 ## 1. Otevření v Android Studiu
 
@@ -54,6 +55,7 @@ takže nic odeslat nemůže.
 | Emoji | nedávné, smajlíci, zvířata, jídlo, aktivity, symboly + hledání podle názvu (česky i anglicky) |
 | Symboly | čísla, závorky, měny, matematika (2 stránky) |
 | Nastavení | vše ze zadání + vlastní barvy tématu, přepínače gest a schránky; uloženo v `settings.json` + záloha v SharedPreferences |
+| Vzhled (Fáze 2) | 8 hotových stylů (Graphite, Paper, OLED, Midnight, Forest, Sand, Rose, Mono) + vlastní barvy, zaoblení kláves 2–22 dp, jemný stín, bublina s písmenem nad klávesou, nápovědy znaků dlouhého stisku, zužující se stopa swipe s dozníváním, ikona Enteru podle akce pole (hledat / odeslat / další / hotovo), prolínání panelů a návrhů, adaptivní ikona; animace lze vypnout |
 | Přístupnost | TalkBack (popis každé klávesy), S Pen (hover nic nestiskne), landscape, split screen |
 
 ## 6. Struktura
@@ -105,7 +107,7 @@ Poznámky k odchylkám od zadání:
 ## 8. Testy a benchmarky
 
 ```
-scripts/ci.sh                      # cargo test (100 testů)
+scripts/ci.sh                      # cargo test (101 testů)
 scripts/ci.sh --bench --jni        # + benchmarky + JVM test JNI mostu
 gradlew.bat :app:testDebugUnitTest # 7 testů JNI mostu (načte Rust jádro do JVM)
 ```
@@ -139,7 +141,7 @@ ani emulátoru); kód je na ně navržen (žádné alokace v `onDraw`, synchronn
 
 ## 10. Známé limitace
 
-- **Netestováno na reálném zařízení.** Ověřeno: build APK, 100 Rust testů, JNI most v JVM. Chování
+- **Netestováno na reálném zařízení – včetně vzhledu Fáze 2** (animace, bubliny, stíny jsem neviděl na displeji). Ověřeno: build APK, 101 Rust testů, JNI most v JVM. Chování
   v aplikacích, vzhled na displeji a gesta je potřeba vyzkoušet na telefonu.
 - Švih nahoru/dolů (Caps / schovat) musí být rychlý, dlouhý a téměř svislý; výjimečně se může splést
   se swipe psaním svislého slova. Lze vypnout.
@@ -152,9 +154,9 @@ ani emulátoru); kód je na ně navržen (žádné alokace v `onDraw`, synchronn
 - Split/floating klávesnice pro foldables není; rozložení se jen přizpůsobí šířce.
 - targetSdk 34 dle zadání – pro Google Play by bylo nutné zvýšit.
 
-## 11. Co dál (Fáze 2 a později)
+## 11. Co dál
 
-- Vzhled: témata, animace, náhledy kláves při stisku, detailní typografie.
+- Doladění vzhledu podle skutečného dojmu na displeji (velikosti písma, kontrast, rychlost animací).
 - Měření na S25 Ultra (frame time, paměť) a doladění vah swipe podle reálných tahů.
 - Trigramy / lepší jazykový model, učení z oprav.
 - Šifrování osobního slovníku klíčem z Android Keystore.

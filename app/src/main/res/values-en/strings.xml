@@ -65,6 +65,13 @@
     <string name="preview">Preview</string>
     <string name="key_height">Key height</string>
     <string name="keyboard_height">Max keyboard height</string>
+    <string name="styles">Ready-made styles</string>
+    <string name="key_radius">Key corner radius</string>
+    <string name="key_popup">Letter bubble on key press</string>
+    <string name="key_hints">Character hints on keys</string>
+    <string name="key_shadow">Subtle shadow under keys</string>
+    <string name="swipe_trail">Finger trail while swiping</string>
+    <string name="animations">Animations</string>
     <string name="color_hex_title">Color (#RRGGBB)</string>
     <string name="ok">OK</string>
     <string name="cancel">Cancel</string>

@@ -68,6 +68,13 @@
     <string name="preview">Náhled</string>
     <string name="key_height">Výška klávesy</string>
     <string name="keyboard_height">Max. výška klávesnice</string>
+    <string name="styles">Hotové styly</string>
+    <string name="key_radius">Zaoblení kláves</string>
+    <string name="key_popup">Bublina s písmenem při stisku</string>
+    <string name="key_hints">Nápovědy znaků na klávesách</string>
+    <string name="key_shadow">Jemný stín pod klávesami</string>
+    <string name="swipe_trail">Stopa za prstem při swipe</string>
+    <string name="animations">Animace</string>
     <string name="color_hex_title">Barva (#RRGGBB)</string>
     <string name="ok">OK</string>
     <string name="cancel">Zrušit</string>

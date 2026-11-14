@@ -4,6 +4,9 @@ import android.app.Activity
 import android.app.AlertDialog
 import android.content.Context
 import android.content.Intent
+import android.graphics.Canvas
+import android.graphics.Paint
+import android.graphics.RectF
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
@@ -15,12 +18,61 @@ import android.view.View
 import android.view.ViewGroup
 import android.view.inputmethod.InputMethodManager
 import android.widget.EditText
+import android.widget.HorizontalScrollView
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.SeekBar
 import android.widget.Switch
 import android.widget.TextView
 import android.widget.Toast
+
+/** Hotovy styl: tema + barvy, ktere se nastavi jednim klepnutim. */
+private class Preset(val name: String, val theme: String, val bg: String, val key: String, val text: String, val accent: String)
+
+/** Miniatura klavesnice v barvach stylu. */
+private class PresetTile(context: android.content.Context, private val colors: Theme) : View(context) {
+    var selectedStyle = false
+        set(value) {
+            field = value
+            invalidate()
+        }
+    private val paint = Paint(Paint.ANTI_ALIAS_FLAG)
+    private val rect = RectF()
+
+    override fun onDraw(canvas: Canvas) {
+        val d = resources.displayMetrics.density
+        val w = width.toFloat()
+        val h = height.toFloat()
+        val r = 12f * d
+        paint.style = Paint.Style.FILL
+        paint.color = colors.background
+        rect.set(d, d, w - d, h - d)
+        canvas.drawRoundRect(rect, r, r, paint)
+        // 2 rady po 4 klavesach + mezernik s accent klavesou
+        val pad = 8f * d
+        val gap = 3f * d
+        val kw = (w - 2 * pad - 3 * gap) / 4f
+        val kh = (h - 2 * pad - 2 * gap) / 3f
+        paint.color = colors.key
+        for (row in 0 until 2) for (col in 0 until 4) {
+            val x = pad + col * (kw + gap)
+            val y = pad + row * (kh + gap)
+            rect.set(x, y, x + kw, y + kh)
+            canvas.drawRoundRect(rect, 3f * d, 3f * d, paint)
+        }
+        val y = pad + 2 * (kh + gap)
+        rect.set(pad, y, pad + 3 * kw + 2 * gap, y + kh)
+        canvas.drawRoundRect(rect, 3f * d, 3f * d, paint)
+        paint.color = colors.accent
+        rect.set(pad + 3 * (kw + gap), y, w - pad, y + kh)
+        canvas.drawRoundRect(rect, 3f * d, 3f * d, paint)
+        paint.style = Paint.Style.STROKE
+        paint.strokeWidth = (if (selectedStyle) 2f else 1f) * d
+        paint.color = if (selectedStyle) colors.accent else 0x33FFFFFF
+        rect.set(d, d, w - d, h - d)
+        canvas.drawRoundRect(rect, r, r, paint)
+    }
+}
 
 /**
  * Obrazovka nastaveni. Kazda zmena se hned zapise pres Rust do settings.json
@@ -33,6 +85,16 @@ class SettingsActivity : Activity() {
         const val REQ_EXPORT = 1
         const val REQ_IMPORT = 2
         const val MAX_WORDS_SHOWN = 60
+        val PRESETS = listOf(
+            Preset("Graphite", "dark", "#101012", "#2A2A30", "#F5F5F7", "#F59E0B"),
+            Preset("Paper", "light", "#E6E8EC", "#FFFFFF", "#15151A", "#2563EB"),
+            Preset("OLED", "oled_black", "#000000", "#17171A", "#F5F5F7", "#22D3EE"),
+            Preset("Midnight", "custom", "#0B1220", "#1B2740", "#E6EDF7", "#60A5FA"),
+            Preset("Forest", "custom", "#0F1A14", "#1E3328", "#E8F3EC", "#34D399"),
+            Preset("Sand", "custom", "#EFE7DA", "#FBF7F0", "#2B241B", "#C2410C"),
+            Preset("Rose", "custom", "#1A1114", "#33202A", "#F8E9EE", "#FB7185"),
+            Preset("Mono", "custom", "#18181B", "#2E2E33", "#FAFAFA", "#FAFAFA"),
+        )
         val PALETTE = listOf(
             "#F59E0B", "#EF4444", "#EC4899", "#8B5CF6", "#3B82F6", "#06B6D4", "#10B981", "#84CC16", "#F4F4F5", "#111113",
         )
@@ -279,6 +341,56 @@ class SettingsActivity : Activity() {
             .show()
     }
 
+    /** Vodorovny pruh hotovych stylu s miniaturami. */
+    private fun presetRow(box: LinearLayout) {
+        box.addView(label(getString(R.string.styles), 15f).also { it.setPadding(0, dp(12f), 0, dp(8f)) }, rowParams())
+        val scroll = HorizontalScrollView(this)
+        scroll.isHorizontalScrollBarEnabled = false
+        val row = LinearLayout(this)
+        val tiles = ArrayList<PresetTile>()
+        fun isCurrent(p: Preset): Boolean {
+            val s = RustBridge.settings
+            if (s.theme != p.theme || !s.accentColor.equals(p.accent, true)) return false
+            return p.theme != "custom" || (s.customBackground.equals(p.bg, true) &&
+                s.customKey.equals(p.key, true) && s.customText.equals(p.text, true))
+        }
+        for ((i, p) in PRESETS.withIndex()) {
+            val col = LinearLayout(this)
+            col.orientation = LinearLayout.VERTICAL
+            col.gravity = Gravity.CENTER_HORIZONTAL
+            val colors = Theme.of(Theme.parse(p.bg, 0), Theme.parse(p.key, 0), Theme.parse(p.text, 0), Theme.parse(p.accent, 0))
+            val tile = PresetTile(this, colors)
+            tile.contentDescription = p.name
+            tiles.add(tile)
+            col.addView(tile, LinearLayout.LayoutParams(dp(92f), dp(62f)))
+            col.addView(label(p.name, 12f, dim).also {
+                it.gravity = Gravity.CENTER
+                it.setPadding(0, dp(5f), 0, 0)
+            })
+            col.setOnClickListener {
+                val j = RustBridge.settings.edit()
+                j.put("theme", p.theme)
+                j.put("accent_color", p.accent)
+                if (p.theme == "custom") {
+                    j.put("custom_background", p.bg)
+                    j.put("custom_key", p.key)
+                    j.put("custom_text", p.text)
+                }
+                RustBridge.setSettings(j)
+            }
+            val lp = LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT)
+            if (i > 0) lp.leftMargin = dp(10f)
+            row.addView(col, lp)
+        }
+        scroll.addView(row)
+        val lp = rowParams()
+        lp.bottomMargin = dp(8f)
+        box.addView(scroll, lp)
+        val paint = { for ((i, t) in tiles.withIndex()) t.selectedStyle = isCurrent(PRESETS[i]) }
+        paint()
+        refreshers.add(paint)
+    }
+
     private fun buttonRow(box: LinearLayout, labelRes: Int, color: Int = text, onClick: () -> Unit) {
         val b = label(getString(labelRes), 15f, color)
         b.gravity = Gravity.CENTER_VERTICAL
@@ -349,6 +461,7 @@ class SettingsActivity : Activity() {
 
         // Vzhled
         box = section(R.string.sec_look)
+        presetRow(box)
         choiceRow(box, R.string.theme, "theme", listOf("dark", "light", "oled_black", "custom"),
             listOf(getString(R.string.theme_dark), getString(R.string.theme_light), getString(R.string.theme_oled), getString(R.string.theme_custom)))
         colorRow(box, R.string.accent_color, "accent_color")
@@ -371,6 +484,12 @@ class SettingsActivity : Activity() {
         preview = kv
         sliderRow(box, R.string.key_height, "key_height_dp", 48, 72, 1) { getString(R.string.unit_dp, it) }
         sliderRow(box, R.string.keyboard_height, "keyboard_height_percent", 30, 50, 1) { getString(R.string.unit_percent, it) }
+        sliderRow(box, R.string.key_radius, "key_radius_dp", 2, 22, 1) { getString(R.string.unit_dp, it) }
+        switchRow(box, R.string.key_popup, "key_popup")
+        switchRow(box, R.string.key_hints, "key_hints")
+        switchRow(box, R.string.key_shadow, "key_shadow")
+        switchRow(box, R.string.swipe_trail, "swipe_trail")
+        switchRow(box, R.string.animations, "animations")
 
         // Odezva
         box = section(R.string.sec_feedback)

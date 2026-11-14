@@ -33,20 +33,36 @@ class Settings(val json: JSONObject) {
     val gesturePinchResize: Boolean get() = json.optBoolean("gesture_pinch_resize", true)
     val clipboardEnabled: Boolean get() = json.optBoolean("clipboard_enabled", true)
 
+    // Vzhled (Faze 2)
+    val keyPopup: Boolean get() = json.optBoolean("key_popup", true)
+    val keyHints: Boolean get() = json.optBoolean("key_hints", true)
+    val keyShadow: Boolean get() = json.optBoolean("key_shadow", true)
+    val keyRadiusDp: Int get() = json.optInt("key_radius_dp", 10)
+    val animations: Boolean get() = json.optBoolean("animations", true)
+    val swipeTrail: Boolean get() = json.optBoolean("swipe_trail", true)
+
     /** Kopie k uprave (SettingsActivity). */
     fun edit(): JSONObject = JSONObject(json.toString())
 }
 
-/** Barvy klavesnice odvozene z nastaveni. Faze 1: ploche barvy, jedna accent barva. */
+/**
+ * Barvy klavesnice odvozene z nastaveni. Zadne gradienty: ploche tony, jedna accent barva,
+ * hloubku dela jen jemny tmavsi obrys pod klavesou.
+ */
 class Theme(
     val background: Int,
     val key: Int,
     val keySpecial: Int,
     val keyPressed: Int,
+    val keyShadow: Int,
+    val popup: Int,
     val text: Int,
     val textDim: Int,
+    val hint: Int,
+    val divider: Int,
     val accent: Int,
     val onAccent: Int,
+    val isLight: Boolean,
 ) {
     companion object {
         fun parse(hex: String, fallback: Int): Int = try {
@@ -65,31 +81,43 @@ class Theme(
             )
         }
 
-        private fun luminance(c: Int): Float =
+        fun luminance(c: Int): Float =
             (0.299f * Color.red(c) + 0.587f * Color.green(c) + 0.114f * Color.blue(c)) / 255f
 
-        fun from(s: Settings): Theme {
-            val accent = parse(s.accentColor, 0xFFF59E0B.toInt())
-            val (bg, key, text) = when (s.theme) {
-                "light" -> Triple(0xFFE9EAEE.toInt(), 0xFFFFFFFF.toInt(), 0xFF111113.toInt())
-                "oled_black" -> Triple(0xFF000000.toInt(), 0xFF161618.toInt(), 0xFFF4F4F5.toInt())
-                "custom" -> Triple(
-                    parse(s.customBackground, 0xFF111113.toInt()),
-                    parse(s.customKey, 0xFF26262B.toInt()),
-                    parse(s.customText, 0xFFF4F4F5.toInt()),
-                )
-                else -> Triple(0xFF111113.toInt(), 0xFF26262B.toInt(), 0xFFF4F4F5.toInt())
-            }
+        /** Barvy z konkretnich hodnot (pouziva i nahled hotovych stylu v nastaveni). */
+        fun of(bg: Int, key: Int, text: Int, accent: Int, special: Int? = null): Theme {
+            val light = luminance(bg) > 0.5f
+            val black = 0xFF000000.toInt()
             return Theme(
                 background = bg,
                 key = key,
-                keySpecial = blend(key, bg, 0.55f),
-                keyPressed = blend(key, text, 0.22f),
+                keySpecial = special ?: blend(key, bg, 0.55f),
+                keyPressed = blend(key, text, if (light) 0.16f else 0.22f),
+                keyShadow = blend(bg, black, if (light) 0.16f else 0.55f),
+                popup = blend(key, text, if (light) 0.04f else 0.12f),
                 text = text,
                 textDim = blend(text, bg, 0.45f),
+                hint = blend(text, key, 0.62f),
+                divider = blend(bg, text, 0.12f),
                 accent = accent,
                 onAccent = if (luminance(accent) > 0.55f) 0xFF111113.toInt() else 0xFFFFFFFF.toInt(),
+                isLight = light,
             )
+        }
+
+        fun from(s: Settings): Theme {
+            val accent = parse(s.accentColor, 0xFFF59E0B.toInt())
+            return when (s.theme) {
+                "light" -> of(0xFFE6E8EC.toInt(), 0xFFFFFFFF.toInt(), 0xFF15151A.toInt(), accent, 0xFFCBCFD8.toInt())
+                "oled_black" -> of(0xFF000000.toInt(), 0xFF17171A.toInt(), 0xFFF5F5F7.toInt(), accent, 0xFF0D0D0F.toInt())
+                "custom" -> of(
+                    parse(s.customBackground, 0xFF111113.toInt()),
+                    parse(s.customKey, 0xFF26262B.toInt()),
+                    parse(s.customText, 0xFFF4F4F5.toInt()),
+                    accent,
+                )
+                else -> of(0xFF101012.toInt(), 0xFF2A2A30.toInt(), 0xFFF5F5F7.toInt(), accent, 0xFF1C1C21.toInt())
+            }
         }
     }
 }
