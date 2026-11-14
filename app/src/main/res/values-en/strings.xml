@@ -1,0 +1,106 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="ime_name">RustBoard – private swipe keyboard</string>
+
+    <string name="clipboard">Clipboard</string>
+    <string name="clipboard_empty">Clipboard is empty. Copied text shows up here automatically; passwords are never stored.</string>
+    <string name="clear_all">Clear all</string>
+    <string name="close">Close</string>
+    <string name="delete">Delete</string>
+    <string name="pin">Pin</string>
+    <string name="unpin">Unpin</string>
+    <string name="back_to_keyboard">Back to keyboard</string>
+    <string name="emoji_search">Search emoji</string>
+    <string name="emoji_search_hint">Search emoji…</string>
+    <string name="emoji_recent_empty">No recent emoji yet</string>
+    <string-array name="emoji_categories">
+        <item>Recent</item>
+        <item>Smileys</item>
+        <item>Animals</item>
+        <item>Food</item>
+        <item>Activities</item>
+        <item>Symbols</item>
+    </string-array>
+
+    <string name="settings_subtitle">Private swipe keyboard · fully offline</string>
+    <string name="sec_setup">Setup</string>
+    <string name="setup_enable">1. Enable the keyboard in system settings</string>
+    <string name="setup_select">2. Select RustBoard as active</string>
+    <string name="setup_status_disabled">The keyboard is not enabled yet.</string>
+    <string name="setup_status_enabled">Enabled. Now select it as the active keyboard.</string>
+    <string name="setup_status_active">RustBoard is the active keyboard.</string>
+    <string name="test_hint">Try typing here…</string>
+    <string name="core_missing">The native core failed to load. The keyboard will not work – please reinstall the app.</string>
+
+    <string name="sec_language">Language</string>
+    <string name="language">Dictionary language</string>
+    <string name="lang_cs">Čeština</string>
+    <string name="lang_en">English</string>
+    <string name="lang_both">Both</string>
+    <string name="layout">Layout</string>
+
+    <string name="sec_typing">Typing</string>
+    <string name="autocorrect">Suggest typo corrections</string>
+    <string name="predictions">Predict the next word</string>
+    <string name="show_suggestions">Show suggestion bar</string>
+    <string name="auto_capitalize">Auto-capitalization</string>
+    <string name="double_space_to_period">Double space inserts a period</string>
+    <string name="learn_from_typing">Learn from my typing</string>
+    <string name="show_number_row">Number row</string>
+
+    <string name="sec_swipe">Swipe typing</string>
+    <string name="swipe_enabled">Glide typing</string>
+    <string name="swipe_sensitivity">Sensitivity (tolerance)</string>
+
+    <string name="sec_look">Appearance</string>
+    <string name="theme">Theme</string>
+    <string name="theme_dark">Dark</string>
+    <string name="theme_light">Light</string>
+    <string name="theme_oled">OLED black</string>
+    <string name="theme_custom">Custom</string>
+    <string name="accent_color">Accent color</string>
+    <string name="custom_background">Background</string>
+    <string name="custom_key">Keys</string>
+    <string name="custom_text">Text</string>
+    <string name="preview">Preview</string>
+    <string name="key_height">Key height</string>
+    <string name="keyboard_height">Max keyboard height</string>
+    <string name="color_hex_title">Color (#RRGGBB)</string>
+    <string name="ok">OK</string>
+    <string name="cancel">Cancel</string>
+
+    <string name="sec_feedback">Feedback</string>
+    <string name="vibration">Vibration on key press</string>
+    <string name="sound_enabled">Key sound</string>
+    <string name="long_press_delay">Long-press delay</string>
+
+    <string name="sec_gestures">Gestures</string>
+    <string name="gesture_delete_word">Swipe left from ⌫ deletes a word</string>
+    <string name="gesture_space_cursor">Swipe on space bar moves the cursor</string>
+    <string name="gesture_swipe_up_caps">Flick up turns on Caps Lock</string>
+    <string name="gesture_swipe_down_hide">Flick down hides the keyboard</string>
+    <string name="gesture_pinch_resize">Pinch resizes the keyboard</string>
+
+    <string name="sec_clipboard">Clipboard</string>
+    <string name="clipboard_enabled">Clipboard history (30 items)</string>
+    <string name="clipboard_ttl">Auto-delete after</string>
+    <string name="clipboard_clear">Clear clipboard history</string>
+    <string name="clipboard_cleared">Clipboard history cleared</string>
+
+    <string name="sec_dictionary">Personal dictionary</string>
+    <string name="dictionary_count">Learned words: %1$d</string>
+    <string name="dictionary_empty">No learned words yet.</string>
+    <string name="dictionary_export">Export (JSON)</string>
+    <string name="dictionary_import">Import (JSON)</string>
+    <string name="dictionary_clear">Delete the whole dictionary</string>
+    <string name="dictionary_clear_confirm">Really delete all learned words?</string>
+    <string name="dictionary_exported">Dictionary exported</string>
+    <string name="dictionary_imported">Words imported: %1$d</string>
+    <string name="dictionary_import_failed">Could not read the file</string>
+    <string name="dictionary_show_more">Showing the first %1$d words</string>
+
+    <string name="sec_about">About</string>
+    <string name="about_privacy">No internet, no ads, no telemetry. All data stays on the phone and is deleted on uninstall.</string>
+
+    <string name="unit_off">off</string>
+</resources>

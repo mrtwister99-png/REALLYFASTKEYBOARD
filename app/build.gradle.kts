@@ -1,0 +1,148 @@
+import java.io.File
+
+plugins {
+    id("com.android.application")
+    id("org.jetbrains.kotlin.android")
+}
+
+android {
+    namespace = "cz.rustboard"
+    compileSdk = 34
+
+    defaultConfig {
+        applicationId = "cz.rustboard"
+        minSdk = 24
+        targetSdk = 34
+        versionCode = 1
+        versionName = "1.0.0"
+        ndk {
+            // arm64-v8a = Galaxy S25 Ultra a vsechny dnesni telefony, x86_64 = emulator.
+            abiFilters += listOf("arm64-v8a", "x86_64")
+        }
+    }
+
+    buildTypes {
+        debug {
+            isMinifyEnabled = false
+        }
+        release {
+            isMinifyEnabled = false
+            // Podepsano debug klicem, aby slo release APK rovnou nainstalovat do telefonu.
+            signingConfig = signingConfigs.getByName("debug")
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
+    }
+    kotlinOptions {
+        jvmTarget = "17"
+    }
+    testOptions {
+        unitTests.isReturnDefaultValues = true
+    }
+    lint {
+        abortOnError = false
+        checkReleaseBuilds = false
+    }
+}
+
+dependencies {
+    testImplementation("junit:junit:4.13.2")
+    testImplementation("org.json:json:20240303")
+}
+
+// ---------------------------------------------------------------------------------------------
+// Rust jadro (crates/keyboard-core)
+//
+// Hotove knihovny libkeyboard_core.so jsou ulozene v app/src/main/jniLibs, takze projekt jde
+// sestavit v Android Studiu i bez Rustu. Kdyz je na PATH `cargo` + `cargo-ndk` a v SDK je NDK,
+// knihovny se pred buildem automaticky prelozi znovu (jen kdyz se zmenil Rust kod).
+// Vypnuti: gradle.properties -> rustboard.buildRust=false
+// ---------------------------------------------------------------------------------------------
+
+val cargoDir: File = rootProject.file("crates/keyboard-core")
+val jniLibsDir: File = file("src/main/jniLibs")
+val isWindows = System.getProperty("os.name").lowercase().contains("win")
+
+fun findExecutable(name: String): File? {
+    val exe = if (isWindows) "$name.exe" else name
+    val dirs = (System.getenv("PATH") ?: "").split(File.pathSeparator).filter { it.isNotBlank() }.map { File(it) } +
+        File(System.getProperty("user.home"), ".cargo/bin")
+    return dirs.map { File(it, exe) }.firstOrNull { it.isFile }
+}
+
+fun findNdk(): File? {
+    System.getenv("ANDROID_NDK_HOME")?.let { File(it) }?.takeIf { it.isDirectory }?.let { return it }
+    val props = rootProject.file("local.properties")
+    val sdkFromProps = if (props.isFile) {
+        props.readLines().firstOrNull { it.startsWith("sdk.dir=") }
+            ?.substringAfter("=")?.replace("\\:", ":")?.replace("\\\\", "\\")
+    } else null
+    val sdk = sdkFromProps ?: System.getenv("ANDROID_HOME") ?: System.getenv("ANDROID_SDK_ROOT") ?: return null
+    return File(sdk, "ndk").listFiles()?.filter { it.isDirectory }?.maxByOrNull { it.name }
+}
+
+val rustEnabled = (findProperty("rustboard.buildRust") as String?)?.toBoolean() ?: true
+val cargoExe = findExecutable("cargo")
+val cargoNdkExe = findExecutable("cargo-ndk")
+val ndkDir = findNdk()
+val canBuildRust = rustEnabled && cargoExe != null && cargoNdkExe != null && ndkDir != null
+
+val cargoNdkBuild = tasks.register<Exec>("cargoNdkBuild") {
+    group = "rust"
+    description = "Prelozi keyboard-core pro Android (arm64-v8a, x86_64) do app/src/main/jniLibs."
+    onlyIf { canBuildRust }
+    workingDir = cargoDir
+    inputs.dir(File(cargoDir, "src"))
+    inputs.file(File(cargoDir, "Cargo.toml"))
+    outputs.dir(jniLibsDir)
+    if (canBuildRust) {
+        environment("ANDROID_NDK_HOME", ndkDir!!.absolutePath)
+        commandLine(
+            cargoExe!!.absolutePath, "ndk",
+            "-t", "arm64-v8a", "-t", "x86_64",
+            "-o", jniLibsDir.absolutePath,
+            "build", "--release", "--lib"
+        )
+    } else {
+        commandLine(if (isWindows) listOf("cmd", "/c", "exit", "0") else listOf("true"))
+    }
+    doFirst {
+        logger.lifecycle("RustBoard: prekladam keyboard-core pres cargo-ndk (NDK ${ndkDir?.name})")
+    }
+}
+
+tasks.named("preBuild") {
+    dependsOn(cargoNdkBuild)
+    doFirst {
+        if (!File(jniLibsDir, "arm64-v8a/libkeyboard_core.so").isFile) {
+            throw GradleException(
+                "Chybi app/src/main/jniLibs/arm64-v8a/libkeyboard_core.so. " +
+                    "Nainstaluj Rust (rustup), `cargo install cargo-ndk`, " +
+                    "`rustup target add aarch64-linux-android x86_64-linux-android` a NDK v SDK Manageru."
+            )
+        }
+    }
+}
+
+// Test JNI mostu na pocitaci: prelozi knihovnu pro hostitelsky system a nacte ji do JVM.
+val cargoHostBuild = tasks.register<Exec>("cargoHostBuild") {
+    group = "rust"
+    description = "Prelozi keyboard-core pro tento pocitac (pro JVM test JNI mostu)."
+    onlyIf { cargoExe != null }
+    workingDir = cargoDir
+    commandLine(cargoExe?.absolutePath ?: "cargo", "build", "--release", "--lib")
+}
+
+tasks.withType<Test>().configureEach {
+    dependsOn(cargoHostBuild)
+    val libName = when {
+        isWindows -> "keyboard_core.dll"
+        System.getProperty("os.name").lowercase().contains("mac") -> "libkeyboard_core.dylib"
+        else -> "libkeyboard_core.so"
+    }
+    systemProperty("rustboard.hostlib", File(cargoDir, "target/release/$libName").absolutePath)
+    systemProperty("rustboard.dictionary", file("src/main/assets/dictionary.bin").absolutePath)
+}

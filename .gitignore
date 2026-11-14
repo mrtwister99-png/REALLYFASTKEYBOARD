@@ -1,0 +1,28 @@
+# Gradle / Android Studio
+.gradle/
+.idea/
+.kotlin/
+build/
+local.properties
+*.iml
+captures/
+.cxx/
+.externalNativeBuild/
+*.apk
+*.aab
+*.keystore
+*.jks
+
+# Rust
+crates/keyboard-core/target/
+
+# Slovnik: stazene korpusy a mezivysledky (hotovy dictionary.bin je v app/src/main/assets)
+dictionaries/cache/
+dictionaries/build/
+
+# OS / editory
+.DS_Store
+Thumbs.db
+.vscode/
+.claude/
+__pycache__/
