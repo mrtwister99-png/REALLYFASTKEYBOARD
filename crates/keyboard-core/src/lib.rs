@@ -1,4 +1,4 @@
-//! RustBoard keyboard-core: veskera logika klavesnice (rozlozeni, swipe decoder, slovnik,
+//! reallyFAST! keyboard-core: veskera logika klavesnice (rozlozeni, swipe decoder, slovnik,
 //! predikce, autocorrect, uceni, nastaveni, gesta, schranka, emoji).
 //! Kotlin je jen tenka slupka (InputMethodService, vykresleni, haptika) a vola `dispatch` pres JNI.
 //!

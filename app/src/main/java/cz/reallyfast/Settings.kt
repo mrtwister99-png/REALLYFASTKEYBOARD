@@ -1,4 +1,4 @@
-package cz.rustboard
+package cz.reallyfast
 
 import android.graphics.Color
 import org.json.JSONObject

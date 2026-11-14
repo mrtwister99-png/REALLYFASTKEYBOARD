@@ -1,4 +1,4 @@
-package cz.rustboard
+package cz.reallyfast
 
 import android.content.Context
 import android.os.Handler
@@ -61,7 +61,7 @@ object RustBridge {
     const val ACTION_CURSOR_WORD_LEFT = 4
     const val ACTION_CURSOR_WORD_RIGHT = 5
 
-    private const val PREFS = "rustboard_backup"
+    private const val PREFS = "reallyfast_backup"
     private const val PREF_SETTINGS = "settings_json"
     private const val PREF_DICT_STAMP = "dictionary_stamp"
     private const val DICT_ASSET = "dictionary.bin"
@@ -175,7 +175,7 @@ object RustBridge {
                 dictLoading = false
                 mainHandler.post { notifyListeners() }
             }
-        }, "rustboard-dictionary").start()
+        }, "reallyfast-dictionary").start()
     }
 
     fun loadDictionary(path: String): Boolean = call(OP_LOAD_DICT, path) == "1"

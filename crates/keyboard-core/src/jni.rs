@@ -5,7 +5,7 @@
 //! Retezce se predavaji jako UTF-8 `byte[]` (ne jako java.lang.String), takze odpada
 //! "modified UTF-8" a emoji prochazeji bez poskozeni.
 //!
-//! Kotlin: `cz.rustboard.RustBridge.nativeCall` a `nativeSwipe`.
+//! Kotlin: `cz.reallyfast.RustBridge.nativeCall` a `nativeSwipe`.
 
 #![allow(non_snake_case)]
 
@@ -86,7 +86,7 @@ unsafe fn new_bytes(env: JniEnv, data: &[u8]) -> JObject {
 /// # Safety
 /// Vola pouze JVM s platnymi argumenty podle signatury vyse.
 #[no_mangle]
-pub unsafe extern "system" fn Java_cz_rustboard_RustBridge_nativeCall(
+pub unsafe extern "system" fn Java_cz_reallyfast_RustBridge_nativeCall(
     env: JniEnv,
     _class: JObject,
     op: i32,
@@ -109,7 +109,7 @@ pub unsafe extern "system" fn Java_cz_rustboard_RustBridge_nativeCall(
 /// # Safety
 /// Vola pouze JVM s platnymi argumenty podle signatury vyse.
 #[no_mangle]
-pub unsafe extern "system" fn Java_cz_rustboard_RustBridge_nativeSwipe(
+pub unsafe extern "system" fn Java_cz_reallyfast_RustBridge_nativeSwipe(
     env: JniEnv,
     _class: JObject,
     points: JObject,

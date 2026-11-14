@@ -1,4 +1,4 @@
-package cz.rustboard
+package cz.reallyfast
 
 import android.content.ClipboardManager
 import android.content.Context
@@ -28,7 +28,7 @@ import kotlin.math.max
 import kotlin.math.min
 
 /**
- * RustBoard - InputMethodService. Tenka slupka: zivotni cyklus, InputConnection, haptika, zvuk.
+ * reallyFAST! - InputMethodService. Tenka slupka: zivotni cyklus, InputConnection, haptika, zvuk.
  * Rozhodovani (navrhy, swipe, uceni, gesta, velka pismena...) dela Rust pres RustBridge.
  *
  * Zadne pozadi: zadny polling, zadne wake locky, zadne vlastni sluzby ani sit.

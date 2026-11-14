@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-RustBoard - sestaveni slovniku (app/src/main/assets/dictionary.bin).
+reallyFAST! - sestaveni slovniku (app/src/main/assets/dictionary.bin).
 
 Zdroje (zadna vymyslena slova):
   A) Hunspell cs_CZ (LibreOffice dictionaries, GPL-2.0)  -> spravnost, vsechny tvary

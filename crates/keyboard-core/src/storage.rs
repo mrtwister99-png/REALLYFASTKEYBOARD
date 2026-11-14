@@ -1,10 +1,10 @@
-//! Uloziste: `settings.json` (serde) + SQLite `rustboard.db` (osobni slovnik, bigramy,
+//! Uloziste: `settings.json` (serde) + SQLite `reallyfast.db` (osobni slovnik, bigramy,
 //! schranka, nedavne emoji) + export/import osobniho slovniku jako JSON.
 //!
 //! SIFROVANI: databaze neni sifrovana na urovni aplikace. Duvod: SQLCipher vyzaduje
 //! krizovou kompilaci OpenSSL pro Android a ChaCha20Poly1305 dalsi kryptografickou
 //! zavislost mimo povoleny seznam (serde, serde_json, rusqlite, rayon, fst, once_cell).
-//! Data lezi v privatnim adresari aplikace (/data/data/cz.rustboard/files), ktery je
+//! Data lezi v privatnim adresari aplikace (/data/data/cz.reallyfast/files), ktery je
 //! chranen sandboxem Androidu a na S25 Ultra sifrovan systemovym file-based encryption
 //! (klice v hardwarovem Keystore). Aplikace nema opravneni INTERNET a zalohy jsou vypnute
 //! (allowBackup=false), takze data zarizeni neopusti a pri odinstalaci se smazou.
@@ -18,7 +18,7 @@ use std::io;
 use std::path::{Path, PathBuf};
 
 const SETTINGS_FILE: &str = "settings.json";
-const DB_FILE: &str = "rustboard.db";
+const DB_FILE: &str = "reallyfast.db";
 const EMOJI_RECENT_MAX: usize = 32;
 
 const SCHEMA: &str = "

@@ -13,5 +13,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "RustBoard"
+rootProject.name = "reallyFAST"
 include(":app")

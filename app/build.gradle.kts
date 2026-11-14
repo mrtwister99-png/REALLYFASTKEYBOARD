@@ -6,11 +6,11 @@ plugins {
 }
 
 android {
-    namespace = "cz.rustboard"
+    namespace = "cz.reallyfast"
     compileSdk = 34
 
     defaultConfig {
-        applicationId = "cz.rustboard"
+        applicationId = "cz.reallyfast"
         minSdk = 24
         targetSdk = 34
         versionCode = 1
@@ -59,7 +59,7 @@ dependencies {
 // Hotove knihovny libkeyboard_core.so jsou ulozene v app/src/main/jniLibs, takze projekt jde
 // sestavit v Android Studiu i bez Rustu. Kdyz je na PATH `cargo` + `cargo-ndk` a v SDK je NDK,
 // knihovny se pred buildem automaticky prelozi znovu (jen kdyz se zmenil Rust kod).
-// Vypnuti: gradle.properties -> rustboard.buildRust=false
+// Vypnuti: gradle.properties -> reallyfast.buildRust=false
 // ---------------------------------------------------------------------------------------------
 
 val cargoDir: File = rootProject.file("crates/keyboard-core")
@@ -84,7 +84,7 @@ fun findNdk(): File? {
     return File(sdk, "ndk").listFiles()?.filter { it.isDirectory }?.maxByOrNull { it.name }
 }
 
-val rustEnabled = (findProperty("rustboard.buildRust") as String?)?.toBoolean() ?: true
+val rustEnabled = (findProperty("reallyfast.buildRust") as String?)?.toBoolean() ?: true
 val cargoExe = findExecutable("cargo")
 val cargoNdkExe = findExecutable("cargo-ndk")
 val ndkDir = findNdk()
@@ -110,7 +110,7 @@ val cargoNdkBuild = tasks.register<Exec>("cargoNdkBuild") {
         commandLine(if (isWindows) listOf("cmd", "/c", "exit", "0") else listOf("true"))
     }
     doFirst {
-        logger.lifecycle("RustBoard: prekladam keyboard-core pres cargo-ndk (NDK ${ndkDir?.name})")
+        logger.lifecycle("reallyFAST!: prekladam keyboard-core pres cargo-ndk (NDK ${ndkDir?.name})")
     }
 }
 
@@ -143,6 +143,6 @@ tasks.withType<Test>().configureEach {
         System.getProperty("os.name").lowercase().contains("mac") -> "libkeyboard_core.dylib"
         else -> "libkeyboard_core.so"
     }
-    systemProperty("rustboard.hostlib", File(cargoDir, "target/release/$libName").absolutePath)
-    systemProperty("rustboard.dictionary", file("src/main/assets/dictionary.bin").absolutePath)
+    systemProperty("reallyfast.hostlib", File(cargoDir, "target/release/$libName").absolutePath)
+    systemProperty("reallyfast.dictionary", file("src/main/assets/dictionary.bin").absolutePath)
 }

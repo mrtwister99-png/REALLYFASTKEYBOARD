@@ -1,4 +1,4 @@
-package cz.rustboard
+package cz.reallyfast
 
 import android.content.Context
 import android.graphics.Canvas

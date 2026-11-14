@@ -1,4 +1,4 @@
-# RustBoard – soukromá swipe klávesnice
+# reallyFAST! – soukromá swipe klávesnice
 
 Offline klávesnice pro Android (cíleno na Samsung Galaxy S25 Ultra, One UI). Logika je v Rustu
 (`crates/keyboard-core`), Kotlin je tenká slupka (`InputMethodService`, Canvas, haptika).
@@ -15,7 +15,7 @@ přijde až po otestování.
    a slovník v `app/src/main/assets/dictionary.bin`.
 
 Pokud je na PATH `cargo` + `cargo-ndk` a v SDK je NDK, Gradle před buildem Rust jádro sám přeloží
-znovu (jen když se změnil Rust kód). Vypnutí: do `gradle.properties` přidej `rustboard.buildRust=false`.
+znovu (jen když se změnil Rust kód). Vypnutí: do `gradle.properties` přidej `reallyfast.buildRust=false`.
 
 ## 2. Sestavení APK
 
@@ -33,11 +33,11 @@ Z příkazové řádky: `gradlew.bat :app:assembleDebug` (release: `:app:assembl
 
 ## 4. Povolení klávesnice
 
-Nejrychleji: otevři aplikaci **RustBoard** → *1. Povolit klávesnici v systému* → *2. Vybrat RustBoard jako aktivní*.
+Nejrychleji: otevři aplikaci **reallyFAST!** → *1. Povolit klávesnici v systému* → *2. Vybrat reallyFAST! jako aktivní*.
 
 Ručně: **Nastavení > Systém > Jazyky > Klávesnice na obrazovce** (na One UI:
-**Nastavení > Obecná správa > Seznam klávesnic a výchozí**) → zapni RustBoard → nastav jako výchozí.
-Android zobrazí standardní varování pro klávesnice třetích stran; RustBoard nemá oprávnění k internetu,
+**Nastavení > Obecná správa > Seznam klávesnic a výchozí**) → zapni reallyFAST! → nastav jako výchozí.
+Android zobrazí standardní varování pro klávesnice třetích stran; reallyFAST! nemá oprávnění k internetu,
 takže nic odeslat nemůže.
 
 ## 5. Co klávesnice umí
@@ -60,7 +60,7 @@ takže nic odeslat nemůže.
 
 ```
 app/                               Android aplikace (Kotlin, bez AndroidX)
-  src/main/java/cz/rustboard/
+  src/main/java/cz/reallyfast/
     KeyboardService.kt             InputMethodService, InputConnection, haptika
     KeyboardView.kt                vykreslení kláves (Canvas), dotyk, TalkBack
     Panels.kt                      lišta návrhů, emoji panel, panel schránky
@@ -130,7 +130,7 @@ ani emulátoru); kód je na ně navržen (žádné alokace v `onDraw`, synchronn
 ## 9. Soukromí a bezpečnost
 
 - Manifest obsahuje pouze `android.permission.VIBRATE`; žádná síťová knihovna v projektu není.
-- Data jsou v privátním adresáři aplikace (`settings.json`, `rustboard.db`), zálohy a přenos do jiného
+- Data jsou v privátním adresáři aplikace (`settings.json`, `reallyfast.db`), zálohy a přenos do jiného
   zařízení jsou vypnuté, při odinstalaci se vše smaže.
 - Osobní slovník **není šifrován na úrovni aplikace**: SQLCipher vyžaduje křížovou kompilaci OpenSSL
   a ChaCha20Poly1305 další závislost mimo povolený seznam. Spoléhá se na sandbox Androidu a systémové
@@ -147,7 +147,7 @@ ani emulátoru); kód je na ně navržen (žádné alokace v `onDraw`, synchronn
 - Swipe nezná slova mimo slovník, dokud se je nenaučí tapem; nepíše víceslovné výrazy („na shledanou“).
 - Predikce je bigramová (jen podle předchozího slova), bez delšího kontextu.
 - Automatická velká písmena se řídí příznaky textového pole; aplikace, které je nenastaví, je nedostanou.
-- Historie schránky se plní, jen když je RustBoard aktivní klávesnice (omezení Androidu 10+).
+- Historie schránky se plní, jen když je reallyFAST! aktivní klávesnice (omezení Androidu 10+).
 - Emoji: cca 300 kusů, bez variant barvy pleti.
 - Split/floating klávesnice pro foldables není; rozložení se jen přizpůsobí šířce.
 - targetSdk 34 dle zadání – pro Google Play by bylo nutné zvýšit.

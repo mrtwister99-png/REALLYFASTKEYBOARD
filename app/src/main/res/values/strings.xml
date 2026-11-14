@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">RustBoard</string>
-    <string name="ime_name">RustBoard – soukromá swipe klávesnice</string>
+    <string name="app_name">reallyFAST!</string>
+    <string name="ime_name">reallyFAST! – soukromá swipe klávesnice</string>
     <string name="subtype_cs">Čeština (QWERTZ)</string>
     <string name="subtype_en">English (QWERTY)</string>
 
@@ -28,10 +28,10 @@
     <string name="settings_subtitle">Soukromá swipe klávesnice · vše offline</string>
     <string name="sec_setup">Aktivace</string>
     <string name="setup_enable">1. Povolit klávesnici v systému</string>
-    <string name="setup_select">2. Vybrat RustBoard jako aktivní</string>
+    <string name="setup_select">2. Vybrat reallyFAST! jako aktivní</string>
     <string name="setup_status_disabled">Klávesnice zatím není povolená.</string>
     <string name="setup_status_enabled">Povoleno. Ještě ji vyber jako aktivní.</string>
-    <string name="setup_status_active">RustBoard je aktivní klávesnice.</string>
+    <string name="setup_status_active">reallyFAST! je aktivní klávesnice.</string>
     <string name="test_hint">Tady si vyzkoušej psaní…</string>
     <string name="core_missing">Nativní jádro se nepodařilo načíst. Klávesnice nebude fungovat – přeinstaluj aplikaci.</string>
 

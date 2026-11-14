@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="ime_name">RustBoard – private swipe keyboard</string>
+    <string name="ime_name">reallyFAST! – private swipe keyboard</string>
 
     <string name="clipboard">Clipboard</string>
     <string name="clipboard_empty">Clipboard is empty. Copied text shows up here automatically; passwords are never stored.</string>
@@ -25,10 +25,10 @@
     <string name="settings_subtitle">Private swipe keyboard · fully offline</string>
     <string name="sec_setup">Setup</string>
     <string name="setup_enable">1. Enable the keyboard in system settings</string>
-    <string name="setup_select">2. Select RustBoard as active</string>
+    <string name="setup_select">2. Select reallyFAST! as active</string>
     <string name="setup_status_disabled">The keyboard is not enabled yet.</string>
     <string name="setup_status_enabled">Enabled. Now select it as the active keyboard.</string>
-    <string name="setup_status_active">RustBoard is the active keyboard.</string>
+    <string name="setup_status_active">reallyFAST! is the active keyboard.</string>
     <string name="test_hint">Try typing here…</string>
     <string name="core_missing">The native core failed to load. The keyboard will not work – please reinstall the app.</string>
 

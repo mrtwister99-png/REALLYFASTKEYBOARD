@@ -1,4 +1,4 @@
-package cz.rustboard
+package cz.reallyfast
 
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
@@ -23,11 +23,11 @@ class RustBridgeTest {
         @BeforeClass
         @JvmStatic
         fun setUp() {
-            val lib = File(System.getProperty("rustboard.hostlib") ?: "")
+            val lib = File(System.getProperty("reallyfast.hostlib") ?: "")
             if (!lib.isFile || !RustBridge.load(lib.absolutePath)) return
-            val dir = Files.createTempDirectory("rustboard-test").toFile()
+            val dir = Files.createTempDirectory("reallyfast-test").toFile()
             RustBridge.initCore(dir.absolutePath)
-            val dict = File(System.getProperty("rustboard.dictionary") ?: "")
+            val dict = File(System.getProperty("reallyfast.dictionary") ?: "")
             ready = dict.isFile && RustBridge.loadDictionary(dict.absolutePath)
         }
     }

@@ -2,7 +2,7 @@
 name = "keyboard-core"
 version = "1.0.0"
 edition = "2021"
-description = "RustBoard - jadro klavesnice (swipe decoder, slovnik, predikce, nastaveni, uceni)"
+description = "reallyFAST! - jadro klavesnice (swipe decoder, slovnik, predikce, nastaveni, uceni)"
 license = "GPL-2.0-or-later"
 
 [lib]
