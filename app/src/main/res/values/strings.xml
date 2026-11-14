@@ -5,6 +5,13 @@
     <string name="subtype_cs">Čeština (QWERTZ)</string>
     <string name="subtype_en">English (QWERTY)</string>
 
+    <string name="voice_input">Diktování podržením Enteru</string>
+    <string name="voice_listening">● Poslouchám… pusť Enter</string>
+    <string name="voice_processing">Přepisuji…</string>
+    <string name="voice_nothing">Nic jsem neslyšel</string>
+    <string name="voice_failed">Diktování se nepovedlo (chyba %1$d)</string>
+    <string name="voice_unavailable">Rozpoznávání řeči v telefonu není dostupné</string>
+    <string name="voice_permission">Pro diktování povol mikrofon</string>
     <string name="menu_emoji">Emoji</string>
     <string name="menu_settings">Nastavení klávesnice</string>
     <string name="clipboard">Schránka</string>

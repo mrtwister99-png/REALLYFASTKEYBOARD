@@ -33,6 +33,8 @@ class Settings(val json: JSONObject) {
     val gesturePinchResize: Boolean get() = json.optBoolean("gesture_pinch_resize", true)
     val clipboardEnabled: Boolean get() = json.optBoolean("clipboard_enabled", true)
 
+    val voiceInput: Boolean get() = json.optBoolean("voice_input", true)
+
     // Vzhled (Faze 2)
     val keyPopup: Boolean get() = json.optBoolean("key_popup", true)
     val keyHints: Boolean get() = json.optBoolean("key_hints", true)

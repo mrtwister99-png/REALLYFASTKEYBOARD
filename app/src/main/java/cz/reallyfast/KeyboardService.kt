@@ -15,6 +15,12 @@ import android.os.VibrationAttributes
 import android.os.VibrationEffect
 import android.os.Vibrator
 import android.os.VibratorManager
+import android.Manifest
+import android.content.pm.PackageManager
+import android.os.Bundle
+import android.speech.RecognitionListener
+import android.speech.RecognizerIntent
+import android.speech.SpeechRecognizer
 import android.text.InputType
 import android.view.KeyEvent
 import android.view.View
@@ -87,6 +93,12 @@ class KeyboardService : InputMethodService(), KeyboardView.Listener,
     }
 
     override fun onDestroy() {
+        try {
+            recognizer?.destroy()
+        } catch (t: Throwable) {
+            // sluzba rozpoznavani uz nemusi existovat
+        }
+        recognizer = null
         RustBridge.listeners.remove(settingsListener)
         clipboard?.removePrimaryClipChangedListener(clipListener)
         handler.removeCallbacksAndMessages(null)
@@ -234,6 +246,7 @@ class KeyboardService : InputMethodService(), KeyboardView.Listener,
         keyboard?.let {
             it.swipeAllowed = !passwordField
             it.popupAllowed = !passwordField
+            it.voiceAllowed = !passwordField
             val options = info?.imeOptions ?: 0
             it.enterAction = if (options and EditorInfo.IME_FLAG_NO_ENTER_ACTION != 0) KeyboardView.ENTER_DEFAULT else {
                 when (options and EditorInfo.IME_MASK_ACTION) {
@@ -256,6 +269,7 @@ class KeyboardService : InputMethodService(), KeyboardView.Listener,
     }
 
     override fun onFinishInputView(finishingInput: Boolean) {
+        cancelDictation()
         flushSwipeLearning()
         composing.setLength(0)
         closeSearch(false)
@@ -322,6 +336,7 @@ class KeyboardService : InputMethodService(), KeyboardView.Listener,
     // ------------------------------------------------------------------ klavesy
 
     override fun onKeyTap(key: KeyboardView.Key) {
+        if (dictating) cancelDictation() // psani behem diktovani poslech ukonci
         when (key.kind) {
             KeyboardView.KIND_CHAR -> typeText(String(Character.toChars(key.code)))
             KeyboardView.KIND_SHIFT -> {
@@ -535,7 +550,8 @@ class KeyboardService : InputMethodService(), KeyboardView.Listener,
 
     private fun refreshSuggestions() {
         val bar = bar ?: return
-        if (searchMode || lastSwipe != null) return
+        if (searchMode || lastSwipe != null || dictating) return
+        voiceStatus = false
         if (!settings.showSuggestions || passwordField || !useComposing) {
             bar.setSuggestions(emptyList())
             return
@@ -549,6 +565,7 @@ class KeyboardService : InputMethodService(), KeyboardView.Listener,
     }
 
     override fun onSuggestionPicked(index: Int, word: String) {
+        if (dictating || voiceStatus) return // v liste je stav diktovani, ne navrh
         val ic = currentInputConnection ?: return
         onPressFeedback(keyboardSpaceKey)
         val ls = lastSwipe
@@ -671,6 +688,170 @@ class KeyboardService : InputMethodService(), KeyboardView.Listener,
     }
 
     override fun onPinchScale(scale: Float) = RustBridge.pinch(scale)
+
+    // ------------------------------------------------------------------ diktovani
+
+    private var recognizer: SpeechRecognizer? = null
+    private var dictating = false
+    /** V liste navrhu je zobrazena hlaska diktovani (ne slova k vyberu). */
+    private var voiceStatus = false
+    private var dictationText = ""
+    private var dictationPrefix = ""
+    private var dictationCapitalize = false
+
+    private fun showVoiceStatus(text: String, holdMs: Long = 0) {
+        voiceStatus = true
+        handler.removeCallbacks(suggestionUpdate)
+        bar?.setSuggestions(listOf("", text, ""), 1)
+        if (holdMs > 0) handler.postDelayed(suggestionUpdate, holdMs)
+    }
+
+    /**
+     * Podrzeny Enter: prepis reci na text. Pouziva systemovou sluzbu rozpoznavani reci -
+     * na Androidu 12+ prednostne rozpoznavani primo v zarizeni. Aplikace sama nema pristup
+     * k internetu; zvuk zpracovava sluzba systemu podle sveho nastaveni.
+     */
+    override fun onVoiceStart() {
+        if (dictating || passwordField || !settings.voiceInput) return
+        if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
+            // Sluzba klavesnice o opravneni pozadat nemuze - otevre nastaveni, ktere se zepta.
+            try {
+                startActivity(
+                    Intent(this, SettingsActivity::class.java)
+                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                        .putExtra(EXTRA_REQUEST_MIC, true)
+                )
+            } catch (t: Throwable) {
+                showVoiceStatus(getString(R.string.voice_permission), 2500)
+            }
+            return
+        }
+        val ic = currentInputConnection ?: return
+        val onDevice = Build.VERSION.SDK_INT >= 31 && SpeechRecognizer.isOnDeviceRecognitionAvailable(this)
+        if (!onDevice && !SpeechRecognizer.isRecognitionAvailable(this)) {
+            showVoiceStatus(getString(R.string.voice_unavailable), 2500)
+            return
+        }
+        flushSwipeLearning()
+        commitComposing(ic)
+        closeSearch(false)
+        try {
+            val r = recognizer ?: (
+                if (onDevice && Build.VERSION.SDK_INT >= 31) SpeechRecognizer.createOnDeviceSpeechRecognizer(this)
+                else SpeechRecognizer.createSpeechRecognizer(this)
+                ).also {
+                it.setRecognitionListener(recognitionListener)
+                recognizer = it
+            }
+            val before = ic.getTextBeforeCursor(48, 0)?.toString() ?: ""
+            dictationPrefix = if (needsSpaceBefore(ic)) " " else ""
+            dictationCapitalize = settings.autoCapitalize && RustBridge.shouldCapitalize(before)
+            dictationText = ""
+            val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH)
+                .putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+                .putExtra(RecognizerIntent.EXTRA_LANGUAGE, if (settings.language.startsWith("cs")) "cs-CZ" else "en-US")
+                .putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
+                .putExtra(RecognizerIntent.EXTRA_PREFER_OFFLINE, true)
+                .putExtra(RecognizerIntent.EXTRA_CALLING_PACKAGE, packageName)
+            dictating = true
+            keyboard?.dictating = true
+            showVoiceStatus(getString(R.string.voice_listening))
+            r.startListening(intent)
+        } catch (t: Throwable) {
+            endDictation()
+            showVoiceStatus(getString(R.string.voice_unavailable), 2500)
+        }
+    }
+
+    override fun onVoiceStop() {
+        if (!dictating) return
+        try {
+            recognizer?.stopListening()
+        } catch (t: Throwable) {
+            cancelDictation()
+            return
+        }
+        showVoiceStatus(getString(R.string.voice_processing))
+    }
+
+    private fun dictated(raw: String): String {
+        val t = raw.trim()
+        if (t.isEmpty()) return ""
+        val cased = if (dictationCapitalize) t.replaceFirstChar { it.uppercase() } else t
+        return dictationPrefix + cased
+    }
+
+    private fun endDictation() {
+        dictating = false
+        keyboard?.dictating = false
+    }
+
+    /** Okamzite ukonceni bez vysledku (psani, schovani klavesnice). Rozepsany prepis zustane v textu. */
+    private fun cancelDictation() {
+        if (!dictating) return
+        try {
+            recognizer?.cancel()
+        } catch (t: Throwable) {
+            // ignorovat
+        }
+        currentInputConnection?.finishComposingText()
+        endDictation()
+        voiceStatus = false
+        scheduleSuggestions()
+    }
+
+    private val recognitionListener = object : RecognitionListener {
+        override fun onReadyForSpeech(params: Bundle?) {}
+        override fun onBeginningOfSpeech() {}
+        override fun onRmsChanged(rmsdB: Float) {}
+        override fun onBufferReceived(buffer: ByteArray?) {}
+        override fun onEndOfSpeech() {}
+        override fun onEvent(eventType: Int, params: Bundle?) {}
+
+        override fun onPartialResults(partialResults: Bundle?) {
+            if (!dictating) return
+            val text = partialResults?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)?.firstOrNull() ?: return
+            if (text.isBlank()) return
+            dictationText = text
+            currentInputConnection?.setComposingText(dictated(text), 1)
+        }
+
+        override fun onResults(results: Bundle?) {
+            if (!dictating) return
+            val text = results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)?.firstOrNull()
+                ?.takeIf { it.isNotBlank() } ?: dictationText
+            val ic = currentInputConnection
+            endDictation()
+            if (text.isBlank() || ic == null) {
+                ic?.finishComposingText()
+                showVoiceStatus(getString(R.string.voice_nothing), 1500)
+                return
+            }
+            ic.commitText(dictated(text) + " ", 1) // nahradi prubezny prepis
+            autoSpace = true
+            voiceStatus = false
+            updateShift()
+            scheduleSuggestions()
+        }
+
+        override fun onError(error: Int) {
+            if (!dictating) return
+            val ic = currentInputConnection
+            endDictation()
+            if (dictationText.isNotBlank() && ic != null) {
+                // Castecny prepis nezahazovat.
+                ic.commitText(dictated(dictationText) + " ", 1)
+                autoSpace = true
+                voiceStatus = false
+                updateShift()
+                scheduleSuggestions()
+                return
+            }
+            ic?.finishComposingText()
+            val quiet = error == SpeechRecognizer.ERROR_NO_MATCH || error == SpeechRecognizer.ERROR_SPEECH_TIMEOUT
+            showVoiceStatus(if (quiet) getString(R.string.voice_nothing) else getString(R.string.voice_failed, error), 2000)
+        }
+    }
 
     /** Nabidka po dlouhem stisku ?123. */
     override fun onMenuAction(index: Int) {

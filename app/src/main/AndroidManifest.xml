@@ -2,8 +2,16 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
-    <!-- Jedine opravneni: vibrace pri stisku. ZADNY INTERNET - klavesnice je cela offline. -->
+    <!-- Vibrace pri stisku a mikrofon pro diktovani (podrzeni Enteru). ZADNY INTERNET. -->
     <uses-permission android:name="android.permission.VIBRATE" />
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+
+    <!-- Viditelnost systemove sluzby rozpoznavani reci (Android 11+). -->
+    <queries>
+        <intent>
+            <action android:name="android.speech.RecognitionService" />
+        </intent>
+    </queries>
 
     <application
         android:allowBackup="false"

@@ -2,7 +2,7 @@
 
 Offline klávesnice pro Android (cíleno na Samsung Galaxy S25 Ultra, One UI). Logika je v Rustu
 (`crates/keyboard-core`), Kotlin je tenká slupka (`InputMethodService`, Canvas, haptika).
-Žádný internet, žádná reklama, žádná telemetrie – jediné oprávnění je `VIBRATE`.
+Žádný internet, žádná reklama, žádná telemetrie. Oprávnění: `VIBRATE` a `RECORD_AUDIO` (jen pro diktování).
 
 **Stav: Fáze 1 (funkce) + Fáze 2 (vzhled) hotové.** Identifikátor balíčku je `cz.reallyfast`
 (název aplikace „reallyFAST!“ – vykřičník může být jen v zobrazovaném názvu, ne v ID balíčku).
@@ -51,6 +51,8 @@ takže nic odeslat nemůže.
 | Učení | osobní slovník v SQLite (počet + čas použití), osobní bigramy, zapomínání, mazání slov, export/import JSON, vypínač |
 | Gesta | tah vlevo z ⌫ = smazat slovo, tah po mezerníku = kurzor (rychlý švih = o slovo), švih nahoru = Caps, švih dolů = schovat, pinch = výška; vše vypínatelné |
 | Jazyk | globus nebo dlouhý stisk mezerníku: Čeština → English → Čeština · English |
+| Diktování | podržení Enteru = přepis řeči do textu (průběžně se zobrazuje, po puštění se potvrdí); jazyk podle nastavení klávesnice; lze vypnout |
+| Rychlá nabídka | podržení `?123`: emoji, schránka, nastavení klávesnice |
 | Schránka | historie 30 položek, automatické mazání (výchozí 60 min), připnutí, smazání všeho, hesla a kódy se neukládají |
 | Emoji | nedávné, smajlíci, zvířata, jídlo, aktivity, symboly + hledání podle názvu (česky i anglicky) |
 | Symboly | čísla, závorky, měny, matematika (2 stránky) |
@@ -131,7 +133,11 @@ ani emulátoru); kód je na ně navržen (žádné alokace v `onDraw`, synchronn
 
 ## 9. Soukromí a bezpečnost
 
-- Manifest obsahuje pouze `android.permission.VIBRATE`; žádná síťová knihovna v projektu není.
+- Manifest obsahuje `VIBRATE` a `RECORD_AUDIO`, **ne** `INTERNET`; žádná síťová knihovna v projektu není.
+- Diktování používá systémovou službu rozpoznávání řeči (na Androidu 12+ přednostně rozpoznávání v zařízení).
+  Zvuk zpracovává tato služba systému podle svého nastavení – pokud v telefonu není offline model češtiny,
+  může ho služba (Google / Samsung) posílat na své servery. Mikrofon se zapíná jen při držení Enteru;
+  diktování jde vypnout v nastavení a oprávnění k mikrofonu odebrat v systému.
 - Data jsou v privátním adresáři aplikace (`settings.json`, `reallyfast.db`), zálohy a přenos do jiného
   zařízení jsou vypnuté, při odinstalaci se vše smaže.
 - Osobní slovník **není šifrován na úrovni aplikace**: SQLCipher vyžaduje křížovou kompilaci OpenSSL
@@ -143,6 +149,7 @@ ani emulátoru); kód je na ně navržen (žádné alokace v `onDraw`, synchronn
 
 - **Netestováno na reálném zařízení – včetně vzhledu Fáze 2** (animace, bubliny, stíny jsem neviděl na displeji). Ověřeno: build APK, 102 Rust testů, JNI most v JVM. Chování
   v aplikacích, vzhled na displeji a gesta je potřeba vyzkoušet na telefonu.
+- Diktování závisí na službě rozpoznávání řeči v telefonu (kvalita češtiny, offline dostupnost); v polích pro hesla je vypnuté.
 - Švih nahoru/dolů (Caps / schovat) musí být rychlý, dlouhý a téměř svislý; výjimečně se může splést
   se swipe psaním svislého slova. Lze vypnout.
 - Dlouhý stisk mezerníku přepíná jazyk až po delší prodlevě (min. 500 ms), aby nekolidoval s tahem kurzoru.

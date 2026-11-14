@@ -61,6 +61,10 @@ class KeyboardView(context: Context) : View(context) {
         fun onPinchScale(scale: Float)
         /** Polozka nabidky po dlouhem stisku ?123: 0 = emoji, 1 = schranka, 2 = nastaveni. */
         fun onMenuAction(index: Int)
+        /** Enter podrzen: zacit diktovat. */
+        fun onVoiceStart()
+        /** Enter pusten (nebo dotyk zrusen): ukoncit poslech. */
+        fun onVoiceStop()
     }
 
     companion object {
@@ -107,6 +111,7 @@ class KeyboardView(context: Context) : View(context) {
         private const val T_POPUP = 5
         private const val T_CONSUMED = 6
         private const val T_MENU = 7
+        private const val T_VOICE = 8
 
         const val MENU_EMOJI = 0
         const val MENU_CLIPBOARD = 1
@@ -130,6 +135,17 @@ class KeyboardView(context: Context) : View(context) {
 
     /** O kolik px smi bublina / nabidka variant presahnout nad horni okraj (vyska listy navrhu). */
     var overflowTop = 0
+    /** Diktovani podrzenim Enteru (vypnuto v polich pro hesla a v nastaveni). */
+    var voiceAllowed = true
+
+    /** Prave se diktuje: Enter ukazuje mikrofon. */
+    var dictating = false
+        set(value) {
+            if (field != value) {
+                field = value
+                invalidate()
+            }
+        }
     var enterAction = ENTER_DEFAULT
         set(value) {
             if (field != value) {
@@ -487,7 +503,7 @@ class KeyboardView(context: Context) : View(context) {
                 path.lineTo(cx - s * 0.1f, cy + s * 0.35f)
                 canvas.drawPath(path, stroke)
             }
-            KIND_ENTER -> drawEnterIcon(canvas, cx, cy, s)
+            KIND_ENTER -> if (dictating) drawMic(canvas, cx, cy, s) else drawEnterIcon(canvas, cx, cy, s)
             KIND_GLOBE -> {
                 // Prepinac jazyka: planeta s prstencem a "druzici" v accent barve.
                 canvas.drawCircle(cx, cy, s * 0.55f, stroke)
@@ -626,6 +642,16 @@ class KeyboardView(context: Context) : View(context) {
         return running
     }
 
+    private fun drawMic(canvas: Canvas, cx: Float, cy: Float, s: Float) {
+        rect.set(cx - s * 0.42f, cy - s * 1.15f, cx + s * 0.42f, cy + s * 0.25f)
+        stroke.style = Paint.Style.FILL_AND_STROKE
+        canvas.drawRoundRect(rect, s * 0.42f, s * 0.42f, stroke)
+        stroke.style = Paint.Style.STROKE
+        rect.set(cx - s * 0.85f, cy - s * 0.75f, cx + s * 0.85f, cy + s * 0.7f)
+        canvas.drawArc(rect, 0f, 180f, false, stroke)
+        canvas.drawLine(cx, cy + s * 0.7f, cx, cy + s * 1.15f, stroke)
+    }
+
     /** Ctyrlistek (tlacitko emoji). */
     private fun drawClover(canvas: Canvas, cx: Float, cy: Float, s: Float, color: Int) {
         fill.color = color
@@ -757,6 +783,7 @@ class KeyboardView(context: Context) : View(context) {
         handler.removeCallbacks(longPress)
         handler.removeCallbacks(repeat)
         endPreview()
+        if (touchMode == T_VOICE) listener?.onVoiceStop()
         if (touchMode == T_SWIPE) {
             trailEndedAt = SystemClock.uptimeMillis()
             invalidate()
@@ -934,6 +961,8 @@ class KeyboardView(context: Context) : View(context) {
             handler.postDelayed(longPress, delay)
         } else if (k.kind == KIND_MODE && (k.code == CODE_SYMBOLS || k.code == CODE_LETTERS)) {
             handler.postDelayed(longPress, maxOf(delay, 300L))
+        } else if (k.kind == KIND_ENTER && voiceAllowed && RustBridge.settings.voiceInput) {
+            handler.postDelayed(longPress, maxOf(delay, 350L))
         } else if (k.kind == KIND_SPACE) {
             // Mezernik: delsi prodleva, aby pomalejsi tap neprepnul jazyk omylem.
             handler.postDelayed(longPress, maxOf(2 * delay, 500L))
@@ -1043,6 +1072,14 @@ class KeyboardView(context: Context) : View(context) {
 
     private fun onLongPress() {
         val k = downKey ?: return
+        if (touchMode == T_TAP && !moved && k.kind == KIND_ENTER) {
+            // Podrzeny Enter = diktovani; poslech trva, dokud je klavesa drzena.
+            longPressFired = true
+            touchMode = T_VOICE
+            listener?.onPressFeedback(k)
+            listener?.onVoiceStart()
+            return
+        }
         if (touchMode == T_SPACE && !moved) {
             longPressFired = true
             touchMode = T_CONSUMED

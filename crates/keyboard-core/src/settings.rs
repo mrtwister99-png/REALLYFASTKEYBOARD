@@ -35,6 +35,8 @@ pub struct Settings {
     pub custom_background: String,
     pub custom_key: String,
     pub custom_text: String,
+    /// Diktovani: podrzeni Enteru prepise rec na text (systemove rozpoznavani reci).
+    pub voice_input: bool,
     // --- vzhled (Faze 2) ---
     /// Bublina s pismenem nad stisknutou klavesou.
     pub key_popup: bool,
@@ -84,6 +86,7 @@ impl Default for Settings {
             custom_background: "#111113".into(),
             custom_key: "#26262B".into(),
             custom_text: "#F4F4F5".into(),
+            voice_input: true,
             key_popup: true,
             key_hints: true,
             key_shadow: true,
@@ -266,6 +269,7 @@ mod tests {
     fn appearance_defaults_and_limits() {
         let s = Settings::default();
         assert!(s.key_popup && s.key_hints && s.key_shadow && s.animations && s.swipe_trail);
+        assert!(s.voice_input);
         assert_eq!(s.key_radius_dp, 10);
         let s = Settings::from_json(r#"{"key_radius_dp":99,"animations":false}"#).unwrap();
         assert_eq!(s.key_radius_dp, 22);

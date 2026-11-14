@@ -26,6 +26,9 @@ import android.widget.Switch
 import android.widget.TextView
 import android.widget.Toast
 
+/** Klavesnice zada o povoleni mikrofonu (sluzba o nej pozadat nemuze). */
+const val EXTRA_REQUEST_MIC = "request_mic"
+
 /** Hotovy styl: tema + barvy, ktere se nastavi jednim klepnutim. */
 private class Preset(val name: String, val theme: String, val bg: String, val key: String, val text: String, val accent: String)
 
@@ -84,6 +87,7 @@ class SettingsActivity : Activity() {
     private companion object {
         const val REQ_EXPORT = 1
         const val REQ_IMPORT = 2
+        const val REQ_MIC = 3
         const val MAX_WORDS_SHOWN = 60
         val PRESETS = listOf(
             Preset("Graphite", "dark", "#101012", "#2A2A30", "#F5F5F7", "#0080FF"),
@@ -138,6 +142,19 @@ class SettingsActivity : Activity() {
         setContentView(scroll)
         build()
         RustBridge.listeners.add(listener)
+        if (intent?.getBooleanExtra(EXTRA_REQUEST_MIC, false) == true) ensureMicrophone()
+    }
+
+    override fun onNewIntent(intent: Intent?) {
+        super.onNewIntent(intent)
+        if (intent?.getBooleanExtra(EXTRA_REQUEST_MIC, false) == true) ensureMicrophone()
+    }
+
+    private fun ensureMicrophone() {
+        if (checkSelfPermission(android.Manifest.permission.RECORD_AUDIO) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+            Toast.makeText(this, R.string.voice_permission, Toast.LENGTH_SHORT).show()
+            requestPermissions(arrayOf(android.Manifest.permission.RECORD_AUDIO), REQ_MIC)
+        }
     }
 
     override fun onDestroy() {
@@ -171,6 +188,7 @@ class SettingsActivity : Activity() {
         val j = RustBridge.settings.edit()
         j.put(key, value)
         RustBridge.setSettings(j)
+        if (key == "voice_input" && value == true) ensureMicrophone()
     }
 
     // ------------------------------------------------------------------ stavebni prvky
@@ -454,6 +472,7 @@ class SettingsActivity : Activity() {
         switchRow(box, R.string.double_space_to_period, "double_space_to_period")
         switchRow(box, R.string.learn_from_typing, "learn_from_typing")
         switchRow(box, R.string.show_number_row, "show_number_row")
+        switchRow(box, R.string.voice_input, "voice_input")
 
         // Swipe
         box = section(R.string.sec_swipe)

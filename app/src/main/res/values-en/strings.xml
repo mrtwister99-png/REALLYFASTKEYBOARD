@@ -2,6 +2,13 @@
 <resources>
     <string name="ime_name">reallyFAST! – private swipe keyboard</string>
 
+    <string name="voice_input">Dictation by holding Enter</string>
+    <string name="voice_listening">● Listening… release Enter</string>
+    <string name="voice_processing">Transcribing…</string>
+    <string name="voice_nothing">Nothing heard</string>
+    <string name="voice_failed">Dictation failed (error %1$d)</string>
+    <string name="voice_unavailable">Speech recognition is not available on this phone</string>
+    <string name="voice_permission">Allow the microphone to dictate</string>
     <string name="menu_emoji">Emoji</string>
     <string name="menu_settings">Keyboard settings</string>
     <string name="clipboard">Clipboard</string>
