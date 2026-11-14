@@ -4,6 +4,6 @@
     <color name="settings_card">#1B1B1F</color>
     <color name="settings_text">#F4F4F5</color>
     <color name="settings_text_dim">#9A9AA3</color>
-    <color name="accent">#F59E0B</color>
+    <color name="accent">#0080FF</color>
     <color name="icon_bg">#101012</color>
 </resources>

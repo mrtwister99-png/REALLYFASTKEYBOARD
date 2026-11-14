@@ -20,7 +20,7 @@ class Settings(val json: JSONObject) {
     val keyHeightDp: Int get() = json.optInt("key_height_dp", 56)
     val keyboardHeightPercent: Int get() = json.optInt("keyboard_height_percent", 38)
     val theme: String get() = json.optString("theme", "dark")
-    val accentColor: String get() = json.optString("accent_color", "#F59E0B")
+    val accentColor: String get() = json.optString("accent_color", "#0080FF")
     val showNumberRow: Boolean get() = json.optBoolean("show_number_row", true)
     val showSuggestions: Boolean get() = json.optBoolean("show_suggestions", true)
     val autoCapitalize: Boolean get() = json.optBoolean("auto_capitalize", true)
@@ -106,7 +106,7 @@ class Theme(
         }
 
         fun from(s: Settings): Theme {
-            val accent = parse(s.accentColor, 0xFFF59E0B.toInt())
+            val accent = parse(s.accentColor, 0xFF0080FF.toInt())
             return when (s.theme) {
                 "light" -> of(0xFFE6E8EC.toInt(), 0xFFFFFFFF.toInt(), 0xFF15151A.toInt(), accent, 0xFFCBCFD8.toInt())
                 "oled_black" -> of(0xFF000000.toInt(), 0xFF17171A.toInt(), 0xFFF5F5F7.toInt(), accent, 0xFF0D0D0F.toInt())

@@ -5,6 +5,8 @@
     <string name="subtype_cs">Čeština (QWERTZ)</string>
     <string name="subtype_en">English (QWERTY)</string>
 
+    <string name="menu_emoji">Emoji</string>
+    <string name="menu_settings">Nastavení klávesnice</string>
     <string name="clipboard">Schránka</string>
     <string name="clipboard_empty">Schránka je prázdná. Zkopírovaný text se tu objeví automaticky; hesla se neukládají.</string>
     <string name="clear_all">Smazat vše</string>

@@ -2,6 +2,8 @@
 <resources>
     <string name="ime_name">reallyFAST! – private swipe keyboard</string>
 
+    <string name="menu_emoji">Emoji</string>
+    <string name="menu_settings">Keyboard settings</string>
     <string name="clipboard">Clipboard</string>
     <string name="clipboard_empty">Clipboard is empty. Copied text shows up here automatically; passwords are never stored.</string>
     <string name="clear_all">Clear all</string>

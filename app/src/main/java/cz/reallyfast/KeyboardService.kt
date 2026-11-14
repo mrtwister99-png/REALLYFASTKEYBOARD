@@ -2,6 +2,7 @@ package cz.reallyfast
 
 import android.content.ClipboardManager
 import android.content.Context
+import android.content.Intent
 import android.content.res.Configuration
 import android.inputmethodservice.InputMethodService
 import android.media.AudioAttributes
@@ -670,6 +671,22 @@ class KeyboardService : InputMethodService(), KeyboardView.Listener,
     }
 
     override fun onPinchScale(scale: Float) = RustBridge.pinch(scale)
+
+    /** Nabidka po dlouhem stisku ?123. */
+    override fun onMenuAction(index: Int) {
+        when (index) {
+            KeyboardView.MENU_EMOJI -> showEmoji()
+            KeyboardView.MENU_CLIPBOARD -> if (clipPanel?.visibility != View.VISIBLE) onClipboardClicked()
+            KeyboardView.MENU_SETTINGS -> {
+                try {
+                    startActivity(Intent(this, SettingsActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+                    requestHideSelf(0)
+                } catch (t: Throwable) {
+                    // nastaveni se nepodarilo otevrit - klavesnice bezi dal
+                }
+            }
+        }
+    }
 
     // ------------------------------------------------------------------ panely
 

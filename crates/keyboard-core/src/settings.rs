@@ -10,6 +10,9 @@ pub const THEMES: [&str; 4] = ["dark", "light", "oled_black", "custom"];
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Settings {
+    /// Verze schematu nastaveni (pro migrace vychozich hodnot). Chybejici pole = 0.
+    #[serde(default)]
+    pub settings_version: u32,
     pub language: String,
     pub layout: String,
     pub swipe_enabled: bool,
@@ -59,6 +62,7 @@ pub struct Settings {
 impl Default for Settings {
     fn default() -> Self {
         Settings {
+            settings_version: SETTINGS_VERSION,
             language: "cs+en".into(),
             layout: "qwertz".into(),
             swipe_enabled: true,
@@ -71,7 +75,7 @@ impl Default for Settings {
             key_height_dp: 56,
             keyboard_height_percent: 38,
             theme: "dark".into(),
-            accent_color: "#F59E0B".into(),
+            accent_color: DEFAULT_ACCENT.into(),
             show_number_row: true,
             show_suggestions: true,
             auto_capitalize: true,
@@ -96,6 +100,11 @@ impl Default for Settings {
         }
     }
 }
+
+pub const SETTINGS_VERSION: u32 = 2;
+pub const DEFAULT_ACCENT: &str = "#0080FF";
+/// Vychozi accent barva do verze 1 (oranzova).
+const LEGACY_ACCENT: &str = "#F59E0B";
 
 /// `#RRGGBB` nebo `#AARRGGBB`.
 pub fn is_hex_color(s: &str) -> bool {
@@ -144,6 +153,13 @@ impl Settings {
     /// neplatny JSON vraci `None`.
     pub fn from_json(json: &str) -> Option<Settings> {
         let mut s: Settings = serde_json::from_str(json).ok()?;
+        if s.settings_version < SETTINGS_VERSION {
+            // Migrace: kdo mel puvodni vychozi oranzovou, dostane novou vychozi modrou.
+            if s.accent_color.eq_ignore_ascii_case(LEGACY_ACCENT) {
+                s.accent_color = DEFAULT_ACCENT.into();
+            }
+            s.settings_version = SETTINGS_VERSION;
+        }
         s.validate();
         Some(s)
     }
@@ -197,7 +213,7 @@ mod tests {
         assert_eq!(s.key_height_dp, 56);
         assert_eq!(s.keyboard_height_percent, 38);
         assert_eq!(s.theme, "dark");
-        assert_eq!(s.accent_color, "#F59E0B");
+        assert_eq!(s.accent_color, "#0080FF");
         assert!(s.show_number_row && s.show_suggestions && s.auto_capitalize && s.double_space_to_period);
         assert_eq!(s.long_press_delay_ms, 250);
     }
@@ -242,7 +258,7 @@ mod tests {
         assert_eq!(s.language, "cs+en");
         assert_eq!(s.layout, "qwertz");
         assert_eq!(s.theme, "dark");
-        assert_eq!(s.accent_color, "#F59E0B");
+        assert_eq!(s.accent_color, "#0080FF");
         assert!(Settings::from_json("not json").is_none());
     }
 
@@ -257,6 +273,20 @@ mod tests {
         // stary settings.json z Faze 1 (bez novych poli) se nacte s vychozimi hodnotami
         let old = Settings::from_json(r#"{"theme":"light"}"#).unwrap();
         assert!(old.key_popup && old.swipe_trail);
+    }
+
+    #[test]
+    fn old_default_accent_migrates_to_blue() {
+        // settings.json z verze 1 s puvodni vychozi oranzovou
+        let s = Settings::from_json(r##"{"accent_color":"#F59E0B"}"##).unwrap();
+        assert_eq!(s.accent_color, "#0080FF");
+        assert_eq!(s.settings_version, SETTINGS_VERSION);
+        // vlastni barva zustava
+        let s = Settings::from_json(r##"{"accent_color":"#EF4444"}"##).unwrap();
+        assert_eq!(s.accent_color, "#EF4444");
+        // oranzova zvolena uz v nove verzi se neprepise
+        let s = Settings::from_json(r##"{"settings_version":2,"accent_color":"#F59E0B"}"##).unwrap();
+        assert_eq!(s.accent_color, "#F59E0B");
     }
 
     #[test]

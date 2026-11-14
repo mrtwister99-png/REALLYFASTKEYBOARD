@@ -59,6 +59,8 @@ class KeyboardView(context: Context) : View(context) {
         fun onCursorSteps(steps: Int)
         fun onSpaceLongPress()
         fun onPinchScale(scale: Float)
+        /** Polozka nabidky po dlouhem stisku ?123: 0 = emoji, 1 = schranka, 2 = nastaveni. */
+        fun onMenuAction(index: Int)
     }
 
     companion object {
@@ -104,6 +106,11 @@ class KeyboardView(context: Context) : View(context) {
         private const val T_BACKSPACE = 4
         private const val T_POPUP = 5
         private const val T_CONSUMED = 6
+        private const val T_MENU = 7
+
+        const val MENU_EMOJI = 0
+        const val MENU_CLIPBOARD = 1
+        const val MENU_SETTINGS = 2
     }
 
     var listener: Listener? = null
@@ -171,6 +178,21 @@ class KeyboardView(context: Context) : View(context) {
         keyRadius = s.keyRadiusDp * density
         fontScale = resources.configuration.fontScale
     }
+
+    // --- nabidka po dlouhem stisku ?123
+    private val menuLabels = arrayOf(
+        context.getString(R.string.menu_emoji),
+        context.getString(R.string.clipboard),
+        context.getString(R.string.menu_settings),
+    )
+    private var menuKey: Key? = null
+    private var menuSel = -1
+    /** Nabidka zustala otevrena po zvednuti prstu - polozka se vybere dalsim klepnutim. */
+    private var menuSticky = false
+    private var menuLeft = 0f
+    private var menuTop = 0f
+    private var menuW = 0f
+    private var menuCell = 0f
 
     // --- bublina nad klavesou a stopa swipe
     private var previewKey: Key? = null
@@ -275,6 +297,7 @@ class KeyboardView(context: Context) : View(context) {
         cancelTouch()
         previewKey = null
         trailCount = 0
+        closeMenu()
         val parsed = ArrayList<Key>(48)
         try {
             val root = JSONObject(RustBridge.layout(width, height, mode, preview))
@@ -342,7 +365,10 @@ class KeyboardView(context: Context) : View(context) {
     }
 
     override fun onDraw(canvas: Canvas) {
-        canvas.drawColor(theme.background)
+        // Pozadi jen v ramci teto plochy: rodic neorezava (kvuli bublinam), takze drawColor
+        // by prekreslil i listu navrhu nad klavesami.
+        fill.color = theme.background
+        canvas.drawRect(0f, 0f, width.toFloat(), height.toFloat(), fill)
         val now = SystemClock.uptimeMillis()
         var animating = false
         val padX = 2.5f * density
@@ -408,6 +434,7 @@ class KeyboardView(context: Context) : View(context) {
         if (drawTrail(canvas, now)) animating = true
         if (drawPreview(canvas, now)) animating = true
         drawPopup(canvas)
+        drawMenu(canvas)
         if (animating) postInvalidateOnAnimation()
     }
 
@@ -462,19 +489,17 @@ class KeyboardView(context: Context) : View(context) {
             }
             KIND_ENTER -> drawEnterIcon(canvas, cx, cy, s)
             KIND_GLOBE -> {
-                canvas.drawCircle(cx, cy, s, stroke)
-                rect.set(cx - s * 0.45f, cy - s, cx + s * 0.45f, cy + s)
+                // Prepinac jazyka: planeta s prstencem a "druzici" v accent barve.
+                canvas.drawCircle(cx, cy, s * 0.55f, stroke)
+                canvas.save()
+                canvas.rotate(-24f, cx, cy)
+                rect.set(cx - s * 1.3f, cy - s * 0.42f, cx + s * 1.3f, cy + s * 0.42f)
                 canvas.drawOval(rect, stroke)
-                canvas.drawLine(cx - s, cy, cx + s, cy, stroke)
+                canvas.restore()
+                fill.color = theme.accent
+                canvas.drawCircle(cx + s * 0.98f, cy - s * 0.8f, s * 0.2f, fill)
             }
-            KIND_EMOJI -> {
-                canvas.drawCircle(cx, cy, s, stroke)
-                rect.set(cx - s * 0.5f, cy - s * 0.35f, cx + s * 0.5f, cy + s * 0.55f)
-                canvas.drawArc(rect, 20f, 140f, false, stroke)
-                stroke.style = Paint.Style.FILL
-                canvas.drawCircle(cx - s * 0.36f, cy - s * 0.3f, s * 0.11f, stroke)
-                canvas.drawCircle(cx + s * 0.36f, cy - s * 0.3f, s * 0.11f, stroke)
-            }
+            KIND_EMOJI -> drawClover(canvas, cx, cy, s, color)
         }
     }
 
@@ -601,6 +626,95 @@ class KeyboardView(context: Context) : View(context) {
         return running
     }
 
+    /** Ctyrlistek (tlacitko emoji). */
+    private fun drawClover(canvas: Canvas, cx: Float, cy: Float, s: Float, color: Int) {
+        fill.color = color
+        val o = s * 0.47f
+        val r = s * 0.5f
+        val top = cy - s * 0.18f
+        canvas.drawCircle(cx - o, top - o, r, fill)
+        canvas.drawCircle(cx + o, top - o, r, fill)
+        canvas.drawCircle(cx - o, top + o, r, fill)
+        canvas.drawCircle(cx + o, top + o, r, fill)
+        stroke.color = color
+        stroke.style = Paint.Style.STROKE
+        stroke.strokeWidth = 1.7f * density
+        canvas.drawLine(cx + s * 0.1f, top + s * 0.3f, cx + s * 0.5f, cy + s * 1.2f, stroke)
+    }
+
+    private fun drawMenuIcon(canvas: Canvas, index: Int, cx: Float, cy: Float, s: Float, color: Int) {
+        stroke.color = color
+        stroke.style = Paint.Style.STROKE
+        stroke.strokeWidth = 1.7f * density
+        when (index) {
+            MENU_EMOJI -> drawClover(canvas, cx, cy, s, color)
+            MENU_CLIPBOARD -> {
+                rect.set(cx - s * 0.85f, cy - s * 0.9f, cx + s * 0.85f, cy + s * 1.1f)
+                canvas.drawRoundRect(rect, s * 0.25f, s * 0.25f, stroke)
+                rect.set(cx - s * 0.4f, cy - s * 1.2f, cx + s * 0.4f, cy - s * 0.65f)
+                canvas.drawRoundRect(rect, s * 0.15f, s * 0.15f, stroke)
+                canvas.drawLine(cx - s * 0.4f, cy + s * 0.05f, cx + s * 0.4f, cy + s * 0.05f, stroke)
+                canvas.drawLine(cx - s * 0.4f, cy + s * 0.55f, cx + s * 0.4f, cy + s * 0.55f, stroke)
+            }
+            else -> {
+                // Ozubene kolo: krouzek, stred a 8 zubu.
+                canvas.drawCircle(cx, cy, s * 0.78f, stroke)
+                canvas.drawCircle(cx, cy, s * 0.28f, stroke)
+                canvas.save()
+                for (i in 0 until 8) {
+                    canvas.drawLine(cx, cy - s * 0.78f, cx, cy - s * 1.12f, stroke)
+                    canvas.rotate(45f, cx, cy)
+                }
+                canvas.restore()
+            }
+        }
+    }
+
+    /** Nabidka po dlouhem stisku ?123: emoji, schranka, nastaveni (shora dolu). */
+    private fun drawMenu(canvas: Canvas) {
+        if (menuKey == null) return
+        val radius = keyRadius * 1.3f
+        val bottom = menuTop + menuCell * 3
+        if (drawShadow) {
+            fill.color = theme.keyShadow
+            rect.set(menuLeft, menuTop + shadowOffset, menuLeft + menuW, bottom + shadowOffset)
+            canvas.drawRoundRect(rect, radius, radius, fill)
+        }
+        fill.color = theme.popup
+        rect.set(menuLeft, menuTop, menuLeft + menuW, bottom)
+        canvas.drawRoundRect(rect, radius, radius, fill)
+        textPaint.textSize = min(menuCell * 0.34f, 15f * density * fontScale)
+        textPaint.textAlign = Paint.Align.LEFT
+        for (i in 0 until 3) {
+            val top = menuTop + menuCell * i
+            val cy = top + menuCell / 2f
+            val fg = if (i == menuSel) theme.onAccent else theme.text
+            if (i == menuSel) {
+                fill.color = theme.accent
+                rect.set(menuLeft + 3 * density, top + 3 * density, menuLeft + menuW - 3 * density, top + menuCell - 3 * density)
+                canvas.drawRoundRect(rect, radius * 0.75f, radius * 0.75f, fill)
+            }
+            drawMenuIcon(canvas, i, menuLeft + 28f * density, cy, min(menuCell, 48f * density) * 0.2f, fg)
+            textPaint.color = fg
+            canvas.drawText(menuLabels[i], menuLeft + 54f * density, cy - (textPaint.ascent() + textPaint.descent()) / 2f, textPaint)
+        }
+        textPaint.textAlign = Paint.Align.CENTER
+    }
+
+    private fun menuAt(x: Float, y: Float): Int {
+        if (x < menuLeft || x > menuLeft + menuW || y < menuTop || y >= menuTop + menuCell * 3) return -1
+        return ((y - menuTop) / menuCell).toInt().coerceIn(0, 2)
+    }
+
+    private fun closeMenu() {
+        if (menuKey != null) {
+            menuKey = null
+            menuSticky = false
+            menuSel = -1
+            invalidate()
+        }
+    }
+
     private fun drawPopup(canvas: Canvas) {
         if (popupKey == null || popupAlts.isEmpty()) return
         val n = popupAlts.size
@@ -670,6 +784,25 @@ class KeyboardView(context: Context) : View(context) {
 
     override fun onTouchEvent(e: MotionEvent): Boolean {
         if (preview) return false
+        if (menuKey != null && menuSticky) {
+            // Otevrena nabidka: klepnuti na polozku ji spusti, klepnuti mimo nabidku zavre.
+            when (e.actionMasked) {
+                MotionEvent.ACTION_DOWN, MotionEvent.ACTION_MOVE -> {
+                    val sel = menuAt(e.x, e.y)
+                    if (sel != menuSel) {
+                        menuSel = sel
+                        invalidate()
+                    }
+                }
+                MotionEvent.ACTION_UP -> {
+                    val sel = menuAt(e.x, e.y)
+                    closeMenu()
+                    if (sel >= 0) listener?.onMenuAction(sel)
+                }
+                MotionEvent.ACTION_CANCEL -> closeMenu()
+            }
+            return true
+        }
         when (e.actionMasked) {
             MotionEvent.ACTION_DOWN -> {
                 cancelTouch()
@@ -799,6 +932,8 @@ class KeyboardView(context: Context) : View(context) {
         val delay = RustBridge.settings.longPressDelayMs.toLong()
         if (k.alts.isNotEmpty()) {
             handler.postDelayed(longPress, delay)
+        } else if (k.kind == KIND_MODE && (k.code == CODE_SYMBOLS || k.code == CODE_LETTERS)) {
+            handler.postDelayed(longPress, maxOf(delay, 300L))
         } else if (k.kind == KIND_SPACE) {
             // Mezernik: delsi prodleva, aby pomalejsi tap neprepnul jazyk omylem.
             handler.postDelayed(longPress, maxOf(2 * delay, 500L))
@@ -816,6 +951,13 @@ class KeyboardView(context: Context) : View(context) {
         val dy = y - downY
         val slop = 0.4f * unitW
         when (touchMode) {
+            T_MENU -> {
+                val sel = menuAt(x, y)
+                if (sel != menuSel) {
+                    menuSel = sel
+                    invalidate()
+                }
+            }
             T_POPUP -> {
                 val sel = ((x - popupLeft) / popupCell).toInt().coerceIn(0, popupAlts.size - 1)
                 if (sel != popupSel) {
@@ -869,6 +1011,13 @@ class KeyboardView(context: Context) : View(context) {
         val l = listener ?: return
         when (touchMode) {
             T_POPUP -> popupAlts.getOrNull(popupSel)?.let { l.onAltText(it) }
+            T_MENU -> if (menuSel >= 0) {
+                val sel = menuSel
+                closeMenu()
+                l.onMenuAction(sel)
+            } else {
+                menuSticky = true // prst zvednut bez vyberu: nabidka ceka na klepnuti
+            }
             T_BACKSPACE -> {
                 val g = if (moved) RustBridge.gesture(k.kind, dx, dy, dt, unitW, rowH) else RustBridge.ACTION_NONE
                 if (g != RustBridge.ACTION_NONE) l.onGestureAction(g) else if (repeatCount == 0) l.onKeyTap(k)
@@ -899,6 +1048,21 @@ class KeyboardView(context: Context) : View(context) {
             touchMode = T_CONSUMED
             press(k, false)
             listener?.onSpaceLongPress()
+            return
+        }
+        if (touchMode == T_TAP && !moved && k.kind == KIND_MODE && (k.code == CODE_SYMBOLS || k.code == CODE_LETTERS)) {
+            menuKey = k
+            menuSel = -1
+            menuSticky = false
+            menuCell = max(rowH * 0.9f, 46f * density)
+            menuW = max(unitW * 3.6f, 176f * density)
+            menuLeft = 4f * density
+            menuTop = max(-overflowTop + 2f * density, k.y - 3 * menuCell - 4f * density)
+            longPressFired = true
+            touchMode = T_MENU
+            previewKey = null
+            listener?.onPressFeedback(k)
+            invalidate()
             return
         }
         if (touchMode != T_TAP || k.alts.isEmpty()) return

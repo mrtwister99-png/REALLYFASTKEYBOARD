@@ -86,7 +86,8 @@ class SettingsActivity : Activity() {
         const val REQ_IMPORT = 2
         const val MAX_WORDS_SHOWN = 60
         val PRESETS = listOf(
-            Preset("Graphite", "dark", "#101012", "#2A2A30", "#F5F5F7", "#F59E0B"),
+            Preset("Graphite", "dark", "#101012", "#2A2A30", "#F5F5F7", "#0080FF"),
+            Preset("Amber", "dark", "#101012", "#2A2A30", "#F5F5F7", "#F59E0B"),
             Preset("Paper", "light", "#E6E8EC", "#FFFFFF", "#15151A", "#2563EB"),
             Preset("OLED", "oled_black", "#000000", "#17171A", "#F5F5F7", "#22D3EE"),
             Preset("Midnight", "custom", "#0B1220", "#1B2740", "#E6EDF7", "#60A5FA"),
@@ -96,7 +97,7 @@ class SettingsActivity : Activity() {
             Preset("Mono", "custom", "#18181B", "#2E2E33", "#FAFAFA", "#FAFAFA"),
         )
         val PALETTE = listOf(
-            "#F59E0B", "#EF4444", "#EC4899", "#8B5CF6", "#3B82F6", "#06B6D4", "#10B981", "#84CC16", "#F4F4F5", "#111113",
+            "#0080FF", "#F59E0B", "#EF4444", "#EC4899", "#8B5CF6", "#06B6D4", "#10B981", "#84CC16", "#F4F4F5", "#111113",
         )
     }
 
@@ -104,7 +105,7 @@ class SettingsActivity : Activity() {
     private val card = 0xFF1B1B1F.toInt()
     private val text = 0xFFF4F4F5.toInt()
     private val dim = 0xFF9A9AA3.toInt()
-    private val accent: Int get() = Theme.parse(RustBridge.settings.accentColor, 0xFFF59E0B.toInt())
+    private val accent: Int get() = Theme.parse(RustBridge.settings.accentColor, 0xFF0080FF.toInt())
 
     private lateinit var container: LinearLayout
     private var statusView: TextView? = null

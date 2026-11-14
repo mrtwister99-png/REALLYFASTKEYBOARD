@@ -107,7 +107,7 @@ Poznámky k odchylkám od zadání:
 ## 8. Testy a benchmarky
 
 ```
-scripts/ci.sh                      # cargo test (101 testů)
+scripts/ci.sh                      # cargo test (102 testů)
 scripts/ci.sh --bench --jni        # + benchmarky + JVM test JNI mostu
 gradlew.bat :app:testDebugUnitTest # 7 testů JNI mostu (načte Rust jádro do JVM)
 ```
@@ -141,7 +141,7 @@ ani emulátoru); kód je na ně navržen (žádné alokace v `onDraw`, synchronn
 
 ## 10. Známé limitace
 
-- **Netestováno na reálném zařízení – včetně vzhledu Fáze 2** (animace, bubliny, stíny jsem neviděl na displeji). Ověřeno: build APK, 101 Rust testů, JNI most v JVM. Chování
+- **Netestováno na reálném zařízení – včetně vzhledu Fáze 2** (animace, bubliny, stíny jsem neviděl na displeji). Ověřeno: build APK, 102 Rust testů, JNI most v JVM. Chování
   v aplikacích, vzhled na displeji a gesta je potřeba vyzkoušet na telefonu.
 - Švih nahoru/dolů (Caps / schovat) musí být rychlý, dlouhý a téměř svislý; výjimečně se může splést
   se swipe psaním svislého slova. Lze vypnout.
