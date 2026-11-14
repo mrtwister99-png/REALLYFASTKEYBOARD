@@ -42,9 +42,25 @@ class Settings(val json: JSONObject) {
     val keyRadiusDp: Int get() = json.optInt("key_radius_dp", 10)
     val animations: Boolean get() = json.optBoolean("animations", true)
     val swipeTrail: Boolean get() = json.optBoolean("swipe_trail", true)
+    val swipeGlow: Boolean get() = json.optBoolean("swipe_glow", true)
 
     /** Kopie k uprave (SettingsActivity). */
     fun edit(): JSONObject = JSONObject(json.toString())
+}
+
+/**
+ * Vyska plochy klaves v px: radky * key_height_dp, nejvyse keyboard_height_percent obrazovky.
+ * Pouziva klavesnice i zivy nahled v nastaveni, aby ukazovaly totez.
+ */
+fun keyboardKeysHeight(res: android.content.res.Resources, s: Settings, barHeightPx: Int): Int {
+    val dm = res.displayMetrics
+    val rows = if (s.showNumberRow) 5 else 4
+    val landscape = res.configuration.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
+    val percent = if (landscape) minOf(s.keyboardHeightPercent + 14, 58) else s.keyboardHeightPercent
+    val byKeys = rows * s.keyHeightDp * dm.density
+    val cap = dm.heightPixels * percent / 100f - barHeightPx
+    val minimum = rows * (if (landscape) 32f else 40f) * dm.density
+    return maxOf(minOf(byKeys, cap), minimum).toInt()
 }
 
 /**

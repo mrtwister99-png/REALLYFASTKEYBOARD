@@ -50,6 +50,10 @@ pub struct Settings {
     pub animations: bool,
     /// Stopa za prstem pri swipe.
     pub swipe_trail: bool,
+    /// Rozsviceni klaves: projete klavesy behem tahu + pismena vysledneho slova.
+    pub swipe_glow: bool,
+    /// Prizpusobeni swipe stylu psani (posun stredu klaves podle potvrzenych tahu).
+    pub swipe_adapt: bool,
     // --- gesta (kazde lze vypnout) ---
     pub gesture_delete_word: bool,
     pub gesture_space_cursor: bool,
@@ -93,6 +97,8 @@ impl Default for Settings {
             key_radius_dp: 10,
             animations: true,
             swipe_trail: true,
+            swipe_glow: true,
+            swipe_adapt: true,
             gesture_delete_word: true,
             gesture_space_cursor: true,
             gesture_swipe_up_caps: true,
@@ -269,7 +275,7 @@ mod tests {
     fn appearance_defaults_and_limits() {
         let s = Settings::default();
         assert!(s.key_popup && s.key_hints && s.key_shadow && s.animations && s.swipe_trail);
-        assert!(s.voice_input);
+        assert!(s.voice_input && s.swipe_glow && s.swipe_adapt);
         assert_eq!(s.key_radius_dp, 10);
         let s = Settings::from_json(r#"{"key_radius_dp":99,"animations":false}"#).unwrap();
         assert_eq!(s.key_radius_dp, 22);

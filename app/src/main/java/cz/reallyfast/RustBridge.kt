@@ -49,9 +49,16 @@ object RustBridge {
     private const val OP_LAST_WORD = 30
     private const val OP_CURSOR_STEPS = 31
     private const val OP_INFO = 32
+    private const val OP_USER_ADD = 33
+    private const val OP_MACRO_LIST = 34
+    private const val OP_MACRO_SAVE = 35
+    private const val OP_MACRO_DELETE = 36
+    private const val OP_SHORTCUT = 37
+    private const val OP_CORRECTION = 38
+    private const val OP_CALIBRATION_RESET = 39
 
     const val FLAG_CAPITALIZE = 1
-    const val FLAG_SENTENCE_START = 2
+    const val FLAG_FROM_SWIPE = 4
 
     // Akce gest (gestures.rs)
     const val ACTION_NONE = 0
@@ -232,12 +239,60 @@ object RustBridge {
         }
     }
 
-    /** Navrhy: pro rozepsane slovo doplneni/opravy, pro prazdne `composing` predikce dalsiho slova. */
-    fun suggest(composing: String, prevWord: String, capitalize: Boolean): List<String> =
-        lines(call(OP_SUGGEST, composing, prevWord, if (capitalize) FLAG_CAPITALIZE.toLong() else 0))
+    /**
+     * Navrhy: pro rozepsane slovo doplneni/opravy, pro prazdne `composing` predikce dalsiho slova.
+     * `textBefore` = text pred kurzorem (bez rozepsaneho slova); Rust z nej vezme kontext dvou slov.
+     */
+    fun suggest(composing: String, textBefore: String, capitalize: Boolean): List<String> =
+        lines(call(OP_SUGGEST, composing, textBefore, if (capitalize) FLAG_CAPITALIZE.toLong() else 0))
 
-    fun learn(word: String, prevWord: String, sentenceStart: Boolean): Boolean =
-        call(OP_LEARN, word, prevWord, if (sentenceStart) FLAG_SENTENCE_START.toLong() else 0) == "1"
+    /**
+     * Nauci se potvrzene slovo. `textBefore` = text pred slovem (kontext pro bigramy a trigramy),
+     * `fromSwipe` = slovo vzniklo poslednim swipem (pouzije se k prizpusobeni swipe).
+     */
+    fun learn(word: String, textBefore: String, fromSwipe: Boolean): Boolean =
+        call(OP_LEARN, word, textBefore, if (fromSwipe) FLAG_FROM_SWIPE.toLong() else 0) == "1"
+
+    /** Uceni z oprav: po swipe bylo `bad` nahrazeno slovem `good`, nebo smazano (`good` prazdne). */
+    fun correction(bad: String, good: String) {
+        call(OP_CORRECTION, bad, good)
+    }
+
+    /** Zapomene prizpusobeni swipe (posuny stredu klaves). */
+    fun resetCalibration() {
+        call(OP_CALIBRATION_RESET)
+    }
+
+    // ------------------------------------------------------------------ makra
+
+    data class Macro(val id: Long, val name: String, val text: String, val shortcut: String)
+
+    fun macros(): List<Macro> = try {
+        val arr = JSONArray(call(OP_MACRO_LIST))
+        List(arr.length()) { i ->
+            val o = arr.getJSONObject(i)
+            Macro(o.getLong("id"), o.getString("name"), o.getString("text"), o.getString("shortcut"))
+        }
+    } catch (t: Throwable) {
+        emptyList()
+    }
+
+    /** Ulozi makro (id 0 = nove). Vraci false, kdyz je text prazdny nebo je maker prilis mnoho. */
+    fun saveMacro(id: Long, name: String, text: String, shortcut: String): Boolean {
+        val o = JSONObject()
+        o.put("id", id)
+        o.put("name", name)
+        o.put("text", text)
+        o.put("shortcut", shortcut)
+        return call(OP_MACRO_SAVE, o.toString()) == "1"
+    }
+
+    fun deleteMacro(id: Long) {
+        call(OP_MACRO_DELETE, null, null, id)
+    }
+
+    /** Text makra pro napsanou zkratku; prazdny retezec, kdyz zadna nesedi. */
+    fun expandShortcut(token: String): String = call(OP_SHORTCUT, token)
 
     fun gesture(startKind: Int, dx: Float, dy: Float, dtMs: Float, keyW: Float, keyH: Float): Int =
         call(OP_GESTURE, "$startKind,$dx,$dy,$dtMs,$keyW,$keyH").toIntOrNull() ?: ACTION_NONE
@@ -271,6 +326,9 @@ object RustBridge {
     } catch (t: Throwable) {
         emptyList()
     }
+
+    /** Rucni pridani slova do osobniho slovniku. */
+    fun addUserWord(word: String): Boolean = call(OP_USER_ADD, word) == "1"
 
     fun deleteUserWord(word: String) {
         call(OP_USER_DELETE, word)

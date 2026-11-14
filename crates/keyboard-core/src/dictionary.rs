@@ -2,8 +2,9 @@
 //! a tabulka nejcastejsich slov pro kratke predpony.
 //!
 //! Format souboru `dictionary.bin`:
-//!   "RBD3" | u32 pocet jazyku | pro kazdy jazyk: [u8;2] kod + 6x u32 delky sekci | data sekci
-//! Sekce jazyka: words.fst, bigram_index.fst, bigram_blob, prefix_index.fst, prefix_blob, swipe.fst.
+//!   "RBD4" | u32 pocet jazyku | pro kazdy jazyk: [u8;2] kod + 8x u32 delky sekci | data sekci
+//! Sekce jazyka: words.fst, bigram_index.fst, bigram_blob, prefix_index.fst, prefix_blob, swipe.fst,
+//! trigram_index.fst, trigram_blob (klic trigramu = slovo1 + mezera + slovo2).
 //! swipe.fst: slova bez diakritiky a apostrofu -> 255 - nejvyssi frekvence variant. Diky tomu je
 //! soucet vystupu po ceste predponou = 255 - nejvyssi frekvence slova pod touto predponou
 //! (FST tlaci spolecne minimum vystupu ke koreni), coz beam search pouziva jako vyhled. Swipe decoder
@@ -19,7 +20,7 @@ use std::fs::File;
 use std::io::{self, BufReader, BufWriter, Read, Write};
 use std::path::Path;
 
-const MAGIC: &[u8; 4] = b"RBD3";
+const MAGIC: &[u8; 4] = b"RBD4";
 const CAP_BIT: u64 = 1 << 8;
 /// Delka predpon v tabulce nejcastejsich slov (0 = nejcastejsi slova jazyka).
 pub const PREFIX_TABLE_LEN: usize = 3;
@@ -50,6 +51,8 @@ pub struct DictData {
     pub prefix_idx: Vec<u8>,
     pub prefix_blob: Vec<u8>,
     pub swipe: Vec<u8>,
+    pub trigram_idx: Vec<u8>,
+    pub trigram_blob: Vec<u8>,
 }
 
 pub struct Dictionary {
@@ -60,6 +63,8 @@ pub struct Dictionary {
     prefix_idx: Map<Vec<u8>>,
     prefix_blob: Vec<u8>,
     swipe: Map<Vec<u8>>,
+    trigram_idx: Map<Vec<u8>>,
+    trigram_blob: Vec<u8>,
 }
 
 fn bad(msg: &str) -> io::Error {
@@ -68,6 +73,14 @@ fn bad(msg: &str) -> io::Error {
 
 fn fst_err(e: fst::Error) -> io::Error {
     io::Error::new(io::ErrorKind::InvalidData, e.to_string())
+}
+
+fn trigram_key(w1: &[u8], w2: &[u8]) -> Vec<u8> {
+    let mut k = Vec::with_capacity(w1.len() + w2.len() + 1);
+    k.extend_from_slice(w1);
+    k.push(b' ');
+    k.extend_from_slice(w2);
+    k
 }
 
 fn push_list(blob: &mut Vec<u8>, items: &[Vec<u8>]) -> u64 {
@@ -97,6 +110,15 @@ impl DictData {
     /// Postavi slovnik. `words`: (slovo, frekvence, vlastni jmeno), `bigrams`: (w1, w2, pocet).
     /// Slova mimo abecedu se tise preskoci.
     pub fn build(words: &[(String, u8, bool)], bigrams: &[(String, String, u32)]) -> io::Result<DictData> {
+        Self::build_with_trigrams(words, bigrams, &[])
+    }
+
+    /// Jako `build`, navic s trigramy (w1, w2, w3, pocet).
+    pub fn build_with_trigrams(
+        words: &[(String, u8, bool)],
+        bigrams: &[(String, String, u32)],
+        trigrams: &[(String, String, String, u32)],
+    ) -> io::Result<DictData> {
         let mut map: BTreeMap<Vec<u8>, Entry> = BTreeMap::new();
         for (w, freq, cap) in words {
             let Some(enc) = charmap::encode_word(w) else { continue };
@@ -164,11 +186,40 @@ impl DictData {
         }
         let swipe = sb.into_inner().map_err(fst_err)?;
 
-        Ok(DictData { words: words_fst, bigram_idx, bigram_blob, prefix_idx, prefix_blob, swipe })
+        let mut by_ctx: BTreeMap<Vec<u8>, Vec<(u32, Vec<u8>)>> = BTreeMap::new();
+        for (a, b, c, n) in trigrams {
+            let (Some(ea), Some(eb), Some(ec)) = (charmap::encode_word(a), charmap::encode_word(b), charmap::encode_word(c)) else {
+                continue;
+            };
+            if map.contains_key(&ea) && map.contains_key(&eb) && map.contains_key(&ec) {
+                by_ctx.entry(trigram_key(&ea, &eb)).or_default().push((*n, ec));
+            }
+        }
+        let mut trigram_blob = Vec::new();
+        let mut tb = MapBuilder::memory();
+        for (k, mut list) in by_ctx {
+            list.sort_by(|a, b| b.0.cmp(&a.0).then(a.1.cmp(&b.1)));
+            list.dedup_by(|a, b| a.1 == b.1);
+            let items: Vec<Vec<u8>> = list.into_iter().take(6).map(|t| t.1).collect();
+            let off = push_list(&mut trigram_blob, &items);
+            tb.insert(&k, off).map_err(fst_err)?;
+        }
+        let trigram_idx = tb.into_inner().map_err(fst_err)?;
+
+        Ok(DictData { words: words_fst, bigram_idx, bigram_blob, prefix_idx, prefix_blob, swipe, trigram_idx, trigram_blob })
     }
 
-    fn sections(&self) -> [&Vec<u8>; 6] {
-        [&self.words, &self.bigram_idx, &self.bigram_blob, &self.prefix_idx, &self.prefix_blob, &self.swipe]
+    fn sections(&self) -> [&Vec<u8>; 8] {
+        [
+            &self.words,
+            &self.bigram_idx,
+            &self.bigram_blob,
+            &self.prefix_idx,
+            &self.prefix_blob,
+            &self.swipe,
+            &self.trigram_idx,
+            &self.trigram_blob,
+        ]
     }
 }
 
@@ -217,7 +268,7 @@ pub fn load_file(path: &Path) -> io::Result<Vec<Dictionary>> {
     for _ in 0..n {
         let mut tag = [0u8; 2];
         r.read_exact(&mut tag)?;
-        let mut lens = [0usize; 6];
+        let mut lens = [0usize; 8];
         for l in lens.iter_mut() {
             *l = read_u32(&mut r)? as usize;
             if *l > 256 << 20 {
@@ -228,13 +279,13 @@ pub fn load_file(path: &Path) -> io::Result<Vec<Dictionary>> {
     }
     let mut out = Vec::with_capacity(n);
     for (lang, lens) in headers {
-        let mut secs: [Vec<u8>; 6] = Default::default();
+        let mut secs: [Vec<u8>; 8] = Default::default();
         for (sec, len) in secs.iter_mut().zip(lens) {
             sec.resize(len, 0);
             r.read_exact(sec)?;
         }
-        let [words, bigram_idx, bigram_blob, prefix_idx, prefix_blob, swipe] = secs;
-        let data = DictData { words, bigram_idx, bigram_blob, prefix_idx, prefix_blob, swipe };
+        let [words, bigram_idx, bigram_blob, prefix_idx, prefix_blob, swipe, trigram_idx, trigram_blob] = secs;
+        let data = DictData { words, bigram_idx, bigram_blob, prefix_idx, prefix_blob, swipe, trigram_idx, trigram_blob };
         out.push(Dictionary::from_data(&lang, data)?);
     }
     Ok(out)
@@ -250,6 +301,8 @@ impl Dictionary {
             prefix_idx: Map::new(d.prefix_idx).map_err(fst_err)?,
             prefix_blob: d.prefix_blob,
             swipe: Map::new(d.swipe).map_err(fst_err)?,
+            trigram_idx: Map::new(d.trigram_idx).map_err(fst_err)?,
+            trigram_blob: d.trigram_blob,
         })
     }
 
@@ -304,6 +357,14 @@ impl Dictionary {
     pub fn bigrams(&self, w1: &[u8]) -> Vec<Vec<u8>> {
         match self.bigram_idx.get(w1) {
             Some(off) => read_list(&self.bigram_blob, off as usize),
+            None => Vec::new(),
+        }
+    }
+
+    /// Nejcastejsi nasledujici slova po dvojici `w1 w2` (zakodovane).
+    pub fn trigrams(&self, w1: &[u8], w2: &[u8]) -> Vec<Vec<u8>> {
+        match self.trigram_idx.get(trigram_key(w1, w2)) {
+            Some(off) => read_list(&self.trigram_blob, off as usize),
             None => Vec::new(),
         }
     }
@@ -402,6 +463,26 @@ mod tests {
         assert_eq!(loaded[0].lang, "cs");
         assert_eq!(loaded[0].lookup_str("svět").map(|e| e.freq), Some(130));
         assert_eq!(loaded[0].bigrams(&charmap::encode_word("ahoj").unwrap()).len(), 1);
+    }
+
+    #[test]
+    fn trigrams_lookup_and_roundtrip() {
+        let words: Vec<(String, u8, bool)> =
+            ["jak", "se", "máš", "daří", "to"].iter().map(|w| (w.to_string(), 150u8, false)).collect();
+        let tri = vec![
+            ("jak".to_string(), "se".to_string(), "máš".to_string(), 9u32),
+            ("jak".to_string(), "se".to_string(), "daří".to_string(), 4),
+            ("jak".to_string(), "se".to_string(), "neznámé".to_string(), 99),
+        ];
+        let data = DictData::build_with_trigrams(&words, &[], &tri).unwrap();
+        let path = std::env::temp_dir().join(format!("rb_dict_tri_{}.bin", std::process::id()));
+        write_file(&path, &[("cs", &data)]).unwrap();
+        let d = load_file(&path).unwrap().remove(0);
+        let _ = std::fs::remove_file(&path);
+        let e = |s: &str| charmap::encode_word(s).unwrap();
+        let next: Vec<String> = d.trigrams(&e("jak"), &e("se")).iter().map(|w| charmap::decode_word(w)).collect();
+        assert_eq!(next, vec!["máš", "daří"]);
+        assert!(d.trigrams(&e("se"), &e("jak")).is_empty());
     }
 
     #[test]

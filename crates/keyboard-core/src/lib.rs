@@ -12,6 +12,7 @@ pub mod gestures;
 mod jni;
 pub mod layout;
 pub mod learning;
+pub mod macros;
 pub mod predict;
 pub mod settings;
 pub mod storage;
@@ -60,10 +61,19 @@ pub const OP_SHIFT_TAP: i32 = 29;
 pub const OP_LAST_WORD: i32 = 30;
 pub const OP_CURSOR_STEPS: i32 = 31;
 pub const OP_INFO: i32 = 32;
+pub const OP_USER_ADD: i32 = 33;
+pub const OP_MACRO_LIST: i32 = 34;
+pub const OP_MACRO_SAVE: i32 = 35;
+pub const OP_MACRO_DELETE: i32 = 36;
+pub const OP_SHORTCUT: i32 = 37;
+pub const OP_CORRECTION: i32 = 38;
+pub const OP_CALIBRATION_RESET: i32 = 39;
 
 /// Priznaky pro swipe / suggest.
 pub const FLAG_CAPITALIZE: i64 = 1;
 pub const FLAG_SENTENCE_START: i64 = 2;
+/// Uceni: slovo bylo napsano swipem (pouzije se k prizpusobeni swipe).
+pub const FLAG_FROM_SWIPE: i64 = 4;
 
 pub fn now_ms() -> i64 {
     SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_millis() as i64).unwrap_or(0)
@@ -77,6 +87,8 @@ pub struct Engine {
     user: UserDict,
     decoder: SwipeDecoder,
     geom: Option<KeyGeom>,
+    macros: Vec<macros::Macro>,
+    calibration: swipe::Calibration,
 }
 
 fn active<'a>(dicts: &'a [Dictionary], s: &Settings) -> Vec<&'a Dictionary> {
@@ -95,7 +107,11 @@ impl Engine {
             storage.delete_word(&w);
         }
         storage.clip_expire(now, settings.clipboard_ttl_minutes);
+        let macros = storage.macro_list();
+        let calibration = storage.load_calibration();
         Engine {
+            macros,
+            calibration,
             storage,
             settings,
             settings_existed: existed,
@@ -172,13 +188,16 @@ impl Engine {
             return Vec::new();
         }
         let Some(geom) = self.geom else { return Vec::new() };
+        // Prizpusobeni stylu psani: stredy klaves posunute podle potvrzenych tahu.
+        let geom = if self.settings.swipe_adapt { self.calibration.apply(&geom) } else { geom };
         let dicts = active(&self.dicts, &self.settings);
         let res = self.decoder.decode(raw, &geom, &dicts, &self.user, self.settings.swipe_sensitivity, now);
         res.into_iter().map(|c| if capitalize { charmap::capitalize(&c.word) } else { c.word }).collect()
     }
 
     /// Navrhy do suggestion baru: pro rozepsane slovo doplneni/opravy, jinak predikce dalsiho slova.
-    pub fn suggest(&self, composing: &str, prev: &str, capitalize: bool, now: i64) -> Vec<String> {
+    /// `before` je text pred kurzorem (bez rozepsaneho slova) - z nej se bere kontext dvou slov.
+    pub fn suggest(&self, composing: &str, before: &str, capitalize: bool, now: i64) -> Vec<String> {
         if !self.settings.show_suggestions {
             return Vec::new();
         }
@@ -191,36 +210,127 @@ impl Engine {
             predictions: self.settings.predictions,
         };
         if composing.is_empty() {
-            predict::predict_next(&ctx, prev, capitalize)
+            let (prev2, prev) = gestures::last_two_words(before);
+            predict::predict_next(&ctx, prev2, prev, capitalize)
         } else {
-            predict::suggest_composing(&ctx, composing)
+            let mut out = predict::suggest_composing(&ctx, composing);
+            // Zkratka makra: rozvinuty text jako prvni navrh.
+            if let Some(text) = macros::expand(&self.macros, composing) {
+                out.retain(|w| w != text);
+                out.insert(0, text.to_string());
+                out.truncate(predict::MAX_SUGGESTIONS);
+            }
+            out
         }
     }
 
-    /// Nauci se potvrzene slovo. Vraci false, kdyz je uceni vypnute nebo slovo neni k uceni.
-    pub fn learn(&mut self, word: &str, prev: &str, sentence_start: bool, now: i64) -> bool {
-        if !self.settings.learn_from_typing {
-            return false;
-        }
-        // Normalizace velikosti pismen: zname slovo podle slovniku, nezname na zacatku vety malymi.
-        let stored = match charmap::encode_word(word) {
+    /// Sjednoti velikost pismen: zname slovo podle slovniku, nezname na zacatku vety malymi.
+    fn normalize_word(&self, word: &str, sentence_start: bool) -> String {
+        match charmap::encode_word(word) {
             Some(enc) => match self.dicts.iter().find(|d| d.lookup(&enc).is_some()) {
                 Some(d) => d.render(&enc),
                 None if sentence_start => word.to_lowercase(),
                 None => word.to_string(),
             },
             None => word.to_string(),
-        };
+        }
+    }
+
+    /// Nauci se potvrzene slovo. Vraci false, kdyz je uceni vypnute nebo slovo neni k uceni.
+    /// `before` je text pred slovem (kontext pro bigramy / trigramy a zacatek vety),
+    /// `from_swipe` rika, ze slovo vzniklo poslednim swipem (pouzije se k prizpusobeni swipe).
+    pub fn learn(&mut self, word: &str, before: &str, from_swipe: bool, now: i64) -> bool {
+        if !self.settings.learn_from_typing {
+            return false;
+        }
+        let (prev2, prev) = gestures::last_two_words(before);
+        let stored = self.normalize_word(word, gestures::should_capitalize(before));
+        if from_swipe && self.settings.swipe_adapt {
+            self.adapt_swipe(&stored);
+        }
         match self.user.learn(&stored, prev, now) {
             Some(l) => {
                 self.storage.put_word(&l.word, l.count, now);
                 if let Some((w1, w2, c)) = l.bigram {
                     self.storage.put_bigram(&w1, &w2, c);
                 }
+                if let Some((ctx, w, c)) = self.user.learn_trigram(prev2, prev, &stored) {
+                    self.storage.put_trigram(&ctx, &w, c);
+                }
+                if let Some(c) = self.user.forgive(&stored) {
+                    self.storage.put_correction(&stored, "", c);
+                }
                 true
             }
             None => false,
         }
+    }
+
+    /// Potvrzeny swipe: posune stredy klaves smerem k mistum, kudy uzivatel skutecne jezdi.
+    fn adapt_swipe(&mut self, word: &str) {
+        let Some(geom) = self.geom else { return };
+        let Some(enc) = charmap::encode_word(word) else { return };
+        let folded = charmap::fold_bytes(&enc);
+        let pts = *self.decoder.last_resampled();
+        if self.calibration.learn(&folded, &pts, &geom, self.settings.swipe_sensitivity) {
+            self.storage.save_calibration(&self.calibration);
+        }
+    }
+
+    pub fn reset_calibration(&mut self) {
+        self.calibration = swipe::Calibration::default();
+        self.storage.clear_calibration();
+    }
+
+    /// Uceni z oprav: uzivatel po swipe nahradil `bad` slovem `good`,
+    /// nebo slovo smazal (`good` prazdne).
+    pub fn note_correction(&mut self, bad: &str, good: &str) {
+        if !self.settings.learn_from_typing || bad.is_empty() {
+            return;
+        }
+        let bad = self.normalize_word(bad, true);
+        let good = if good.is_empty() { String::new() } else { self.normalize_word(good, true) };
+        if bad == good {
+            return;
+        }
+        let c = self.user.note_correction(&bad, &good);
+        self.storage.put_correction(&bad, &good, c);
+    }
+
+    /// Rucni pridani slova do osobniho slovniku (z nastaveni) - funguje i pri vypnutem uceni.
+    pub fn add_user_word(&mut self, word: &str, now: i64) -> bool {
+        let word = word.trim();
+        match self.user.learn(word, "", now) {
+            Some(l) => {
+                self.storage.put_word(&l.word, l.count, now);
+                true
+            }
+            None => false,
+        }
+    }
+
+    pub fn macros(&self) -> &[macros::Macro] {
+        &self.macros
+    }
+
+    /// Ulozi makro z JSON ({id, name, text, shortcut}); id 0 = nove.
+    pub fn save_macro(&mut self, json: &str) -> bool {
+        let Some(m) = serde_json::from_str::<macros::Macro>(json).ok().and_then(macros::Macro::normalized) else {
+            return false;
+        };
+        let ok = self.storage.macro_save(&m);
+        self.macros = self.storage.macro_list();
+        ok
+    }
+
+    pub fn delete_macro(&mut self, id: i64) {
+        self.storage.macro_delete(id);
+        self.macros = self.storage.macro_list();
+    }
+
+    /// Text makra pro napsanou zkratku; prazdny retezec, kdyz zadna nesedi.
+    pub fn expand_shortcut(&self, token: &str) -> &str {
+        macros::expand(&self.macros, token).unwrap_or("")
     }
 
     pub fn delete_user_word(&mut self, word: &str) {
@@ -264,6 +374,17 @@ impl Engine {
         } else {
             emoji::category(cat).into_iter().map(String::from).collect()
         }
+    }
+
+    /// Prumerna geometricka chyba nejlepsiho kandidata pro danou drahu (jen pro testy a ladeni).
+    pub fn decoder_cost(&mut self, raw: &[f32]) -> f32 {
+        let Some(geom) = self.geom else { return f32::INFINITY };
+        let geom = if self.settings.swipe_adapt { self.calibration.apply(&geom) } else { geom };
+        let dicts = active(&self.dicts, &self.settings);
+        self.decoder
+            .decode(raw, &geom, &dicts, &self.user, self.settings.swipe_sensitivity, 0)
+            .first()
+            .map_or(f32::INFINITY, |c| c.cost)
     }
 
     pub fn info(&self) -> String {
@@ -367,7 +488,23 @@ pub fn dispatch(op: i32, a: &[u8], b: &[u8], num: i64) -> Vec<u8> {
             e.layout(f[0], f[1], f[2] as u8, num == 0).to_json().into_bytes()
         }
         OP_SUGGEST => lines(e.suggest(&sa, &sb, num & FLAG_CAPITALIZE != 0, now)),
-        OP_LEARN => bool_bytes(e.learn(&sa, &sb, num & FLAG_SENTENCE_START != 0, now)),
+        OP_LEARN => bool_bytes(e.learn(&sa, &sb, num & FLAG_FROM_SWIPE != 0, now)),
+        OP_USER_ADD => bool_bytes(e.add_user_word(&sa, now)),
+        OP_MACRO_LIST => serde_json::to_vec(e.macros()).unwrap_or_default(),
+        OP_MACRO_SAVE => bool_bytes(e.save_macro(&sa)),
+        OP_MACRO_DELETE => {
+            e.delete_macro(num);
+            Vec::new()
+        }
+        OP_SHORTCUT => e.expand_shortcut(&sa).as_bytes().to_vec(),
+        OP_CORRECTION => {
+            e.note_correction(&sa, &sb);
+            Vec::new()
+        }
+        OP_CALIBRATION_RESET => {
+            e.reset_calibration();
+            Vec::new()
+        }
         OP_USER_WORDS => serde_json::to_vec(&e.user().list()).unwrap_or_default(),
         OP_USER_DELETE => {
             e.delete_user_word(&sa);
@@ -517,6 +654,71 @@ mod tests {
         assert_eq!(e.suggest("", "dobrý", false, NOW)[0], "pes");
         e.delete_user_word("pes");
         assert_eq!(e.suggest("", "dobrý", false, NOW)[0], "den");
+    }
+
+    #[test]
+    fn learned_trigram_drives_prediction() {
+        let mut e = engine_with_dict();
+        e.learn("pes", "ahoj dobrý ", false, NOW);
+        // kontext dvou slov ma prednost pred vestavenym bigramem "dobrý den"
+        assert_eq!(e.suggest("", "Ahoj dobrý ", false, NOW)[0], "pes");
+        assert!(e.suggest("", "Ahoj dobrý ", false, NOW).contains(&"den".to_string()));
+    }
+
+    #[test]
+    fn macros_expand_and_show_in_suggestions() {
+        let mut e = engine_with_dict();
+        assert!(e.save_macro(r#"{"id":0,"name":"Pozdrav","text":"S pozdravem","shortcut":"mfg"}"#));
+        assert!(!e.save_macro(r#"{"id":0,"name":"Prázdné","text":"  "}"#));
+        assert!(!e.save_macro("nonsense"));
+        assert_eq!(e.macros().len(), 1);
+        assert_eq!(e.expand_shortcut("MFG"), "S pozdravem");
+        assert_eq!(e.expand_shortcut("ahoj"), "");
+        assert_eq!(e.suggest("mfg", "", false, NOW)[0], "S pozdravem");
+        let id = e.macros()[0].id;
+        e.delete_macro(id);
+        assert!(e.macros().is_empty());
+        assert_eq!(e.expand_shortcut("mfg"), "");
+    }
+
+    #[test]
+    fn manual_word_and_corrections() {
+        let mut e = engine_with_dict();
+        let mut s = e.settings().clone();
+        s.learn_from_typing = false;
+        e.set_settings(s);
+        // rucni pridani funguje i s vypnutym ucenim, opravy ne
+        assert!(e.add_user_word(" Krakonoš ", NOW));
+        assert!(!e.add_user_word("abc123", NOW));
+        assert!(e.user().get("Krakonoš").is_some());
+        e.note_correction("pes", "");
+        assert_eq!(e.user().rejections("pes"), 0);
+        let mut s = e.settings().clone();
+        s.learn_from_typing = true;
+        e.set_settings(s);
+        e.note_correction("Pes", "");
+        assert_eq!(e.user().rejections("pes"), 1);
+        e.learn("pes", "", false, NOW);
+        assert_eq!(e.user().rejections("pes"), 0);
+    }
+
+    #[test]
+    fn confirmed_swipes_adapt_key_centers() {
+        let mut e = engine_with_dict();
+        let l = e.layout(1440.0, 1000.0, MODE_LETTERS, true);
+        let g = l.geom();
+        let mut path = swipe::ideal_path("ahoj", &g, 12);
+        for s in path.chunks_exact_mut(3) {
+            s[0] += 0.25 * g.unit_w;
+        }
+        let first = e.decoder_cost(&path);
+        for _ in 0..8 {
+            assert_eq!(e.swipe(&path, false, NOW)[0], "ahoj");
+            e.learn("ahoj", "", true, NOW);
+        }
+        assert!(e.decoder_cost(&path) < first * 0.5);
+        e.reset_calibration();
+        assert!((e.decoder_cost(&path) - first).abs() < 1e-4);
     }
 
     #[test]

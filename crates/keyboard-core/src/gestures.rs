@@ -136,6 +136,18 @@ pub fn last_word(before: &str) -> &str {
     &t[start..]
 }
 
+/// Posledni dve slova pred kurzorem (predposledni, posledni) pro trigramovou predikci.
+/// Konec vety mezi slovy kontext prerusi.
+pub fn last_two_words(before: &str) -> (&str, &str) {
+    let t = before.trim_end_matches([' ', '\t']);
+    let start = t.trim_end_matches(is_word_char).len();
+    let prev = &t[start..];
+    if prev.is_empty() {
+        return ("", "");
+    }
+    (last_word(&t[..start]), prev)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -245,6 +257,16 @@ mod tests {
         assert_eq!((st.keyboard_height_percent, st.key_height_dp), (50, 72));
         apply_pinch(&mut st, 0.1);
         assert_eq!((st.keyboard_height_percent, st.key_height_dp), (30, 48));
+    }
+
+    #[test]
+    fn last_two_words_extraction() {
+        assert_eq!(last_two_words("jak se máš "), ("se", "máš"));
+        assert_eq!(last_two_words("jak se"), ("jak", "se"));
+        assert_eq!(last_two_words("ahoj"), ("", "ahoj"));
+        assert_eq!(last_two_words("Konec. Dobrý"), ("", "Dobrý"));
+        assert_eq!(last_two_words("Konec. "), ("", ""));
+        assert_eq!(last_two_words(""), ("", ""));
     }
 
     #[test]

@@ -48,10 +48,16 @@ takže nic odeslat nemůže.
 | Tap | CZ QWERTZ / EN QWERTY, Shift (tap = jedno písmeno, double tap = Caps Lock), dlouhý stisk = diakritika (a→á, e→é ě, u→ú ů …), zrychlující se backspace, psaní dvěma palci |
 | Swipe | 64 bodů, beam search (šířka 50) přes trie, skóre 0.6 geometrie + 0.25 jazyk + 0.15 osobní frekvence, 3 návrhy, diakritika se doplní sama, citlivost 0.5–1.5 |
 | Návrhy | doplňování slova, oprava překlepů (edit distance ≤ 2, nikdy automaticky), doplnění diakritiky, predikce dalšího slova z bigramů |
-| Učení | osobní slovník v SQLite (počet + čas použití), osobní bigramy, zapomínání, mazání slov, export/import JSON, vypínač |
+| Učení | osobní slovník v SQLite (počet + čas použití), osobní bigramy a trigramy, zapomínání, vypínač; samostatná obrazovka Osobní slovník: ruční přidání slova, hledání, mazání, export/import JSON |
 | Gesta | tah vlevo z ⌫ = smazat slovo, tah po mezerníku = kurzor (rychlý švih = o slovo), švih nahoru = Caps, švih dolů = schovat, pinch = výška; vše vypínatelné |
-| Jazyk | globus nebo dlouhý stisk mezerníku: Čeština → English → Čeština · English |
-| Diktování | podržení Enteru = přepis řeči do textu (průběžně se zobrazuje, po puštění se potvrdí); jazyk podle nastavení klávesnice; lze vypnout |
+| Jazyk | dlouhý stisk mezerníku: Čeština → English → Čeština · English |
+| Makra a zkratky | tlačítko s bleskem otevře seznam vlastních maker (textových bloků); makro se zkratkou se vloží i napsáním zkratky a mezery (`mfg` → „S pozdravem“); v textu lze použít `{datum}` a `{cas}`; správa v Nastavení → Makra a zkratky |
+| Učení z oprav | když po swipe vybereš jinou alternativu nebo slovo hned smažeš, klávesnice si to zapamatuje a chybné slovo příště nabídne níž |
+| Přizpůsobení swipe | z potvrzených tahů se učí, kudy prstem skutečně jezdíš, a posouvá si středy kláves (lze vypnout a smazat) |
+| Predikce z kontextu dvou slov | trigramy z korpusu (cs 47 749, en 113 443) + osobní trigramy |
+| Rozsvícení kláves | během swipe se podbarví projeté klávesy; písmena výsledného slova se rozsvítí žlutě (1 s náběh, 0,5 s drží, zhasne) |
+| Živý náhled | v nastavení je dole připnutá klávesnice ve skutečné velikosti, každá změna je hned vidět |
+| Diktování | podržení Enteru = přepis řeči do textu (průběžně se zobrazuje, po puštění se potvrdí); mikrofon na klávesnici se zvětšuje podle hlasitosti; postupně zkouší rozpoznávání v zařízení, službu aplikace Google a výchozí službu systému; lze vypnout |
 | Rychlá nabídka | podržení `?123`: emoji, schránka, nastavení klávesnice |
 | Schránka | historie 30 položek, automatické mazání (výchozí 60 min), připnutí, smazání všeho, hesla a kódy se neukládají |
 | Emoji | nedávné, smajlíci, zvířata, jídlo, aktivity, symboly + hledání podle názvu (česky i anglicky) |
@@ -98,7 +104,7 @@ Závislosti Rustu: `serde`, `serde_json`, `rusqlite` (bundled SQLite), `fst`. JN
 | Leipzig Corpora `ces_news_2020_300K` | frekvence českých tvarů + bigramy | CC BY 4.0 |
 | Leipzig Corpora `eng_news_2020_300K` | anglická slova, frekvence + bigramy | CC BY 4.0 |
 
-Výsledek: **1 979 138 českých tvarů** a **58 100 anglických slov**, 7,6 MB. Slova bez frekvence mají
+Výsledek: **1 979 138 českých tvarů** a **58 100 anglických slov**, 9,3 MB včetně bigramů a trigramů. Slova bez frekvence mají
 nízkou výchozí frekvenci. Slovník se načítá na pozadí; tap psaní funguje okamžitě.
 
 Poznámky k odchylkám od zadání:
@@ -109,9 +115,9 @@ Poznámky k odchylkám od zadání:
 ## 8. Testy a benchmarky
 
 ```
-scripts/ci.sh                      # cargo test (102 testů)
+scripts/ci.sh                      # cargo test (120 testů)
 scripts/ci.sh --bench --jni        # + benchmarky + JVM test JNI mostu
-gradlew.bat :app:testDebugUnitTest # 7 testů JNI mostu (načte Rust jádro do JVM)
+gradlew.bat :app:testDebugUnitTest # 9 testů JNI mostu (načte Rust jádro do JVM)
 ```
 
 Benchmark `cargo bench` nad reálným slovníkem. **Měřeno na vývojovém PC (x86-64), ne na telefonu** –
@@ -119,7 +125,7 @@ na S25 Ultra čekej několikanásobně vyšší časy, stále s velkou rezervou 
 
 | Měření | Výsledek (PC) | Limit ze zadání |
 |---|---|---|
-| Načtení slovníku (7,6 MB) | 3,9 ms | neblokuje UI (běží na pozadí) |
+| Načtení slovníku (9,3 MB) | cca 4 ms | neblokuje UI (běží na pozadí) |
 | Dictionary lookup | 72 ns / dotaz | – |
 | Swipe decode, čeština | průměr 0,66 ms, nejhorší 1,00 ms | 30 ms |
 | Swipe decode, cs+en | průměr 1,21 ms, nejhorší 2,00 ms | 30 ms |
@@ -147,14 +153,16 @@ ani emulátoru); kód je na ně navržen (žádné alokace v `onDraw`, synchronn
 
 ## 10. Známé limitace
 
-- **Netestováno na reálném zařízení – včetně vzhledu Fáze 2** (animace, bubliny, stíny jsem neviděl na displeji). Ověřeno: build APK, 102 Rust testů, JNI most v JVM. Chování
+- **Netestováno na reálném zařízení – včetně vzhledu Fáze 2** (animace, bubliny, stíny jsem neviděl na displeji). Ověřeno: build APK, 120 Rust testů, JNI most v JVM. Chování
   v aplikacích, vzhled na displeji a gesta je potřeba vyzkoušet na telefonu.
 - Diktování závisí na službě rozpoznávání řeči v telefonu (kvalita češtiny, offline dostupnost); v polích pro hesla je vypnuté.
 - Švih nahoru/dolů (Caps / schovat) musí být rychlý, dlouhý a téměř svislý; výjimečně se může splést
   se swipe psaním svislého slova. Lze vypnout.
 - Dlouhý stisk mezerníku přepíná jazyk až po delší prodlevě (min. 500 ms), aby nekolidoval s tahem kurzoru.
 - Swipe nezná slova mimo slovník, dokud se je nenaučí tapem; nepíše víceslovné výrazy („na shledanou“).
-- Predikce je bigramová (jen podle předchozího slova), bez delšího kontextu.
+- Predikce se dívá nejvýš dvě slova zpět (trigramy); trigramy jsou jen z 300 tisíc vět korpusu, takže řidší spojení nezná.
+- Přizpůsobení swipe neukládá surové tahy – jen průměrný posun pro každé písmeno. Váhy skóre (0,6 / 0,25 / 0,15) se samy nemění.
+- Seznam maker na klávesnici ukazuje nejvýš 6 maker (ostatní jdou vložit zkratkou).
 - Automatická velká písmena se řídí příznaky textového pole; aplikace, které je nenastaví, je nedostanou.
 - Historie schránky se plní, jen když je reallyFAST! aktivní klávesnice (omezení Androidu 10+).
 - Emoji: cca 300 kusů, bez variant barvy pleti.
@@ -165,6 +173,6 @@ ani emulátoru); kód je na ně navržen (žádné alokace v `onDraw`, synchronn
 
 - Doladění vzhledu podle skutečného dojmu na displeji (velikosti písma, kontrast, rychlost animací).
 - Měření na S25 Ultra (frame time, paměť) a doladění vah swipe podle reálných tahů.
-- Trigramy / lepší jazykový model, učení z oprav.
+- Větší korpus pro trigramy, případně malý neuronový jazykový model.
 - Šifrování osobního slovníku klíčem z Android Keystore.
 - Jednoruční režim, plovoucí klávesnice, více jazyků.

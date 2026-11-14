@@ -40,6 +40,12 @@ class KeyboardView(context: Context) : View(context) {
         val label: String, val alts: String, val desc: String,
     ) {
         var pressed = false
+
+        /** Prst pres klavesu prejel behem aktualniho swipe. */
+        var passed = false
+
+        /** Cas zacatku rozsviceni (pismeno vysledneho slova); 0 = nesviti. */
+        var glowAt = 0L
         var changedAt = 0L
         val isLetter: Boolean get() = kind == KIND_CHAR && code in 'a'.code..'z'.code
 
@@ -60,7 +66,9 @@ class KeyboardView(context: Context) : View(context) {
         fun onSpaceLongPress()
         fun onPinchScale(scale: Float)
         /** Polozka nabidky po dlouhem stisku ?123: 0 = emoji, 1 = schranka, 2 = nastaveni. */
-        fun onMenuAction(index: Int)
+        fun onMenuAction(kind: Int, index: Int)
+        /** Tesne pred dekodovanim noveho swipe (sluzba uzavre uceni predchoziho slova). */
+        fun onBeforeSwipe()
         /** Enter podrzen: zacit diktovat. */
         fun onVoiceStart()
         /** Enter pusten (nebo dotyk zrusen): ukoncit poslech. */
@@ -113,9 +121,26 @@ class KeyboardView(context: Context) : View(context) {
         private const val T_MENU = 7
         private const val T_VOICE = 8
 
+        const val KIND_MACRO = 8
+
         const val MENU_EMOJI = 0
         const val MENU_CLIPBOARD = 1
         const val MENU_SETTINGS = 2
+
+        /** Druh nabidky: rychla (drzeni ?123) nebo seznam maker. */
+        const val MENU_KIND_QUICK = 0
+        const val MENU_KIND_MACRO = 1
+
+        const val ICON_NONE = -1
+        const val ICON_DIAMOND = 0
+        const val ICON_CLIPBOARD = 1
+        const val ICON_GEAR = 2
+        const val ICON_BOLT = 3
+
+        private const val GLOW_IN_MS = 1000L
+        private const val GLOW_HOLD_MS = 500L
+        private const val GLOW_COLOR = 0xFFFFD60A.toInt()
+        private const val GLOW_TEXT = 0xFF15151A.toInt()
     }
 
     var listener: Listener? = null
@@ -190,17 +215,23 @@ class KeyboardView(context: Context) : View(context) {
         drawShadow = s.keyShadow
         drawHints = s.keyHints
         drawTrailEnabled = s.swipeTrail
+        glowEnabled = s.swipeGlow
         showPreview = s.keyPopup
         keyRadius = s.keyRadiusDp * density
         fontScale = resources.configuration.fontScale
     }
 
     // --- nabidka po dlouhem stisku ?123
-    private val menuLabels = arrayOf(
+    private val quickLabels = listOf(
         context.getString(R.string.menu_emoji),
         context.getString(R.string.clipboard),
         context.getString(R.string.menu_settings),
     )
+    private val quickIcons = intArrayOf(ICON_DIAMOND, ICON_CLIPBOARD, ICON_GEAR)
+    private var menuItems: List<String> = emptyList()
+    private var menuIcons: IntArray = IntArray(0)
+    private var menuKind = MENU_KIND_QUICK
+    private var glowEnabled = true
     private var menuKey: Key? = null
     private var menuSel = -1
     /** Nabidka zustala otevrena po zvednuti prstu - polozka se vybere dalsim klepnutim. */
@@ -415,11 +446,20 @@ class KeyboardView(context: Context) : View(context) {
                 rect.set(cx - hw, cy - hh + shadowOffset * (1f - p), cx + hw, cy + hh + shadowOffset * (1f - p))
                 canvas.drawRoundRect(rect, radius, radius, fill)
             }
-            fill.color = if (p > 0f) Theme.blend(base, if (accentKey) theme.text else theme.keyPressed, if (accentKey) 0.25f * p else p) else base
+            var keyColor = if (p > 0f) Theme.blend(base, if (accentKey) theme.text else theme.keyPressed, if (accentKey) 0.25f * p else p) else base
+            if (k.passed) keyColor = Theme.blend(keyColor, theme.accent, 0.55f)
+            val glow = glowAmount(k, now)
+            if (glow > 0f) {
+                keyColor = Theme.blend(keyColor, GLOW_COLOR, glow)
+                animating = true
+            }
+            fill.color = keyColor
             rect.set(cx - hw, cy - hh, cx + hw, cy + hh)
             canvas.drawRoundRect(rect, radius, radius, fill)
 
-            val fg = if (accentKey) theme.onAccent else theme.text
+            var fg = if (accentKey) theme.onAccent else theme.text
+            if (k.passed) fg = Theme.blend(fg, theme.onAccent, 0.55f)
+            if (glow > 0f) fg = Theme.blend(fg, GLOW_TEXT, glow)
             when (k.kind) {
                 KIND_CHAR -> {
                     if (drawHints && k.hint.isNotEmpty()) {
@@ -451,6 +491,7 @@ class KeyboardView(context: Context) : View(context) {
         if (drawPreview(canvas, now)) animating = true
         drawPopup(canvas)
         drawMenu(canvas)
+        if (drawVoice(canvas)) animating = true
         if (animating) postInvalidateOnAnimation()
     }
 
@@ -503,19 +544,9 @@ class KeyboardView(context: Context) : View(context) {
                 path.lineTo(cx - s * 0.1f, cy + s * 0.35f)
                 canvas.drawPath(path, stroke)
             }
-            KIND_ENTER -> if (dictating) drawMic(canvas, cx, cy, s) else drawEnterIcon(canvas, cx, cy, s)
-            KIND_GLOBE -> {
-                // Prepinac jazyka: planeta s prstencem a "druzici" v accent barve.
-                canvas.drawCircle(cx, cy, s * 0.55f, stroke)
-                canvas.save()
-                canvas.rotate(-24f, cx, cy)
-                rect.set(cx - s * 1.3f, cy - s * 0.42f, cx + s * 1.3f, cy + s * 0.42f)
-                canvas.drawOval(rect, stroke)
-                canvas.restore()
-                fill.color = theme.accent
-                canvas.drawCircle(cx + s * 0.98f, cy - s * 0.8f, s * 0.2f, fill)
-            }
-            KIND_EMOJI -> drawClover(canvas, cx, cy, s, color)
+            KIND_ENTER -> drawEnterIcon(canvas, cx, cy, s)
+            KIND_MACRO -> drawBolt(canvas, cx, cy, s, color)
+            KIND_EMOJI -> drawDiamond(canvas, cx, cy, s, theme.accent)
         }
     }
 
@@ -652,29 +683,43 @@ class KeyboardView(context: Context) : View(context) {
         canvas.drawLine(cx, cy + s * 0.7f, cx, cy + s * 1.15f, stroke)
     }
 
-    /** Ctyrlistek (tlacitko emoji). */
-    private fun drawClover(canvas: Canvas, cx: Float, cy: Float, s: Float, color: Int) {
-        fill.color = color
-        val o = s * 0.47f
-        val r = s * 0.5f
-        val top = cy - s * 0.18f
-        canvas.drawCircle(cx - o, top - o, r, fill)
-        canvas.drawCircle(cx + o, top - o, r, fill)
-        canvas.drawCircle(cx - o, top + o, r, fill)
-        canvas.drawCircle(cx + o, top + o, r, fill)
+    /** Kosoctverec (diamant) - jen obrys v accent barve. Tlacitko emoji. */
+    private fun drawDiamond(canvas: Canvas, cx: Float, cy: Float, s: Float, color: Int) {
+        path.reset()
+        path.moveTo(cx, cy - s * 1.15f)
+        path.lineTo(cx + s * 0.9f, cy)
+        path.lineTo(cx, cy + s * 1.15f)
+        path.lineTo(cx - s * 0.9f, cy)
+        path.close()
         stroke.color = color
         stroke.style = Paint.Style.STROKE
-        stroke.strokeWidth = 1.7f * density
-        canvas.drawLine(cx + s * 0.1f, top + s * 0.3f, cx + s * 0.5f, cy + s * 1.2f, stroke)
+        stroke.strokeWidth = 2f * density
+        canvas.drawPath(path, stroke)
     }
 
-    private fun drawMenuIcon(canvas: Canvas, index: Int, cx: Float, cy: Float, s: Float, color: Int) {
+    /** Blesk - tlacitko maker. */
+    private fun drawBolt(canvas: Canvas, cx: Float, cy: Float, s: Float, color: Int) {
+        path.reset()
+        path.moveTo(cx + s * 0.25f, cy - s * 1.2f)
+        path.lineTo(cx - s * 0.7f, cy + s * 0.15f)
+        path.lineTo(cx - s * 0.05f, cy + s * 0.15f)
+        path.lineTo(cx - s * 0.25f, cy + s * 1.2f)
+        path.lineTo(cx + s * 0.7f, cy - s * 0.15f)
+        path.lineTo(cx + s * 0.05f, cy - s * 0.15f)
+        path.close()
         stroke.color = color
         stroke.style = Paint.Style.STROKE
         stroke.strokeWidth = 1.7f * density
-        when (index) {
-            MENU_EMOJI -> drawClover(canvas, cx, cy, s, color)
-            MENU_CLIPBOARD -> {
+        canvas.drawPath(path, stroke)
+    }
+
+    private fun drawMenuIcon(canvas: Canvas, icon: Int, cx: Float, cy: Float, s: Float, color: Int, selected: Boolean) {
+        stroke.color = color
+        stroke.style = Paint.Style.STROKE
+        stroke.strokeWidth = 1.7f * density
+        when (icon) {
+            ICON_DIAMOND -> drawDiamond(canvas, cx, cy, s, if (selected) color else theme.accent)
+            ICON_CLIPBOARD -> {
                 rect.set(cx - s * 0.85f, cy - s * 0.9f, cx + s * 0.85f, cy + s * 1.1f)
                 canvas.drawRoundRect(rect, s * 0.25f, s * 0.25f, stroke)
                 rect.set(cx - s * 0.4f, cy - s * 1.2f, cx + s * 0.4f, cy - s * 0.65f)
@@ -682,8 +727,7 @@ class KeyboardView(context: Context) : View(context) {
                 canvas.drawLine(cx - s * 0.4f, cy + s * 0.05f, cx + s * 0.4f, cy + s * 0.05f, stroke)
                 canvas.drawLine(cx - s * 0.4f, cy + s * 0.55f, cx + s * 0.4f, cy + s * 0.55f, stroke)
             }
-            else -> {
-                // Ozubene kolo: krouzek, stred a 8 zubu.
+            ICON_GEAR -> {
                 canvas.drawCircle(cx, cy, s * 0.78f, stroke)
                 canvas.drawCircle(cx, cy, s * 0.28f, stroke)
                 canvas.save()
@@ -693,14 +737,16 @@ class KeyboardView(context: Context) : View(context) {
                 }
                 canvas.restore()
             }
+            ICON_BOLT -> drawBolt(canvas, cx, cy, s, color)
         }
     }
 
-    /** Nabidka po dlouhem stisku ?123: emoji, schranka, nastaveni (shora dolu). */
+    /** Nabidka nad klavesou: rychla nabidka (drzeni ?123) nebo seznam maker. */
     private fun drawMenu(canvas: Canvas) {
         if (menuKey == null) return
+        val n = menuItems.size
         val radius = keyRadius * 1.3f
-        val bottom = menuTop + menuCell * 3
+        val bottom = menuTop + menuCell * n
         if (drawShadow) {
             fill.color = theme.keyShadow
             rect.set(menuLeft, menuTop + shadowOffset, menuLeft + menuW, bottom + shadowOffset)
@@ -711,26 +757,40 @@ class KeyboardView(context: Context) : View(context) {
         canvas.drawRoundRect(rect, radius, radius, fill)
         textPaint.textSize = min(menuCell * 0.34f, 15f * density * fontScale)
         textPaint.textAlign = Paint.Align.LEFT
-        for (i in 0 until 3) {
+        for (i in 0 until n) {
             val top = menuTop + menuCell * i
             val cy = top + menuCell / 2f
-            val fg = if (i == menuSel) theme.onAccent else theme.text
-            if (i == menuSel) {
+            val selected = i == menuSel
+            val fg = if (selected) theme.onAccent else theme.text
+            if (selected) {
                 fill.color = theme.accent
                 rect.set(menuLeft + 3 * density, top + 3 * density, menuLeft + menuW - 3 * density, top + menuCell - 3 * density)
                 canvas.drawRoundRect(rect, radius * 0.75f, radius * 0.75f, fill)
             }
-            drawMenuIcon(canvas, i, menuLeft + 28f * density, cy, min(menuCell, 48f * density) * 0.2f, fg)
+            val icon = if (i < menuIcons.size) menuIcons[i] else ICON_NONE
+            var textX = menuLeft + 18f * density
+            if (icon != ICON_NONE) {
+                drawMenuIcon(canvas, icon, menuLeft + 28f * density, cy, min(menuCell, 48f * density) * 0.2f, fg, selected)
+                textX = menuLeft + 54f * density
+            }
             textPaint.color = fg
-            canvas.drawText(menuLabels[i], menuLeft + 54f * density, cy - (textPaint.ascent() + textPaint.descent()) / 2f, textPaint)
+            val label = menuItems[i]
+            val maxW = menuLeft + menuW - textX - 12f * density
+            val count = textPaint.breakText(label, 0, label.length, true, maxW, null)
+            canvas.drawText(label, 0, count, textX, cy - (textPaint.ascent() + textPaint.descent()) / 2f, textPaint)
         }
         textPaint.textAlign = Paint.Align.CENTER
     }
 
     private fun menuAt(x: Float, y: Float): Int {
-        if (x < menuLeft || x > menuLeft + menuW || y < menuTop || y >= menuTop + menuCell * 3) return -1
-        return ((y - menuTop) / menuCell).toInt().coerceIn(0, 2)
+        val n = menuItems.size
+        if (n == 0 || x < menuLeft || x > menuLeft + menuW || y < menuTop || y >= menuTop + menuCell * n) return -1
+        return ((y - menuTop) / menuCell).toInt().coerceIn(0, n - 1)
     }
+
+    /** Pocet polozek naposledy otevrene nabidky (po pripadnem oriznuti). */
+    var lastMenuSize = 0
+        private set
 
     private fun closeMenu() {
         if (menuKey != null) {
@@ -739,6 +799,106 @@ class KeyboardView(context: Context) : View(context) {
             menuSel = -1
             invalidate()
         }
+    }
+
+    private fun openMenu(k: Key, items: List<String>, icons: IntArray, kind: Int, sticky: Boolean) {
+        if (items.isEmpty()) return
+        // Vyska polozky se prizpusobi mistu nad klavesou (vcetne presahu nad listu navrhu),
+        // aby se delsi seznam maker vesel; pod 38 dp uz by se spatne trefovalo.
+        val available = k.y + overflowTop - 6f * density
+        menuCell = (available / items.size).coerceIn(38f * density, max(rowH * 0.9f, 46f * density))
+        val fit = max(1, (available / menuCell).toInt())
+        menuItems = if (items.size > fit) items.subList(items.size - fit, items.size) else items
+        menuIcons = if (items.size > fit) icons.copyOfRange(minOf(icons.size, items.size - fit), icons.size) else icons
+        menuKind = kind
+        lastMenuSize = menuItems.size
+        menuKey = k
+        menuSel = -1
+        menuSticky = sticky
+        menuW = min(max(unitW * 3.8f, 184f * density), width - 8f * density)
+        menuLeft = (k.vx + k.vw / 2f - menuW / 2f).coerceIn(4f * density, max(4f * density, width - menuW - 4f * density))
+        menuTop = max(-overflowTop + 2f * density, k.y - menuItems.size * menuCell - 4f * density)
+        invalidate()
+    }
+
+    /** Otevre nabidku nad klavesou (polozka se vybere klepnutim). Pouziva sluzba pro makra. */
+    fun showMenu(anchor: Key, items: List<String>, icons: IntArray, kind: Int) {
+        openMenu(anchor, items, icons, kind, sticky = true)
+    }
+
+    // ------------------------------------------------------------------ rozsviceni klaves
+
+    /**
+     * Rozsviti pismena slova: 0 -> 100 % behem 1 s, 0.5 s drzi, pak hned zhasne.
+     * Diakritika se prevede na zakladni pismeno (š sviti na klavese s).
+     */
+    fun glowWord(word: String) {
+        if (!glowEnabled || word.isEmpty()) return
+        val base = java.text.Normalizer.normalize(word.lowercase(), java.text.Normalizer.Form.NFD)
+        val now = SystemClock.uptimeMillis()
+        var any = false
+        for (k in keys) {
+            if (k.isLetter && base.indexOf(k.code.toChar()) >= 0) {
+                k.glowAt = now
+                any = true
+            }
+        }
+        if (any) invalidate()
+    }
+
+    /** Intenzita rozsviceni klavesy 0..1 (a jeji vynulovani po dobehnuti). */
+    private fun glowAmount(k: Key, now: Long): Float {
+        if (k.glowAt == 0L) return 0f
+        val t = now - k.glowAt
+        return when {
+            t < GLOW_IN_MS -> t / GLOW_IN_MS.toFloat()
+            t < GLOW_IN_MS + GLOW_HOLD_MS -> 1f
+            else -> {
+                k.glowAt = 0L
+                0f
+            }
+        }
+    }
+
+    // ------------------------------------------------------------------ diktovani
+
+    /** Hlasitost reci 0..1 - ridi velikost mikrofonu. */
+    var voiceLevel = 0f
+
+    /** Text pod mikrofonem ("Poslouchám…"). */
+    var voiceLabel = ""
+        set(value) {
+            field = value
+            if (dictating) invalidate()
+        }
+    private var shownLevel = 0f
+
+    /** Prekryti behem diktovani: mikrofon v kruhu, ktery roste a zmensuje se s hlasem. */
+    private fun drawVoice(canvas: Canvas): Boolean {
+        if (!dictating) {
+            shownLevel = 0f
+            return false
+        }
+        shownLevel += (voiceLevel.coerceIn(0f, 1f) - shownLevel) * 0.28f
+        fill.color = (theme.background and 0x00FFFFFF) or (0xD8 shl 24)
+        canvas.drawRect(0f, 0f, width.toFloat(), height.toFloat(), fill)
+        val cx = width / 2f
+        val cy = height * 0.44f
+        val base = min(width, height) * 0.13f
+        val r = base * (1f + 0.75f * shownLevel)
+        fill.color = (theme.accent and 0x00FFFFFF) or (0x38 shl 24)
+        canvas.drawCircle(cx, cy, r * 1.45f, fill)
+        fill.color = theme.accent
+        canvas.drawCircle(cx, cy, r, fill)
+        stroke.color = theme.onAccent
+        stroke.strokeWidth = 2.2f * density
+        drawMic(canvas, cx, cy, r * 0.42f)
+        if (voiceLabel.isNotEmpty()) {
+            textPaint.color = theme.text
+            textPaint.textSize = min(rowH * 0.3f, 16f * density * fontScale)
+            canvas.drawText(voiceLabel, cx, cy + base * 2.75f, textPaint)
+        }
+        return true
     }
 
     private fun drawPopup(canvas: Canvas) {
@@ -784,6 +944,7 @@ class KeyboardView(context: Context) : View(context) {
         handler.removeCallbacks(repeat)
         endPreview()
         if (touchMode == T_VOICE) listener?.onVoiceStop()
+        for (k in keys) k.passed = false
         if (touchMode == T_SWIPE) {
             trailEndedAt = SystemClock.uptimeMillis()
             invalidate()
@@ -823,8 +984,9 @@ class KeyboardView(context: Context) : View(context) {
                 }
                 MotionEvent.ACTION_UP -> {
                     val sel = menuAt(e.x, e.y)
+                    val kind = menuKind
                     closeMenu()
-                    if (sel >= 0) listener?.onMenuAction(sel)
+                    if (sel >= 0) listener?.onMenuAction(kind, sel)
                 }
                 MotionEvent.ACTION_CANCEL -> closeMenu()
             }
@@ -1000,11 +1162,16 @@ class KeyboardView(context: Context) : View(context) {
                 if (swipeAllowed && k.isLetter && mode == MODE_LETTERS && RustBridge.settings.swipeEnabled) {
                     touchMode = T_SWIPE
                     endPreview()
+                    if (glowEnabled) {
+                        k.passed = true
+                        keyAt(x, y)?.let { if (it.isLetter) it.passed = true }
+                    }
                     trailCount = sampleCount
                     invalidate()
                 }
             }
             T_SWIPE -> {
+                if (glowEnabled) keyAt(x, y)?.let { if (it.isLetter) it.passed = true }
                 trailCount = sampleCount
                 invalidate()
             }
@@ -1042,8 +1209,9 @@ class KeyboardView(context: Context) : View(context) {
             T_POPUP -> popupAlts.getOrNull(popupSel)?.let { l.onAltText(it) }
             T_MENU -> if (menuSel >= 0) {
                 val sel = menuSel
+                val kind = menuKind
                 closeMenu()
-                l.onMenuAction(sel)
+                l.onMenuAction(kind, sel)
             } else {
                 menuSticky = true // prst zvednut bez vyberu: nabidka ceka na klepnuti
             }
@@ -1060,6 +1228,7 @@ class KeyboardView(context: Context) : View(context) {
                 if (g != RustBridge.ACTION_NONE) {
                     l.onGestureAction(g)
                 } else if (touchMode == T_SWIPE) {
+                    l.onBeforeSwipe()
                     val words = RustBridge.swipe(samples, sampleCount * 3, shiftState != SHIFT_OFF)
                     // Prazdny vysledek = prilis kratky / pomaly tah -> bereme jako tap.
                     if (words.isEmpty()) l.onKeyTap(k) else l.onSwipeWords(words)
@@ -1088,13 +1257,7 @@ class KeyboardView(context: Context) : View(context) {
             return
         }
         if (touchMode == T_TAP && !moved && k.kind == KIND_MODE && (k.code == CODE_SYMBOLS || k.code == CODE_LETTERS)) {
-            menuKey = k
-            menuSel = -1
-            menuSticky = false
-            menuCell = max(rowH * 0.9f, 46f * density)
-            menuW = max(unitW * 3.6f, 176f * density)
-            menuLeft = 4f * density
-            menuTop = max(-overflowTop + 2f * density, k.y - 3 * menuCell - 4f * density)
+            openMenu(k, quickLabels, quickIcons, MENU_KIND_QUICK, sticky = false)
             longPressFired = true
             touchMode = T_MENU
             previewKey = null

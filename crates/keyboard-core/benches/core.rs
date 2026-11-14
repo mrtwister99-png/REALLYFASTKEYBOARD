@@ -185,7 +185,7 @@ fn main() {
     println!("navrhy pri psani:       prumer {:.2} ms, nejhorsi {:.2} ms", avg, worst);
     let prevs = ["dobrý", "na", "jsem", "the", "of", "neznameslovo", ""];
     let (avg, worst) = time_avg(700, |i| {
-        black_box(predict::predict_next(&ctx, prevs[i % prevs.len()], false));
+        black_box(predict::predict_next(&ctx, "jak", prevs[i % prevs.len()], false));
     });
     println!("predikce dalsiho slova: prumer {:.3} ms, nejhorsi {:.3} ms", avg, worst);
 
@@ -194,6 +194,9 @@ fn main() {
         println!("  \"{t}\" -> {:?}", predict::suggest_composing(&ctx, t));
     }
     for p in ["dobrý", "jsem", "thank"] {
-        println!("  po \"{p}\" -> {:?}", predict::predict_next(&ctx, p, false));
+        println!("  po \"{p}\" -> {:?}", predict::predict_next(&ctx, "", p, false));
+    }
+    for (a, b) in [("jak", "se"), ("v", "roce"), ("na", "konci"), ("i", "don't")] {
+        println!("  po \"{a} {b}\" -> {:?}", predict::predict_next(&ctx, a, b, false));
     }
 }

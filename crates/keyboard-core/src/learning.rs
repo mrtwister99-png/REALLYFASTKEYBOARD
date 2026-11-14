@@ -37,6 +37,8 @@ pub struct Export {
     pub version: u32,
     pub words: Vec<ExportWord>,
     pub bigrams: Vec<ExportBigram>,
+    /// Trigramy: `w1` = kontext "predposledni posledni", `w2` = nasledujici slovo.
+    pub trigrams: Vec<ExportBigram>,
 }
 
 /// Co se ma po nauceni zapsat do uloziste.
@@ -51,6 +53,11 @@ pub struct Learned {
 pub struct UserDict {
     words: HashMap<String, UserWord>,
     bigrams: HashMap<String, Vec<(String, u32)>>,
+    /// Kontext "predposledni posledni" (malymi) -> nasledujici slova.
+    trigrams: HashMap<String, Vec<(String, u32)>>,
+    /// Uceni z oprav: spatne slovo -> (cim ho uzivatel nahradil, kolikrat).
+    /// Prazdna nahrada = slovo bylo po swipe smazano (odmitnuto).
+    corrections: HashMap<String, Vec<(String, u32)>>,
 }
 
 /// Slovo vhodne k uceni: 1-30 znaku, jen pismena (a apostrof uvnitr).
@@ -150,6 +157,11 @@ impl UserDict {
 
     pub fn remove(&mut self, word: &str) -> bool {
         let removed = self.words.remove(word).is_some();
+        self.corrections.remove(word);
+        for list in self.trigrams.values_mut() {
+            list.retain(|(w, _)| w != word);
+        }
+        self.trigrams.retain(|_, l| !l.is_empty());
         self.bigrams.remove(&word.to_lowercase());
         for list in self.bigrams.values_mut() {
             list.retain(|(w, _)| w != word);
@@ -161,6 +173,8 @@ impl UserDict {
     pub fn clear(&mut self) {
         self.words.clear();
         self.bigrams.clear();
+        self.trigrams.clear();
+        self.corrections.clear();
     }
 
     /// Zapominani: vrati slova, ktera byla odstranena (dlouho nepouzita).
@@ -198,7 +212,13 @@ impl UserDict {
             .flat_map(|(w1, l)| l.iter().map(move |(w2, c)| ExportBigram { w1: w1.clone(), w2: w2.clone(), count: *c }))
             .collect();
         bigrams.sort_by(|a, b| a.w1.cmp(&b.w1).then(a.w2.cmp(&b.w2)));
-        Export { version: 1, words: self.list(), bigrams }
+        let mut trigrams: Vec<ExportBigram> = self
+            .trigrams
+            .iter()
+            .flat_map(|(ctx, l)| l.iter().map(move |(w, c)| ExportBigram { w1: ctx.clone(), w2: w.clone(), count: *c }))
+            .collect();
+        trigrams.sort_by(|a, b| a.w1.cmp(&b.w1).then(a.w2.cmp(&b.w2)));
+        Export { version: 2, words: self.list(), bigrams, trigrams }
     }
 
     /// Slouci import do slovniku (pocet = maximum, aby opakovany import nenafukoval cisla).
@@ -224,7 +244,109 @@ impl UserDict {
                 None => list.push((b.w2.clone(), b.count)),
             }
         }
+        for t in &data.trigrams {
+            if t.count == 0 || !is_learnable(&t.w2) || t.w1.split(' ').count() != 2 || !t.w1.split(' ').all(is_learnable) {
+                continue;
+            }
+            let list = self.trigrams.entry(t.w1.to_lowercase()).or_default();
+            match list.iter_mut().find(|(w, _)| *w == t.w2) {
+                Some(e) => e.1 = e.1.max(t.count),
+                None => list.push((t.w2.clone(), t.count)),
+            }
+        }
         n
+    }
+}
+
+/// Trigramy a uceni z oprav.
+impl UserDict {
+    fn context_key(prev2: &str, prev: &str) -> String {
+        format!("{} {}", prev2.to_lowercase(), prev.to_lowercase())
+    }
+
+    pub fn insert_trigram(&mut self, ctx: &str, word: &str, count: u32) {
+        let list = self.trigrams.entry(ctx.to_string()).or_default();
+        match list.iter_mut().find(|(w, _)| w == word) {
+            Some(e) => e.1 = count,
+            None => list.push((word.to_string(), count)),
+        }
+    }
+
+    /// Zaznamena trojici (prev2, prev) -> word. Vraci (kontext, slovo, pocet) k ulozeni.
+    pub fn learn_trigram(&mut self, prev2: &str, prev: &str, word: &str) -> Option<(String, String, u32)> {
+        if !is_learnable(prev2) || !is_learnable(prev) || !is_learnable(word) {
+            return None;
+        }
+        let ctx = Self::context_key(prev2, prev);
+        let list = self.trigrams.entry(ctx.clone()).or_default();
+        let c = match list.iter_mut().find(|(w, _)| w == word) {
+            Some(e) => {
+                e.1 = e.1.saturating_add(1);
+                e.1
+            }
+            None => {
+                list.push((word.to_string(), 1));
+                1
+            }
+        };
+        list.sort_by(|a, b| b.1.cmp(&a.1));
+        list.truncate(MAX_FOLLOWERS);
+        Some((ctx, word.to_string(), c))
+    }
+
+    /// Osobni nasledujici slova po dvojici slov.
+    pub fn next_after(&self, prev2: &str, prev: &str) -> Vec<(String, u32)> {
+        if prev2.is_empty() || prev.is_empty() {
+            return Vec::new();
+        }
+        let mut v = self.trigrams.get(&Self::context_key(prev2, prev)).cloned().unwrap_or_default();
+        v.sort_by(|a, b| b.1.cmp(&a.1).then(a.0.cmp(&b.0)));
+        v
+    }
+
+    pub fn insert_correction(&mut self, bad: &str, good: &str, count: u32) {
+        let list = self.corrections.entry(bad.to_string()).or_default();
+        match list.iter_mut().find(|(g, _)| g == good) {
+            Some(e) => e.1 = count,
+            None => list.push((good.to_string(), count)),
+        }
+    }
+
+    /// Uzivatel nahradil `bad` slovem `good` (nebo ho smazal, kdyz je `good` prazdne).
+    /// Vraci novy pocet k ulozeni.
+    pub fn note_correction(&mut self, bad: &str, good: &str) -> u32 {
+        let list = self.corrections.entry(bad.to_string()).or_default();
+        match list.iter_mut().find(|(g, _)| g == good) {
+            Some(e) => {
+                e.1 = e.1.saturating_add(1);
+                e.1
+            }
+            None => {
+                list.push((good.to_string(), 1));
+                1
+            }
+        }
+    }
+
+    /// Kolikrat bylo slovo po swipe smazano.
+    pub fn rejections(&self, word: &str) -> u32 {
+        self.corrections.get(word).and_then(|l| l.iter().find(|(g, _)| g.is_empty())).map_or(0, |e| e.1)
+    }
+
+    /// Cim uzivatel slovo nahrazoval (bez prazdnych = smazani).
+    pub fn corrections_from(&self, bad: &str) -> impl Iterator<Item = (&str, u32)> {
+        self.corrections.get(bad).into_iter().flatten().filter(|(g, _)| !g.is_empty()).map(|(g, c)| (g.as_str(), *c))
+    }
+
+    /// Slovo bylo normalne potvrzeno: jedno drivejsi odmitnuti se odpusti.
+    /// Vraci novy pocet odmitnuti, pokud se zmenil.
+    pub fn forgive(&mut self, word: &str) -> Option<u32> {
+        let e = self.corrections.get_mut(word)?.iter_mut().find(|(g, _)| g.is_empty())?;
+        if e.1 == 0 {
+            return None;
+        }
+        e.1 -= 1;
+        Some(e.1)
     }
 }
 
@@ -319,6 +441,39 @@ mod tests {
         // opakovany import cisla nenafoukne
         other.import(&serde_json::from_str(&json).unwrap());
         assert_eq!(other.get("Novák").unwrap().count, 2);
+    }
+
+    #[test]
+    fn trigrams_are_learned_and_exported() {
+        let mut u = UserDict::new();
+        assert_eq!(u.learn_trigram("Jak", "se", "máš"), Some(("jak se".into(), "máš".into(), 1)));
+        u.learn_trigram("jak", "se", "máš");
+        u.learn_trigram("jak", "se", "daří");
+        assert!(u.learn_trigram("", "se", "máš").is_none());
+        let next = u.next_after("JAK", "se");
+        assert_eq!(next[0], ("máš".to_string(), 2));
+        assert_eq!(next[1], ("daří".to_string(), 1));
+        assert!(u.next_after("", "se").is_empty());
+        let mut other = UserDict::new();
+        other.import(&u.export());
+        assert_eq!(other.next_after("jak", "se")[0].0, "máš");
+    }
+
+    #[test]
+    fn corrections_and_rejections() {
+        let mut u = UserDict::new();
+        assert_eq!(u.note_correction("mas", "máš"), 1);
+        assert_eq!(u.note_correction("mas", "máš"), 2);
+        assert_eq!(u.note_correction("blbost", ""), 1);
+        assert_eq!(u.note_correction("blbost", ""), 2);
+        assert_eq!(u.rejections("blbost"), 2);
+        assert_eq!(u.rejections("mas"), 0);
+        assert_eq!(u.corrections_from("mas").collect::<Vec<_>>(), vec![("máš", 2)]);
+        assert_eq!(u.corrections_from("blbost").count(), 0);
+        assert_eq!(u.forgive("blbost"), Some(1));
+        assert_eq!(u.forgive("blbost"), Some(0));
+        assert_eq!(u.forgive("blbost"), None);
+        assert_eq!(u.forgive("nikdy"), None);
     }
 
     #[test]

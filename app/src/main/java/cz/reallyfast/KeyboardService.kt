@@ -1,6 +1,7 @@
 package cz.reallyfast
 
 import android.content.ClipboardManager
+import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.content.res.Configuration
@@ -43,8 +44,16 @@ import kotlin.math.min
 class KeyboardService : InputMethodService(), KeyboardView.Listener,
     SuggestionBar.Callbacks, EmojiPanel.Callbacks, ClipboardPanel.Callbacks {
 
+    private companion object {
+        const val BACKEND_ON_DEVICE = 0
+        const val BACKEND_GOOGLE = 1
+        const val BACKEND_DEFAULT = 2
+        const val GOOGLE_APP = "com.google.android.googlequicksearchbox"
+        const val GOOGLE_RECOGNIZER = "com.google.android.voicesearch.serviceapi.GoogleRecognitionService"
+    }
+
     /** Posledni slovo vlozene swipem - lze ho nahradit alternativou nebo smazat jednim backspace. */
-    private class SwipeCommit(var text: String, var word: String, val prev: String, val sentenceStart: Boolean)
+    private class SwipeCommit(var text: String, var word: String, val before: String)
 
     private var root: LinearLayout? = null
     private var bar: SuggestionBar? = null
@@ -110,17 +119,7 @@ class KeyboardService : InputMethodService(), KeyboardView.Listener,
     private val barHeight: Int get() = dp(44f)
 
     /** Vyska plochy klaves: radky * key_height_dp, nejvyse keyboard_height_percent obrazovky. */
-    private fun keysHeight(): Int {
-        val dm = resources.displayMetrics
-        val s = settings
-        val rows = if (s.showNumberRow) 5 else 4
-        val landscape = resources.configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
-        val percent = if (landscape) min(s.keyboardHeightPercent + 14, 58) else s.keyboardHeightPercent
-        val byKeys = rows * s.keyHeightDp * dm.density
-        val cap = dm.heightPixels * percent / 100f - barHeight
-        val minimum = rows * (if (landscape) 32f else 40f) * dm.density
-        return max(min(byKeys, cap), minimum).toInt()
-    }
+    private fun keysHeight(): Int = keyboardKeysHeight(resources, settings, barHeight)
 
     override fun onCreateInputView(): View {
         theme = Theme.from(settings)
@@ -354,7 +353,7 @@ class KeyboardService : InputMethodService(), KeyboardView.Listener,
             )
             KeyboardView.KIND_ENTER -> enter()
             KeyboardView.KIND_SPACE -> space()
-            KeyboardView.KIND_GLOBE -> RustBridge.cycleLanguage()
+            KeyboardView.KIND_MACRO -> showMacroMenu(key)
             KeyboardView.KIND_EMOJI -> showEmoji()
         }
     }
@@ -423,14 +422,17 @@ class KeyboardService : InputMethodService(), KeyboardView.Listener,
 
     private fun learn(word: String, textBefore: String) {
         if (noLearning) return
-        RustBridge.learn(word, RustBridge.lastWord(textBefore), RustBridge.shouldCapitalize(textBefore))
+        RustBridge.learn(word, textBefore, false)
     }
 
     private fun flushSwipeLearning() {
         val ls = lastSwipe ?: return
         lastSwipe = null
-        if (!noLearning) RustBridge.learn(ls.word, ls.prev, ls.sentenceStart)
+        if (!noLearning) RustBridge.learn(ls.word, ls.before, true)
     }
+
+    /** Pred dekodovanim dalsiho swipe: predchozi slovo je potvrzene (a jeho draha jeste v pameti). */
+    override fun onBeforeSwipe() = flushSwipeLearning()
 
     private fun space() {
         if (searchMode) {
@@ -440,6 +442,12 @@ class KeyboardService : InputMethodService(), KeyboardView.Listener,
         }
         val ic = currentInputConnection ?: return
         flushSwipeLearning()
+        if (expandShortcut(ic)) {
+            autoSpace = true
+            updateShift()
+            scheduleSuggestions()
+            return
+        }
         ic.beginBatchEdit()
         if (composing.isNotEmpty()) {
             commitComposing(ic)
@@ -462,6 +470,69 @@ class KeyboardService : InputMethodService(), KeyboardView.Listener,
         scheduleSuggestions()
     }
 
+    /**
+     * Zkratka makra: kdyz posledni "slovo" pred kurzorem (i rozepsane) odpovida zkratce,
+     * nahradi se textem makra. Vraci true, kdyz doslo k nahrade.
+     */
+    private fun expandShortcut(ic: InputConnection): Boolean {
+        if (passwordField || autoSpace) return false
+        val before = ic.getTextBeforeCursor(24, 0)?.toString() ?: return false
+        val token = before.takeLastWhile { !it.isWhitespace() }
+        if (token.isEmpty() || token.length == before.length && before.length == 24) return false
+        val text = RustBridge.expandShortcut(token)
+        if (text.isEmpty()) return false
+        ic.beginBatchEdit()
+        composing.setLength(0)
+        ic.finishComposingText()
+        ic.deleteSurroundingText(token.length, 0)
+        ic.commitText(fillPlaceholders(text) + " ", 1)
+        ic.endBatchEdit()
+        return true
+    }
+
+    /** {datum} / {date} a {cas} / {time} v textu makra se nahradi aktualnim datem a casem. */
+    private fun fillPlaceholders(text: String): String {
+        if (text.indexOf('{') < 0) return text
+        val now = java.util.Date()
+        val date = java.text.DateFormat.getDateInstance(java.text.DateFormat.MEDIUM).format(now)
+        val time = java.text.DateFormat.getTimeInstance(java.text.DateFormat.SHORT).format(now)
+        return text.replace("{datum}", date).replace("{date}", date).replace("{cas}", time).replace("{time}", time)
+    }
+
+    // ------------------------------------------------------------------ makra
+
+    private var macroMenu: List<RustBridge.Macro> = emptyList()
+
+    /** Tlacitko maker: nabidka ulozenych maker + polozka pro jejich spravu. */
+    private fun showMacroMenu(key: KeyboardView.Key) {
+        val kv = keyboard ?: return
+        macroMenu = RustBridge.macros().take(6)
+        val labels = macroMenu.map { it.name } + getString(R.string.macros_edit)
+        val icons = IntArray(labels.size) { if (it == labels.size - 1) KeyboardView.ICON_GEAR else KeyboardView.ICON_BOLT }
+        kv.showMenu(key, labels, icons, KeyboardView.MENU_KIND_MACRO)
+    }
+
+    private fun insertMacro(m: RustBridge.Macro) {
+        val ic = currentInputConnection ?: return
+        flushSwipeLearning()
+        ic.beginBatchEdit()
+        commitComposing(ic)
+        ic.commitText(fillPlaceholders(m.text), 1)
+        ic.endBatchEdit()
+        autoSpace = false
+        updateShift()
+        scheduleSuggestions()
+    }
+
+    private fun openScreen(cls: Class<*>) {
+        try {
+            startActivity(Intent(this, cls).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+            requestHideSelf(0)
+        } catch (t: Throwable) {
+            // obrazovku se nepodarilo otevrit - klavesnice bezi dal
+        }
+    }
+
     private fun backspace() {
         if (searchMode) {
             if (searchQuery.isNotEmpty()) searchQuery.setLength(searchQuery.offsetByCodePoints(searchQuery.length, -1))
@@ -476,10 +547,12 @@ class KeyboardService : InputMethodService(), KeyboardView.Listener,
             val ls = lastSwipe
             lastSwipe = null
             if (ls != null && ic.getTextBeforeCursor(ls.text.length, 0)?.toString() == ls.text) {
-                // Backspace hned po swipe smaze cele vlozene slovo (a nic se nenauci).
+                // Backspace hned po swipe smaze cele vlozene slovo; klavesnice si zapamatuje,
+                // ze tohle slovo nebylo to prave, a priste ho nabidne niz.
                 ic.deleteSurroundingText(ls.text.length, 0)
+                if (!noLearning) RustBridge.correction(ls.word, "")
             } else {
-                if (ls != null && !noLearning) RustBridge.learn(ls.word, ls.prev, ls.sentenceStart)
+                if (ls != null && !noLearning) RustBridge.learn(ls.word, ls.before, true)
                 sendDownUpKeyEvents(KeyEvent.KEYCODE_DEL)
             }
         }
@@ -533,7 +606,8 @@ class KeyboardService : InputMethodService(), KeyboardView.Listener,
         ic.commitText(text, 1)
         ic.endBatchEdit()
         // Uceni se odklada: uzivatel muze slovo jeste nahradit alternativou nebo smazat.
-        lastSwipe = SwipeCommit(text, word, RustBridge.lastWord(before), RustBridge.shouldCapitalize(before))
+        lastSwipe = SwipeCommit(text, word, before)
+        keyboard?.glowWord(word)
         autoSpace = true
         if (shift == KeyboardView.SHIFT_ONCE) setShift(KeyboardView.SHIFT_OFF)
         swipeWords = words
@@ -560,7 +634,7 @@ class KeyboardService : InputMethodService(), KeyboardView.Listener,
             bar.setSuggestions(RustBridge.suggest(composing.toString(), "", false))
         } else {
             val before = currentInputConnection?.getTextBeforeCursor(48, 0)?.toString() ?: ""
-            bar.setSuggestions(RustBridge.suggest("", RustBridge.lastWord(before), shift != KeyboardView.SHIFT_OFF))
+            bar.setSuggestions(RustBridge.suggest("", before, shift != KeyboardView.SHIFT_OFF))
         }
     }
 
@@ -577,6 +651,8 @@ class KeyboardService : InputMethodService(), KeyboardView.Listener,
                 ic.deleteSurroundingText(ls.text.length, 0)
                 ic.commitText(newText, 1)
                 ic.endBatchEdit()
+                // Uceni z oprav: prvni navrh byl spatne, uzivatel vybral jiny.
+                if (!noLearning) RustBridge.correction(ls.word, word)
                 ls.text = newText
                 ls.word = word
             }
@@ -692,24 +768,95 @@ class KeyboardService : InputMethodService(), KeyboardView.Listener,
     // ------------------------------------------------------------------ diktovani
 
     private var recognizer: SpeechRecognizer? = null
+    private var recognizerBackend = -1
     private var dictating = false
+    /** Enter je stale drzeny. */
+    private var voiceHeld = false
     /** V liste navrhu je zobrazena hlaska diktovani (ne slova k vyberu). */
     private var voiceStatus = false
     private var dictationText = ""
     private var dictationPrefix = ""
     private var dictationCapitalize = false
+    /** Ktera sluzba rozpoznavani se pouzije (index do voiceBackends()); pamatuje se ta, ktera fungovala. */
+    private var backendIndex = -1
+    private var backendAttempts = 0
+    private val voiceTimeout = Runnable {
+        if (dictating) {
+            cancelDictation()
+            showVoiceStatus(getString(R.string.voice_nothing), 1500)
+        }
+    }
+
+    private val voicePrefs by lazy { getSharedPreferences("reallyfast_voice", Context.MODE_PRIVATE) }
+
+    /**
+     * Dostupne sluzby rozpoznavani reci v poradi, v jakem se zkousi:
+     * 1) rozpoznavani primo v zarizeni (Android 12+), 2) sluzba aplikace Google, 3) vychozi sluzba systemu.
+     * Kdyz jedna selze (napr. nema stazenou cestinu), zkusi se dalsi.
+     */
+    private fun voiceBackends(): List<Int> {
+        val list = ArrayList<Int>(3)
+        try {
+            if (Build.VERSION.SDK_INT >= 31 && SpeechRecognizer.isOnDeviceRecognitionAvailable(this)) list.add(BACKEND_ON_DEVICE)
+        } catch (t: Throwable) {
+            // nektere systemy tu vyhazuji vyjimku - povazovat za nedostupne
+        }
+        try {
+            packageManager.getPackageInfo(GOOGLE_APP, 0)
+            list.add(BACKEND_GOOGLE)
+        } catch (t: Throwable) {
+            // aplikace Google neni nainstalovana
+        }
+        if (SpeechRecognizer.isRecognitionAvailable(this)) list.add(BACKEND_DEFAULT)
+        return list
+    }
 
     private fun showVoiceStatus(text: String, holdMs: Long = 0) {
         voiceStatus = true
         handler.removeCallbacks(suggestionUpdate)
         bar?.setSuggestions(listOf("", text, ""), 1)
+        keyboard?.voiceLabel = text
         if (holdMs > 0) handler.postDelayed(suggestionUpdate, holdMs)
     }
 
+    private fun startListening(): Boolean {
+        val backends = voiceBackends()
+        if (backends.isEmpty()) return false
+        if (backendIndex < 0) backendIndex = voicePrefs.getInt("backend", 0)
+        if (backendIndex >= backends.size) backendIndex = 0
+        val backend = backends[backendIndex]
+        return try {
+            if (recognizer == null || recognizerBackend != backend) {
+                try {
+                    recognizer?.destroy()
+                } catch (t: Throwable) {
+                    // stara sluzba uz nemusi existovat
+                }
+                val r = when {
+                    backend == BACKEND_ON_DEVICE && Build.VERSION.SDK_INT >= 31 -> SpeechRecognizer.createOnDeviceSpeechRecognizer(this)
+                    backend == BACKEND_GOOGLE -> SpeechRecognizer.createSpeechRecognizer(this, ComponentName(GOOGLE_APP, GOOGLE_RECOGNIZER))
+                    else -> SpeechRecognizer.createSpeechRecognizer(this)
+                }
+                r.setRecognitionListener(recognitionListener)
+                recognizer = r
+                recognizerBackend = backend
+            }
+            val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH)
+                .putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+                .putExtra(RecognizerIntent.EXTRA_LANGUAGE, if (settings.language.startsWith("cs")) "cs-CZ" else "en-US")
+                .putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
+                .putExtra(RecognizerIntent.EXTRA_CALLING_PACKAGE, packageName)
+            if (backend == BACKEND_ON_DEVICE) intent.putExtra(RecognizerIntent.EXTRA_PREFER_OFFLINE, true)
+            recognizer?.startListening(intent)
+            true
+        } catch (t: Throwable) {
+            false
+        }
+    }
+
     /**
-     * Podrzeny Enter: prepis reci na text. Pouziva systemovou sluzbu rozpoznavani reci -
-     * na Androidu 12+ prednostne rozpoznavani primo v zarizeni. Aplikace sama nema pristup
-     * k internetu; zvuk zpracovava sluzba systemu podle sveho nastaveni.
+     * Podrzeny Enter: prepis reci na text pres sluzbu rozpoznavani reci v telefonu.
+     * Aplikace sama nema pristup k internetu; zvuk zpracovava zvolena sluzba systemu.
      */
     override fun onVoiceStart() {
         if (dictating || passwordField || !settings.voiceInput) return
@@ -727,43 +874,28 @@ class KeyboardService : InputMethodService(), KeyboardView.Listener,
             return
         }
         val ic = currentInputConnection ?: return
-        val onDevice = Build.VERSION.SDK_INT >= 31 && SpeechRecognizer.isOnDeviceRecognitionAvailable(this)
-        if (!onDevice && !SpeechRecognizer.isRecognitionAvailable(this)) {
-            showVoiceStatus(getString(R.string.voice_unavailable), 2500)
-            return
-        }
         flushSwipeLearning()
         commitComposing(ic)
         closeSearch(false)
-        try {
-            val r = recognizer ?: (
-                if (onDevice && Build.VERSION.SDK_INT >= 31) SpeechRecognizer.createOnDeviceSpeechRecognizer(this)
-                else SpeechRecognizer.createSpeechRecognizer(this)
-                ).also {
-                it.setRecognitionListener(recognitionListener)
-                recognizer = it
-            }
-            val before = ic.getTextBeforeCursor(48, 0)?.toString() ?: ""
-            dictationPrefix = if (needsSpaceBefore(ic)) " " else ""
-            dictationCapitalize = settings.autoCapitalize && RustBridge.shouldCapitalize(before)
-            dictationText = ""
-            val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH)
-                .putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
-                .putExtra(RecognizerIntent.EXTRA_LANGUAGE, if (settings.language.startsWith("cs")) "cs-CZ" else "en-US")
-                .putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
-                .putExtra(RecognizerIntent.EXTRA_PREFER_OFFLINE, true)
-                .putExtra(RecognizerIntent.EXTRA_CALLING_PACKAGE, packageName)
-            dictating = true
-            keyboard?.dictating = true
-            showVoiceStatus(getString(R.string.voice_listening))
-            r.startListening(intent)
-        } catch (t: Throwable) {
+        showKeyboard()
+        val before = ic.getTextBeforeCursor(48, 0)?.toString() ?: ""
+        dictationPrefix = if (needsSpaceBefore(ic)) " " else ""
+        dictationCapitalize = settings.autoCapitalize && RustBridge.shouldCapitalize(before)
+        dictationText = ""
+        backendAttempts = 0
+        voiceHeld = true
+        dictating = true
+        keyboard?.voiceLevel = 0f
+        keyboard?.dictating = true
+        showVoiceStatus(getString(R.string.voice_preparing))
+        if (!startListening()) {
             endDictation()
-            showVoiceStatus(getString(R.string.voice_unavailable), 2500)
+            showVoiceStatus(getString(R.string.voice_unavailable), 3000)
         }
     }
 
     override fun onVoiceStop() {
+        voiceHeld = false
         if (!dictating) return
         try {
             recognizer?.stopListening()
@@ -772,6 +904,9 @@ class KeyboardService : InputMethodService(), KeyboardView.Listener,
             return
         }
         showVoiceStatus(getString(R.string.voice_processing))
+        // Kdyby sluzba neodpovedela, nenechat klavesnici viset v rezimu diktovani.
+        handler.removeCallbacks(voiceTimeout)
+        handler.postDelayed(voiceTimeout, 7000)
     }
 
     private fun dictated(raw: String): String {
@@ -782,8 +917,10 @@ class KeyboardService : InputMethodService(), KeyboardView.Listener,
     }
 
     private fun endDictation() {
+        handler.removeCallbacks(voiceTimeout)
         dictating = false
         keyboard?.dictating = false
+        keyboard?.voiceLevel = 0f
     }
 
     /** Okamzite ukonceni bez vysledku (psani, schovani klavesnice). Rozepsany prepis zustane v textu. */
@@ -800,10 +937,26 @@ class KeyboardService : InputMethodService(), KeyboardView.Listener,
         scheduleSuggestions()
     }
 
+    private fun voiceErrorText(error: Int): String = when (error) {
+        SpeechRecognizer.ERROR_NO_MATCH, SpeechRecognizer.ERROR_SPEECH_TIMEOUT -> getString(R.string.voice_nothing)
+        SpeechRecognizer.ERROR_INSUFFICIENT_PERMISSIONS -> getString(R.string.voice_permission)
+        SpeechRecognizer.ERROR_NETWORK, SpeechRecognizer.ERROR_NETWORK_TIMEOUT -> getString(R.string.voice_error_network)
+        12, 13 -> getString(R.string.voice_error_language) // jazyk neni podporovan / neni stazen
+        else -> getString(R.string.voice_failed, error)
+    }
+
     private val recognitionListener = object : RecognitionListener {
-        override fun onReadyForSpeech(params: Bundle?) {}
+        override fun onReadyForSpeech(params: Bundle?) {
+            if (dictating && voiceHeld) showVoiceStatus(getString(R.string.voice_listening))
+        }
+
         override fun onBeginningOfSpeech() {}
-        override fun onRmsChanged(rmsdB: Float) {}
+
+        override fun onRmsChanged(rmsdB: Float) {
+            // Hlasitost (cca -2 az 10 dB) -> 0..1; ridi velikost mikrofonu na klavesnici.
+            keyboard?.voiceLevel = ((rmsdB + 2f) / 12f).coerceIn(0f, 1f)
+        }
+
         override fun onBufferReceived(buffer: ByteArray?) {}
         override fun onEndOfSpeech() {}
         override fun onEvent(eventType: Int, params: Bundle?) {}
@@ -827,6 +980,7 @@ class KeyboardService : InputMethodService(), KeyboardView.Listener,
                 showVoiceStatus(getString(R.string.voice_nothing), 1500)
                 return
             }
+            voicePrefs.edit().putInt("backend", backendIndex).apply() // tahle sluzba funguje
             ic.commitText(dictated(text) + " ", 1) // nahradi prubezny prepis
             autoSpace = true
             voiceStatus = false
@@ -837,9 +991,9 @@ class KeyboardService : InputMethodService(), KeyboardView.Listener,
         override fun onError(error: Int) {
             if (!dictating) return
             val ic = currentInputConnection
-            endDictation()
             if (dictationText.isNotBlank() && ic != null) {
                 // Castecny prepis nezahazovat.
+                endDictation()
                 ic.commitText(dictated(dictationText) + " ", 1)
                 autoSpace = true
                 voiceStatus = false
@@ -847,27 +1001,47 @@ class KeyboardService : InputMethodService(), KeyboardView.Listener,
                 scheduleSuggestions()
                 return
             }
-            ic?.finishComposingText()
             val quiet = error == SpeechRecognizer.ERROR_NO_MATCH || error == SpeechRecognizer.ERROR_SPEECH_TIMEOUT
-            showVoiceStatus(if (quiet) getString(R.string.voice_nothing) else getString(R.string.voice_failed, error), 2000)
+            val permission = error == SpeechRecognizer.ERROR_INSUFFICIENT_PERMISSIONS
+            val backends = voiceBackends().size
+            backendAttempts++
+            if (!quiet && !permission && backendAttempts < backends) {
+                // Tahle sluzba nefunguje (napr. nema cestinu): zkusit dalsi.
+                backendIndex = (backendIndex + 1) % backends
+                if (voiceHeld) {
+                    showVoiceStatus(getString(R.string.voice_preparing))
+                    if (startListening()) return
+                } else {
+                    ic?.finishComposingText()
+                    endDictation()
+                    showVoiceStatus(getString(R.string.voice_retry), 3000)
+                    return
+                }
+            }
+            ic?.finishComposingText()
+            endDictation()
+            showVoiceStatus(voiceErrorText(error), 3500)
         }
     }
 
-    /** Nabidka po dlouhem stisku ?123. */
-    override fun onMenuAction(index: Int) {
+    /** Nabidka nad klavesou: rychla (drzeni ?123) nebo makra. */
+    override fun onMenuAction(kind: Int, index: Int) {
+        if (kind == KeyboardView.MENU_KIND_MACRO) {
+            // Nabidka muze byt oriznuta shora (malo mista): polozky se pocitaji od konce.
+            val fromEnd = index - (keyboardMenuSize() - 1)
+            val macroIndex = macroMenu.size + fromEnd
+            if (fromEnd == 0) openScreen(MacrosActivity::class.java)
+            else macroMenu.getOrNull(macroIndex)?.let { insertMacro(it) }
+            return
+        }
         when (index) {
             KeyboardView.MENU_EMOJI -> showEmoji()
             KeyboardView.MENU_CLIPBOARD -> if (clipPanel?.visibility != View.VISIBLE) onClipboardClicked()
-            KeyboardView.MENU_SETTINGS -> {
-                try {
-                    startActivity(Intent(this, SettingsActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
-                    requestHideSelf(0)
-                } catch (t: Throwable) {
-                    // nastaveni se nepodarilo otevrit - klavesnice bezi dal
-                }
-            }
+            KeyboardView.MENU_SETTINGS -> openScreen(SettingsActivity::class.java)
         }
     }
+
+    private fun keyboardMenuSize(): Int = keyboard?.lastMenuSize ?: 0
 
     // ------------------------------------------------------------------ panely
 

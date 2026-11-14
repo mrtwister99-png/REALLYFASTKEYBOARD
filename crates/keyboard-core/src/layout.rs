@@ -12,6 +12,7 @@ pub const KIND_ENTER: u8 = 4;
 pub const KIND_SPACE: u8 = 5;
 pub const KIND_GLOBE: u8 = 6;
 pub const KIND_EMOJI: u8 = 7;
+pub const KIND_MACRO: u8 = 8;
 
 pub const CODE_SHIFT: i32 = -1;
 pub const CODE_BACKSPACE: i32 = -2;
@@ -21,6 +22,7 @@ pub const CODE_SYMBOLS2: i32 = -5;
 pub const CODE_ENTER: i32 = -6;
 pub const CODE_GLOBE: i32 = -7;
 pub const CODE_EMOJI: i32 = -8;
+pub const CODE_MACRO: i32 = -9;
 pub const CODE_SPACE: i32 = 32;
 
 pub const MODE_LETTERS: u8 = 0;
@@ -162,7 +164,8 @@ fn bottom_row(mode: u8, space_label: &str) -> Vec<Def> {
         switch,
         special(1.0, CODE_EMOJI, KIND_EMOJI, "☺", "Emoji"),
         ch(',', "'\"-_/@"),
-        special(1.0, CODE_GLOBE, KIND_GLOBE, "🌐", "Přepnout jazyk"),
+        // Jazyk se prepina podrzenim mezerniku; na miste globusu je tlacitko maker.
+        special(1.0, CODE_MACRO, KIND_MACRO, "✦", "Makra"),
         special(3.2, CODE_SPACE, KIND_SPACE, space_label, "Mezerník"),
         ch('.', "?!:;…"),
         special(1.4, CODE_ENTER, KIND_ENTER, "⏎", "Enter"),
@@ -391,6 +394,14 @@ mod tests {
         assert!(l.key_for_code(CODE_LETTERS).is_some());
         assert!(l.key_for_code(CODE_SYMBOLS2).is_some());
         assert!(l.geom().present.iter().all(|&p| !p));
+    }
+
+    #[test]
+    fn bottom_row_has_macro_key_instead_of_globe() {
+        let l = letters(true);
+        assert!(l.key_for_code(CODE_MACRO).is_some());
+        assert!(l.key_for_code(CODE_GLOBE).is_none());
+        assert_eq!(l.key_for_code(CODE_MACRO).unwrap().kind, KIND_MACRO);
     }
 
     #[test]

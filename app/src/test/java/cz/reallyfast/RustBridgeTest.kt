@@ -112,7 +112,7 @@ class RustBridgeTest {
     @Test
     fun learningAndClipboardThroughBridge() {
         requireCore()
-        assertTrue(RustBridge.learn("Rustboardík", "", false))
+        assertTrue(RustBridge.learn("Rustboardík", "pan ", false)) // uprostred vety -> jak napsano
         assertTrue(RustBridge.userWords().any { it.word == "Rustboardík" })
         RustBridge.deleteUserWord("Rustboardík")
         assertFalse(RustBridge.userWords().any { it.word == "Rustboardík" })
@@ -122,6 +122,33 @@ class RustBridgeTest {
         assertEquals("běžný text 😀", RustBridge.clipList()[0].text)
         RustBridge.clipClear()
         assertTrue(RustBridge.clipList().isEmpty())
+    }
+
+    @Test
+    fun macrosAndShortcutsThroughBridge() {
+        requireCore()
+        assertTrue(RustBridge.saveMacro(0, "Pozdrav", "S pozdravem 😀", "mfg"))
+        assertFalse(RustBridge.saveMacro(0, "Prázdné", "   ", ""))
+        val m = RustBridge.macros().first { it.name == "Pozdrav" }
+        assertEquals("S pozdravem 😀", m.text)
+        assertEquals("S pozdravem 😀", RustBridge.expandShortcut("MFG"))
+        assertEquals("", RustBridge.expandShortcut("ahoj"))
+        assertEquals("S pozdravem 😀", RustBridge.suggest("mfg", "", false)[0])
+        RustBridge.deleteMacro(m.id)
+        assertEquals("", RustBridge.expandShortcut("mfg"))
+    }
+
+    @Test
+    fun twoWordContextAndManualWords() {
+        requireCore()
+        // vestaveny trigram z korpusu: "na konci" -> "roku"
+        assertTrue(RustBridge.suggest("", "Bylo to na konci ", false).contains("roku"))
+        assertTrue(RustBridge.addUserWord("Krakonošík"))
+        assertFalse(RustBridge.addUserWord("abc123"))
+        assertTrue(RustBridge.userWords().any { it.word == "Krakonošík" })
+        RustBridge.deleteUserWord("Krakonošík")
+        RustBridge.correction("pes", "")   // nesmi spadnout
+        RustBridge.resetCalibration()
     }
 
     @Test

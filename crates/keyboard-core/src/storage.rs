@@ -11,6 +11,8 @@
 
 use crate::clipboard::{self, ClipItem};
 use crate::learning::{Export, UserDict};
+use crate::macros::Macro;
+use crate::swipe::Calibration;
 use crate::settings::Settings;
 use rusqlite::{params, Connection};
 use std::fs;
@@ -31,6 +33,15 @@ CREATE TABLE IF NOT EXISTS clipboard (
     created INTEGER NOT NULL, pinned INTEGER NOT NULL DEFAULT 0);
 CREATE TABLE IF NOT EXISTS emoji_recent (
     emoji TEXT PRIMARY KEY, last_used INTEGER NOT NULL);
+CREATE TABLE IF NOT EXISTS user_trigrams (
+    ctx TEXT NOT NULL, w TEXT NOT NULL, count INTEGER NOT NULL, PRIMARY KEY (ctx, w));
+CREATE TABLE IF NOT EXISTS corrections (
+    bad TEXT NOT NULL, good TEXT NOT NULL, count INTEGER NOT NULL, PRIMARY KEY (bad, good));
+CREATE TABLE IF NOT EXISTS macros (
+    id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, text TEXT NOT NULL,
+    shortcut TEXT NOT NULL DEFAULT '');
+CREATE TABLE IF NOT EXISTS key_calibration (
+    key INTEGER PRIMARY KEY, sx REAL NOT NULL, sy REAL NOT NULL, n INTEGER NOT NULL);
 ";
 
 pub struct Storage {
@@ -109,7 +120,42 @@ impl Storage {
                 }
             }
         }
+        if let Ok(mut st) = conn.prepare("SELECT ctx, w, count FROM user_trigrams") {
+            if let Ok(rows) = st.query_map([], |r| Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?, r.get::<_, u32>(2)?))) {
+                for (a, b, c) in rows.flatten() {
+                    user.insert_trigram(&a, &b, c);
+                }
+            }
+        }
+        if let Ok(mut st) = conn.prepare("SELECT bad, good, count FROM corrections WHERE count > 0") {
+            if let Ok(rows) = st.query_map([], |r| Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?, r.get::<_, u32>(2)?))) {
+                for (a, b, c) in rows.flatten() {
+                    user.insert_correction(&a, &b, c);
+                }
+            }
+        }
         user
+    }
+
+    pub fn put_trigram(&self, ctx: &str, word: &str, count: u32) {
+        if let Some(conn) = &self.conn {
+            let _ = conn.execute(
+                "INSERT INTO user_trigrams (ctx, w, count) VALUES (?1, ?2, ?3)
+                 ON CONFLICT(ctx, w) DO UPDATE SET count = ?3",
+                params![ctx, word, count],
+            );
+        }
+    }
+
+    /// Uceni z oprav; `good` prazdne = slovo bylo smazano.
+    pub fn put_correction(&self, bad: &str, good: &str, count: u32) {
+        if let Some(conn) = &self.conn {
+            let _ = conn.execute(
+                "INSERT INTO corrections (bad, good, count) VALUES (?1, ?2, ?3)
+                 ON CONFLICT(bad, good) DO UPDATE SET count = ?3",
+                params![bad, good, count],
+            );
+        }
     }
 
     pub fn put_word(&self, word: &str, count: u32, last_used: i64) {
@@ -135,6 +181,8 @@ impl Storage {
     pub fn delete_word(&self, word: &str) {
         if let Some(conn) = &self.conn {
             let _ = conn.execute("DELETE FROM user_words WHERE word = ?1", params![word]);
+            let _ = conn.execute("DELETE FROM user_trigrams WHERE w = ?1", params![word]);
+            let _ = conn.execute("DELETE FROM corrections WHERE bad = ?1", params![word]);
             let _ = conn.execute(
                 "DELETE FROM user_bigrams WHERE w2 = ?1 OR w1 = ?2",
                 params![word, word.to_lowercase()],
@@ -144,7 +192,9 @@ impl Storage {
 
     pub fn clear_user(&self) {
         if let Some(conn) = &self.conn {
-            let _ = conn.execute_batch("DELETE FROM user_words; DELETE FROM user_bigrams;");
+            let _ = conn.execute_batch(
+                "DELETE FROM user_words; DELETE FROM user_bigrams; DELETE FROM user_trigrams; DELETE FROM corrections;",
+            );
         }
     }
 
@@ -152,7 +202,7 @@ impl Storage {
     pub fn replace_user(&self, data: &Export) {
         let Some(conn) = &self.conn else { return };
         let run = || -> rusqlite::Result<()> {
-            conn.execute_batch("BEGIN; DELETE FROM user_words; DELETE FROM user_bigrams;")?;
+            conn.execute_batch("BEGIN; DELETE FROM user_words; DELETE FROM user_bigrams; DELETE FROM user_trigrams;")?;
             {
                 let mut st = conn.prepare("INSERT OR REPLACE INTO user_words (word, count, last_used) VALUES (?1, ?2, ?3)")?;
                 for w in &data.words {
@@ -161,6 +211,10 @@ impl Storage {
                 let mut st = conn.prepare("INSERT OR REPLACE INTO user_bigrams (w1, w2, count) VALUES (?1, ?2, ?3)")?;
                 for b in &data.bigrams {
                     st.execute(params![b.w1, b.w2, b.count])?;
+                }
+                let mut st = conn.prepare("INSERT OR REPLACE INTO user_trigrams (ctx, w, count) VALUES (?1, ?2, ?3)")?;
+                for t in &data.trigrams {
+                    st.execute(params![t.w1, t.w2, t.count])?;
                 }
             }
             conn.execute_batch("COMMIT;")
@@ -236,6 +290,90 @@ impl Storage {
     pub fn clip_clear(&self) {
         if let Some(conn) = &self.conn {
             let _ = conn.execute_batch("DELETE FROM clipboard;");
+        }
+    }
+
+    // ------------------------------------------------------------------ makra
+
+    pub fn macro_list(&self) -> Vec<Macro> {
+        let Some(conn) = &self.conn else { return Vec::new() };
+        let Ok(mut st) = conn.prepare("SELECT id, name, text, shortcut FROM macros ORDER BY id") else {
+            return Vec::new();
+        };
+        let out = match st.query_map([], |r| {
+            Ok(Macro { id: r.get(0)?, name: r.get(1)?, text: r.get(2)?, shortcut: r.get(3)? })
+        }) {
+            Ok(rows) => rows.flatten().collect(),
+            Err(_) => Vec::new(),
+        };
+        out
+    }
+
+    /// Ulozi makro (id 0 = nove). Vraci false pri prekroceni limitu nebo chybe databaze.
+    pub fn macro_save(&self, m: &Macro) -> bool {
+        let Some(conn) = &self.conn else { return false };
+        if m.id > 0 {
+            conn.execute(
+                "UPDATE macros SET name = ?2, text = ?3, shortcut = ?4 WHERE id = ?1",
+                params![m.id, m.name, m.text, m.shortcut],
+            )
+            .is_ok()
+        } else {
+            let count: i64 = conn.query_row("SELECT COUNT(*) FROM macros", [], |r| r.get(0)).unwrap_or(0);
+            if count as usize >= crate::macros::MAX_MACROS {
+                return false;
+            }
+            conn.execute("INSERT INTO macros (name, text, shortcut) VALUES (?1, ?2, ?3)", params![m.name, m.text, m.shortcut])
+                .is_ok()
+        }
+    }
+
+    pub fn macro_delete(&self, id: i64) {
+        if let Some(conn) = &self.conn {
+            let _ = conn.execute("DELETE FROM macros WHERE id = ?1", params![id]);
+        }
+    }
+
+    // ------------------------------------------------------------------ prizpusobeni swipe
+
+    pub fn load_calibration(&self) -> Calibration {
+        let mut cal = Calibration::default();
+        let Some(conn) = &self.conn else { return cal };
+        if let Ok(mut st) = conn.prepare("SELECT key, sx, sy, n FROM key_calibration") {
+            if let Ok(rows) = st.query_map([], |r| Ok((r.get::<_, i64>(0)?, r.get::<_, f64>(1)?, r.get::<_, f64>(2)?, r.get::<_, u32>(3)?))) {
+                for (k, sx, sy, n) in rows.flatten() {
+                    if (0..26).contains(&k) {
+                        cal.sum[k as usize] = (sx as f32, sy as f32);
+                        cal.n[k as usize] = n;
+                    }
+                }
+            }
+        }
+        cal
+    }
+
+    pub fn save_calibration(&self, cal: &Calibration) {
+        let Some(conn) = &self.conn else { return };
+        let run = || -> rusqlite::Result<()> {
+            conn.execute_batch("BEGIN;")?;
+            {
+                let mut st = conn.prepare("INSERT OR REPLACE INTO key_calibration (key, sx, sy, n) VALUES (?1, ?2, ?3, ?4)")?;
+                for k in 0..26 {
+                    if cal.n[k] > 0 {
+                        st.execute(params![k as i64, cal.sum[k].0 as f64, cal.sum[k].1 as f64, cal.n[k]])?;
+                    }
+                }
+            }
+            conn.execute_batch("COMMIT;")
+        };
+        if run().is_err() {
+            let _ = conn.execute_batch("ROLLBACK;");
+        }
+    }
+
+    pub fn clear_calibration(&self) {
+        if let Some(conn) = &self.conn {
+            let _ = conn.execute_batch("DELETE FROM key_calibration;");
         }
     }
 
@@ -375,6 +513,50 @@ mod tests {
         assert_eq!(texts, vec!["stará připnutá", "nová"]);
         st.clip_clear();
         assert!(st.clip_list().is_empty());
+    }
+
+    #[test]
+    fn macros_crud() {
+        let st = Storage::in_memory();
+        assert!(st.macro_list().is_empty());
+        assert!(st.macro_save(&Macro { id: 0, name: "Pozdrav".into(), text: "S pozdravem".into(), shortcut: "mfg".into() }));
+        assert!(st.macro_save(&Macro { id: 0, name: "Mail".into(), text: "a@b.cz".into(), shortcut: "@@".into() }));
+        let mut list = st.macro_list();
+        assert_eq!(list.len(), 2);
+        list[0].text = "S přátelským pozdravem".into();
+        assert!(st.macro_save(&list[0]));
+        assert_eq!(st.macro_list()[0].text, "S přátelským pozdravem");
+        st.macro_delete(list[0].id);
+        assert_eq!(st.macro_list().len(), 1);
+        assert_eq!(st.macro_list()[0].shortcut, "@@");
+    }
+
+    #[test]
+    fn trigrams_corrections_and_calibration_persist() {
+        let dir = temp_dir("phase3");
+        {
+            let st = Storage::open(&dir);
+            st.put_trigram("jak se", "máš", 3);
+            st.put_correction("mas", "máš", 2);
+            st.put_correction("blbost", "", 1);
+            let mut cal = Calibration::default();
+            for _ in 0..10 {
+                cal.add(0, 0.2, -0.1);
+            }
+            st.save_calibration(&cal);
+        }
+        let st = Storage::open(&dir);
+        let user = st.load_user();
+        assert_eq!(user.next_after("jak", "se")[0], ("máš".to_string(), 3));
+        assert_eq!(user.corrections_from("mas").collect::<Vec<_>>(), vec![("máš", 2)]);
+        assert_eq!(user.rejections("blbost"), 1);
+        let cal = st.load_calibration();
+        assert_eq!(cal.n[0], 10);
+        assert!((cal.offset(0).0 - 0.2).abs() < 1e-4);
+        st.clear_calibration();
+        assert_eq!(st.load_calibration().n[0], 0);
+        drop(st);
+        let _ = fs::remove_dir_all(&dir);
     }
 
     #[test]

@@ -11,6 +11,8 @@
         <intent>
             <action android:name="android.speech.RecognitionService" />
         </intent>
+        <!-- Sluzba rozpoznavani reci aplikace Google (zaloha, kdyz vychozi sluzba neumi cesky). -->
+        <package android:name="com.google.android.googlequicksearchbox" />
     </queries>
 
     <application
@@ -49,5 +51,16 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+        <activity
+            android:name=".DictionaryActivity"
+            android:exported="false"
+            android:label="@string/sec_dictionary"
+            android:windowSoftInputMode="adjustResize" />
+
+        <activity
+            android:name=".MacrosActivity"
+            android:exported="false"
+            android:label="@string/macros"
+            android:windowSoftInputMode="adjustResize" />
     </application>
 </manifest>

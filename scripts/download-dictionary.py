@@ -7,7 +7,7 @@ Zdroje (zadna vymyslena slova):
      dictionaries/cs_CZ.dic + cs_CZ.aff (kdyz chybi, stahnou se z GitHubu LibreOffice)
   B) Cesky frekvencni seznam lemmat (CNK, CC BY 4.0)      -> poradi castosti
      dictionaries/czech_freq_15k.txt (jedno lemma na radek, serazeno od nejcastejsiho)
-  C) Leipzig Corpora Collection (CC BY 4.0)               -> frekvence tvaru + bigramy
+  C) Leipzig Corpora Collection (CC BY 4.0)               -> frekvence tvaru + bigramy + trigramy
      eng_news_2020_300K (anglictina), ces_news_2020_300K (cestina)
 
 Postup: expanze Hunspell tvaru -> cisteni -> lowercase -> deduplikace -> frekvence
@@ -214,6 +214,39 @@ def read_bigrams(archive, ids, vocab):
     return out
 
 
+TOKEN = re.compile(r"[^\W\d_]+(?:'[^\W\d_]+)?")
+CLAUSE_SPLIT = re.compile(r"[.!?;:,()\"„“”–—]+")
+TRIGRAMS_PER_CONTEXT = 5
+TRIGRAM_MIN_COUNT = 3
+
+
+def read_trigrams(archive, vocab):
+    """Trigramy (w1, w2 -> w3) z vet korpusu; jen slova ze slovniku, v ramci jedne vetne casti."""
+    counts = defaultdict(int)
+    with tarfile.open(archive, "r:gz") as tar:
+        member = next(m for m in tar.getmembers() if m.name.endswith("-sentences.txt"))
+        for raw in tar.extractfile(member):
+            line = raw.decode("utf-8", "replace")
+            text = line.split("	", 1)[-1].lower()
+            for clause in CLAUSE_SPLIT.split(text):
+                toks = TOKEN.findall(clause)
+                for i in range(len(toks) - 2):
+                    a, b, c = toks[i], toks[i + 1], toks[i + 2]
+                    if a in vocab and b in vocab and c in vocab:
+                        counts[(a, b, c)] += 1
+    by_ctx = defaultdict(list)
+    for (a, b, c), n in counts.items():
+        if n >= TRIGRAM_MIN_COUNT:
+            by_ctx[(a, b)].append((n, c))
+    out = []
+    for (a, b), lst in by_ctx.items():
+        lst.sort(reverse=True)
+        for n, c in lst[:TRIGRAMS_PER_CONTEXT]:
+            out.append((a, b, c, n))
+    out.sort()
+    return out
+
+
 def fold_counts(counts):
     """Agregace podle lowercase: (celkem, pocet malych, pocet s velkym pocatecnim)."""
     agg = {}
@@ -313,6 +346,8 @@ def build_czech():
     write_tsv(BUILD / "cs_words.tsv", rows)
     log("[cs] bigramy")
     write_tsv(BUILD / "cs_bigrams.tsv", read_bigrams(archive, ids, words))
+    log("[cs] trigramy")
+    write_tsv(BUILD / "cs_trigrams.tsv", read_trigrams(archive, words))
 
 
 # --------------------------------------------------------------------------- anglictina
@@ -334,7 +369,10 @@ def build_english():
     log(f"[en] {len(rows)} slov")
     write_tsv(BUILD / "en_words.tsv", rows)
     log("[en] bigramy")
-    write_tsv(BUILD / "en_bigrams.tsv", read_bigrams(archive, ids, {r[0] for r in rows}))
+    vocab = {r[0] for r in rows}
+    write_tsv(BUILD / "en_bigrams.tsv", read_bigrams(archive, ids, vocab))
+    log("[en] trigramy")
+    write_tsv(BUILD / "en_trigrams.tsv", read_trigrams(archive, vocab))
 
 
 def main():

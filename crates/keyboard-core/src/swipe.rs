@@ -47,6 +47,90 @@ const MIN_SPEED_UNITS_PER_S: f32 = 1.0;
 
 type Pt = (f32, f32);
 
+/// Penalizace skore za kazde smazani slova hned po swipe (nejvyse 5x).
+const REJECT_PENALTY: f32 = 0.04;
+/// Posun skore za kazdou zaznamenanou opravu "spatne -> spravne" (nejvyse 4x).
+const CORRECTION_SHIFT: f32 = 0.02;
+
+/// Minimalni pocet vzorku, nez se posun stredu klavesy zacne pouzivat.
+const CAL_MIN_SAMPLES: u32 = 6;
+/// Nejvetsi povoleny posun stredu klavesy (v sirkach klaves).
+const CAL_MAX_OFFSET: f32 = 0.35;
+/// Klouzave okno: starsi vzorky postupne ztraceji vahu.
+const CAL_WINDOW: u32 = 150;
+/// Zarovnani horsi nez tohle (prumerna chyba na bod) se k uceni nepouzije.
+const CAL_MAX_MEAN_COST: f32 = 0.12;
+
+/// Prizpusobeni swipe stylu psani: pro kazde pismeno prumerny rozdil mezi mistem,
+/// kudy prst pri potvrzenych tazich skutecne jezdi, a stredem klavesy.
+#[derive(Debug, Clone, Copy)]
+pub struct Calibration {
+    pub sum: [(f32, f32); 26],
+    pub n: [u32; 26],
+}
+
+impl Default for Calibration {
+    fn default() -> Self {
+        Calibration { sum: [(0.0, 0.0); 26], n: [0; 26] }
+    }
+}
+
+impl Calibration {
+    pub fn add(&mut self, key: usize, dx: f32, dy: f32) {
+        if key >= 26 || !dx.is_finite() || !dy.is_finite() {
+            return;
+        }
+        if self.n[key] >= CAL_WINDOW {
+            let keep = (CAL_WINDOW - 1) as f32 / CAL_WINDOW as f32;
+            self.sum[key].0 *= keep;
+            self.sum[key].1 *= keep;
+            self.n[key] = CAL_WINDOW - 1;
+        }
+        self.sum[key].0 += dx;
+        self.sum[key].1 += dy;
+        self.n[key] += 1;
+    }
+
+    /// Posun stredu klavesy v normalizovanych jednotkach (0, dokud neni dost vzorku).
+    pub fn offset(&self, key: usize) -> Pt {
+        if key >= 26 || self.n[key] < CAL_MIN_SAMPLES {
+            return (0.0, 0.0);
+        }
+        let n = self.n[key] as f32;
+        (
+            (self.sum[key].0 / n).clamp(-CAL_MAX_OFFSET, CAL_MAX_OFFSET),
+            (self.sum[key].1 / n).clamp(-CAL_MAX_OFFSET, CAL_MAX_OFFSET),
+        )
+    }
+
+    /// Geometrie s posunutymi stredy klaves.
+    pub fn apply(&self, geom: &KeyGeom) -> KeyGeom {
+        let mut g = *geom;
+        for k in 0..26 {
+            let o = self.offset(k);
+            g.centers[k].0 += o.0;
+            g.centers[k].1 += o.1;
+        }
+        g
+    }
+
+    /// Nauci se z potvrzeneho tahu: `word` je slovo bez diakritiky, `pts` jeho draha,
+    /// `geom` neposunuta geometrie. Vraci true, kdyz se tah pouzil.
+    pub fn learn(&mut self, word: &[u8], pts: &[Pt; RESAMPLE_N], geom: &KeyGeom, sensitivity: f32) -> bool {
+        // Zarovnava se vuci aktualne posunutym stredum (tak, jak tah videl decoder),
+        // posun se ale meri vuci skutecnym stredum klaves.
+        let Some((anchors, mean)) = anchor_points(word, pts, &self.apply(geom), sensitivity) else { return false };
+        if mean > CAL_MAX_MEAN_COST {
+            return false;
+        }
+        for (k, p) in anchors {
+            let c = geom.centers[k as usize];
+            self.add(k as usize, p.0 - c.0, p.1 - c.1);
+        }
+        true
+    }
+}
+
 #[derive(Clone, Copy)]
 struct State {
     /// Cena vsech bodu az po kotvu (vcetne).
@@ -273,6 +357,102 @@ pub fn align_cost(word: &[u8], pts: &[Pt; RESAMPLE_N], geom: &KeyGeom, sensitivi
     total.is_finite().then_some(total)
 }
 
+/// Presne zarovnani slova na drahu vcetne bodu, ve kterych draha jednotliva pismena dosahla.
+/// Vraci (klavesa, bod) pro kazde pismeno a prumernou cenu na bod.
+pub fn anchor_points(word: &[u8], pts: &[Pt; RESAMPLE_N], geom: &KeyGeom, sensitivity: f32) -> Option<(Vec<(u8, Pt)>, f32)> {
+    let sens = if sensitivity.is_finite() { sensitivity.clamp(0.5, 1.5) } else { 1.0 };
+    let inv = 1.0 / (sens * sens);
+    let r2 = (ANCHOR_RADIUS * sens) * (ANCHOR_RADIUS * sens);
+    let mut keys: Vec<u8> = Vec::with_capacity(word.len());
+    for &b in word.iter().take(MAX_WORD_LEN) {
+        let k = key_of(b, geom);
+        if k == NO_KEY {
+            if keys.is_empty() {
+                return None;
+            }
+            continue;
+        }
+        if keys.last() != Some(&k) {
+            keys.push(k);
+        }
+    }
+    let m = keys.len();
+    if m < 2 {
+        return None;
+    }
+    let c = |j: usize| geom.centers[keys[j] as usize];
+    let last = RESAMPLE_N - 1;
+    // cost[j][i] = nejlepsi cena, kdyz pismeno j bylo dosazeno v bode i.
+    let mut cost = vec![[f32::INFINITY; RESAMPLE_N]; m];
+    let mut back = vec![[0u8; RESAMPLE_N]; m];
+    let d0 = dist2(pts[0], c(0));
+    if d0 > r2 {
+        return None;
+    }
+    cost[0][0] = ANCHOR_WEIGHT * d0 * inv;
+    let mut pre = [0.0f32; RESAMPLE_N];
+    for j in 1..m {
+        for q in 1..RESAMPLE_N {
+            pre[q] = pre[q - 1] + seg_dist2(pts[q], c(j - 1), c(j));
+        }
+        for i in 1..RESAMPLE_N {
+            let a = dist2(pts[i], c(j));
+            if a > r2 {
+                continue;
+            }
+            let mut best = f32::INFINITY;
+            let mut from = 0u8;
+            for ip in 0..i {
+                let prev = cost[j - 1][ip];
+                if prev.is_finite() {
+                    let v = prev + (pre[i] - pre[ip]) * inv;
+                    if v < best {
+                        best = v;
+                        from = ip as u8;
+                    }
+                }
+            }
+            if best.is_finite() {
+                cost[j][i] = best + ANCHOR_WEIGHT * a * inv;
+                back[j][i] = from;
+            }
+        }
+    }
+    let total = cost[m - 1][last];
+    if !total.is_finite() {
+        return None;
+    }
+    let mut anchors = vec![(0u8, (0.0f32, 0.0f32)); m];
+    let mut i = last;
+    for j in (0..m).rev() {
+        anchors[j] = (keys[j], pts[i]);
+        i = back[j][i] as usize;
+    }
+    Some((anchors, total / RESAMPLE_N as f32))
+}
+
+/// Uceni z oprav: slova, ktera uzivatel po swipe mazal nebo nahrazoval jinou alternativou,
+/// klesnou; slova, ktera misto nich vybiral, stoupnou (jen kdyz jsou obe mezi kandidaty).
+fn apply_corrections(scored: &mut [SwipeCandidate], user: &UserDict) {
+    let mut shifts: Vec<(usize, f32)> = Vec::new();
+    for i in 0..scored.len() {
+        let rejected = user.rejections(&scored[i].word).min(5);
+        if rejected > 0 {
+            shifts.push((i, -REJECT_PENALTY * rejected as f32));
+        }
+        for (good, count) in user.corrections_from(&scored[i].word) {
+            if let Some(j) = scored.iter().position(|s| s.word == good) {
+                let d = CORRECTION_SHIFT * count.min(4) as f32;
+                shifts.push((i, -d));
+                shifts.push((j, d));
+            }
+        }
+    }
+    for (i, d) in shifts {
+        scored[i].score += d;
+    }
+}
+
 /// Idealni draha slova pres stredy klaves jako surove vzorky (x, y, t) v pixelech.
 /// Slouzi testum a benchmarkum (simulace tahu prstem).
 pub fn ideal_path(word: &str, geom: &KeyGeom, samples_per_segment: usize) -> Vec<f32> {
@@ -389,6 +569,7 @@ impl SwipeDecoder {
             }
         }
 
+        apply_corrections(&mut scored, user);
         scored.sort_by(|a, b| b.score.total_cmp(&a.score));
         let mut out: Vec<SwipeCandidate> = Vec::with_capacity(TOP_N);
         for c in scored {
@@ -777,6 +958,86 @@ mod tests {
         // "byt" a "být" maji stejnou drahu; castejsi "být" je prvni
         let res = dec.decode(&ideal_path("byt", &g, 12), &g, &[&d], &UserDict::new(), 1.0, NOW);
         assert_eq!(top(&res)[..2], ["být", "byt"]);
+    }
+
+    #[test]
+    fn corrections_demote_wrong_word_and_promote_chosen_one() {
+        let (g, d) = (geom(), dict());
+        let mut dec = SwipeDecoder::new();
+        let path = ideal_path("mas", &g, 12);
+        let mut user = UserDict::new();
+        assert_eq!(dec.decode(&path, &g, &[&d], &user, 1.0, NOW)[0].word, "máš");
+        // uzivatel dvakrat nahradil "máš" alternativou "mas"
+        user.note_correction("máš", "mas");
+        user.note_correction("máš", "mas");
+        assert_eq!(dec.decode(&path, &g, &[&d], &user, 1.0, NOW)[0].word, "mas");
+    }
+
+    #[test]
+    fn rejected_word_drops_in_ranking() {
+        let (g, d) = (geom(), dict());
+        let mut dec = SwipeDecoder::new();
+        let path = ideal_path("byt", &g, 12);
+        let mut user = UserDict::new();
+        assert_eq!(dec.decode(&path, &g, &[&d], &user, 1.0, NOW)[0].word, "být");
+        for _ in 0..3 {
+            user.note_correction("být", ""); // smazano hned po swipe
+        }
+        assert_eq!(dec.decode(&path, &g, &[&d], &user, 1.0, NOW)[0].word, "byt");
+        // normalni pouziti odmitnuti postupne odpousti
+        for _ in 0..3 {
+            user.forgive("být");
+        }
+        assert_eq!(dec.decode(&path, &g, &[&d], &user, 1.0, NOW)[0].word, "být");
+    }
+
+    #[test]
+    fn anchor_points_sit_on_key_centers() {
+        let g = geom();
+        let mut dec = SwipeDecoder::new();
+        let d = dict();
+        dec.decode(&ideal_path("ahoj", &g, 12), &g, &[&d], &UserDict::new(), 1.0, NOW);
+        let (anchors, mean) = anchor_points(b"ahoj", dec.last_resampled(), &g, 1.0).unwrap();
+        assert_eq!(anchors.iter().map(|a| (b'a' + a.0) as char).collect::<String>(), "ahoj");
+        assert!(mean < 0.01);
+        for (k, p) in anchors {
+            assert!(dist2(p, g.centers[k as usize]) < 0.05, "{k}");
+        }
+        assert!(anchor_points(b"pes", dec.last_resampled(), &g, 1.0).is_none());
+    }
+
+    #[test]
+    fn calibration_learns_systematic_offset() {
+        let (g, d) = (geom(), dict());
+        let mut dec = SwipeDecoder::new();
+        let mut cal = Calibration::default();
+        // uzivatel jezdi soustavne o 0.25 sirky klavesy vpravo a 0.2 radku nize
+        let shifted = |w: &str| {
+            let mut p = ideal_path(w, &g, 12);
+            for s in p.chunks_exact_mut(3) {
+                s[0] += 0.25 * g.unit_w;
+                s[1] += 0.2 * g.row_h;
+            }
+            p
+        };
+        assert_eq!(cal.offset(0), (0.0, 0.0));
+        for _ in 0..8 {
+            for w in ["ahoj", "jako", "jak"] {
+                dec.decode(&shifted(w), &g, &[&d], &UserDict::new(), 1.0, NOW);
+                assert!(cal.learn(w.as_bytes(), dec.last_resampled(), &g, 1.0));
+            }
+        }
+        let a = cal.offset(0);
+        assert!((a.0 - 0.25).abs() < 0.05 && (a.1 - 0.2).abs() < 0.05, "{a:?}");
+        // s prizpusobenou geometrii posunuty tah sedi lepe nez bez ni
+        let before = dec.decode(&shifted("ahoj"), &g, &[&d], &UserDict::new(), 1.0, NOW)[0].cost;
+        let after = dec.decode(&shifted("ahoj"), &cal.apply(&g), &[&d], &UserDict::new(), 1.0, NOW)[0].cost;
+        assert!(after < before * 0.5, "{after} vs {before}");
+        // posun je omezeny
+        for _ in 0..50 {
+            cal.add(3, 5.0, -5.0);
+        }
+        assert_eq!(cal.offset(3), (0.35, -0.35));
     }
 
     #[test]

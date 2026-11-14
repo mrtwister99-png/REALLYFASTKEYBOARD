@@ -386,13 +386,29 @@ pub fn suggest_composing(ctx: &Context, typed: &str) -> Vec<String> {
 /// Frekvence pripsana osobnim slovum bez zaznamu ve vestavenem slovniku.
 const USER_FREQ: u8 = 110;
 
-/// Predikce dalsiho slova po `prev` (prazdne `prev` = zacatek vety).
-pub fn predict_next(ctx: &Context, prev: &str, capitalize: bool) -> Vec<String> {
+/// Predikce dalsiho slova po `prev` (prazdne `prev` = zacatek vety). `prev2` je slovo pred nim
+/// (prazdne, kdyz neni): dvojice slov ma prednost (trigramy), pak jedno slovo (bigramy),
+/// nakonec nejcastejsi slova jazyka. Osobni data maji vzdy prednost pred vestavenymi.
+pub fn predict_next(ctx: &Context, prev2: &str, prev: &str, capitalize: bool) -> Vec<String> {
     if !ctx.predictions {
         return Vec::new();
     }
     let mut pool = Pool { items: Vec::new() };
     let prev_lower = prev.to_lowercase();
+    let prev2_lower = prev2.to_lowercase();
+
+    for (i, (w, count)) in ctx.user.next_after(&prev2_lower, &prev_lower).into_iter().enumerate().take(6) {
+        pool.add(w, 3.0 + (count.min(50) as f32) * 0.02 - i as f32 * 0.001);
+    }
+    if let (Some(e2), Some(e1)) = (charmap::encode_word(&prev2_lower), charmap::encode_word(&prev_lower)) {
+        for dict in ctx.dicts {
+            for (i, next) in dict.trigrams(&e2, &e1).iter().enumerate() {
+                let word = dict.render(next);
+                let p = ctx.user.strength(&word, ctx.now);
+                pool.add(word, 1.6 - i as f32 * 0.05 + 0.3 * p);
+            }
+        }
+    }
 
     for (i, (w, count)) in ctx.user.next_words(&prev_lower).into_iter().enumerate().take(6) {
         pool.add(w, 2.0 + (count.min(50) as f32) * 0.02 - i as f32 * 0.001);
@@ -540,7 +556,7 @@ mod tests {
         c.autocorrect = false;
         c.predictions = false;
         assert_eq!(suggest_composing(&c, "prilis"), vec!["prilis"]);
-        assert!(predict_next(&c, "dobrý", false).is_empty());
+        assert!(predict_next(&c, "", "dobrý", false).is_empty());
     }
 
     #[test]
@@ -557,10 +573,10 @@ mod tests {
         let d = dict();
         let u = UserDict::new();
         let dicts = [&d];
-        let p = predict_next(&ctx(&dicts, &u), "Dobrý", false);
+        let p = predict_next(&ctx(&dicts, &u), "", "Dobrý", false);
         assert_eq!(p[..2], ["den", "večer"]);
         assert_eq!(p.len(), 3);
-        assert_eq!(predict_next(&ctx(&dicts, &u), "v", false)[0], "Praha");
+        assert_eq!(predict_next(&ctx(&dicts, &u), "", "v", false)[0], "Praha");
     }
 
     #[test]
@@ -569,9 +585,31 @@ mod tests {
         let mut u = UserDict::new();
         u.learn("pes", "dobrý", NOW);
         let dicts = [&d];
-        let p = predict_next(&ctx(&dicts, &u), "dobrý", false);
+        let p = predict_next(&ctx(&dicts, &u), "", "dobrý", false);
         assert_eq!(p[0], "pes");
         assert_eq!(p[1], "den");
+    }
+
+    #[test]
+    fn two_word_context_beats_one_word() {
+        let words: Vec<(String, u8, bool)> =
+            ["jak", "se", "máš", "to", "v", "a"].iter().map(|w| (w.to_string(), 200u8, false)).collect();
+        let data = crate::dictionary::DictData::build_with_trigrams(
+            &words,
+            &[("se".into(), "to".into(), 50)],
+            &[("jak".into(), "se".into(), "máš".into(), 20)],
+        )
+        .unwrap();
+        let d = Dictionary::from_data("cs", data).unwrap();
+        let mut u = UserDict::new();
+        let dicts = [&d];
+        // jen jedno slovo kontextu -> bigram
+        assert_eq!(predict_next(&ctx(&dicts, &u), "", "se", false)[0], "to");
+        // dve slova -> trigram ma prednost
+        assert_eq!(predict_next(&ctx(&dicts, &u), "Jak", "se", false)[0], "máš");
+        // osobni trigram ma prednost pred vestavenym
+        u.learn_trigram("jak", "se", "v");
+        assert_eq!(predict_next(&ctx(&dicts, &u), "jak", "se", false)[..2], ["v", "máš"]);
     }
 
     #[test]
@@ -579,7 +617,7 @@ mod tests {
         let d = dict();
         let u = UserDict::new();
         let dicts = [&d];
-        let p = predict_next(&ctx(&dicts, &u), "", true);
+        let p = predict_next(&ctx(&dicts, &u), "", "", true);
         assert_eq!(p, vec!["A", "V", "Se"]);
     }
 
