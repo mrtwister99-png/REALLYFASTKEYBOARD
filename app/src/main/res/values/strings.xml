@@ -164,7 +164,7 @@
     <string name="unit_percent">%1$d %%</string>
     <string name="unit_minutes">%1$d min</string>
     <string name="unit_off">vypnuto</string>
-    <string name="layout_hint">Klepni na písmeno v náhledu dole a zvol, jaký znak na něm má být, nebo ho prohoď s jiným. Klepnutím na ?123 či Enter, nebo na Shift či ⌫ prohodíš jejich pozice.</string>
+    <string name="layout_hint">Klepni na písmeno v náhledu dole a zvol, jaký znak na něm má být, nebo ho prohoď s jiným. Klepnutím na ?123 či Enter, nebo na Shift či ⌫ prohodíš jejich pozice. Tlačítkem Makro dáš na klávesu makro místo znaku.</string>
     <string name="layout_mode_letters">Písmena</string>
     <string name="layout_mode_symbols">Symboly</string>
     <string name="layout_mode_symbols2">Další symboly</string>
@@ -241,7 +241,7 @@
     <string name="animations_hint">Plynulý stisk kláves a přechody panelů</string>
     <string name="key_popup_hint">Bublina se znakem nad stisknutou klávesou</string>
     <string name="key_shadow_hint">Jemný tmavý okraj pod každou klávesou</string>
-    <string name="key_glow_hint">Klepnutá klávesa se krátce rozsvítí neonem nebo se vypaří. Styl a barvu najdeš níže.</string>
+    <string name="key_glow_hint">Klepnutá klávesa se krátce rozsvítí neonem nebo zableskne glitchem. Styl a barvu najdeš níže.</string>
     <string name="swipe_glow_hint">Styl a barvu animace najdeš ve Vzhledu.</string>
     <string name="about_title">fAZT!</string>
     <string name="about_tagline">Rychlá soukromá klávesnice</string>
@@ -261,7 +261,7 @@
     <string name="hint_size">Velikost nápovědy</string>
     <string name="tap_effect_label">Styl efektu</string>
     <string name="tap_effect_neon">Neon</string>
-    <string name="tap_effect_vanish">Vypaření</string>
+    <string name="tap_effect_glitch">Glitch</string>
     <string name="color_done">Hotovo</string>
     <string name="color_brightness">Jas</string>
     <string name="sec_extra_digits">Číslice</string>
@@ -276,10 +276,19 @@
     <string name="paint_color1">Barva 1</string>
     <string name="paint_color2">Barva 2</string>
     <string name="paint_color3">Barva 3</string>
-    <string name="paint_hint">Zapni v Hlavní → Styl efektu → Barvy</string>
-    <string name="tap_effect_paint">Barvy</string>
-    <string name="glow_style_fly">Slovo</string>
-    <string name="fly_hint">Po tahu se písmena slova slétnou nad klávesnici a složí slovo. Zapni v Hlavní → Animace po úspěšném tahu → Slovo</string>
     <string name="notice_ok">OK</string>
     <string name="downgrade_done">Downgrade byl úspěšný</string>
+    <string name="paint_effect">Efekt Barvy při klepnutí</string>
+    <string name="paint_hint">Klepnutá klávesa se na několik sekund obarví a pak pomalu vybledne.</string>
+    <string name="fly_effect">Animace Slovo po tahu</string>
+    <string name="fly_hint">Po tahu se písmena slova slétnou nad klávesnici a složí slovo.</string>
+    <string name="sec_extra_chars">Znaky</string>
+    <string name="label_pos">Pozice hlavního znaku na klávese</string>
+    <string name="label_adjust">Nastavit pozici znaku</string>
+    <string name="passed_text_color">Barva znaku při přejetí</string>
+    <string name="tap_text_color">Barva znaku po klepnutí</string>
+    <string name="macro_short">Makro</string>
+    <string name="key_macro_title">Makro na klávese</string>
+    <string name="key_macro_none">Bez makra</string>
+    <string name="key_macro_empty">Nejdřív si vytvoř makro v Makra a zkratky</string>
 </resources>

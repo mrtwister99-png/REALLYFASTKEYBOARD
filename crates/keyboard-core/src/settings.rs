@@ -9,7 +9,7 @@ pub const LAYOUTS: [&str; 2] = ["qwertz", "qwerty"];
 pub const KEY_PLACES: [&str; 3] = ["left", "right", "hidden"];
 pub const THEMES: [&str; 4] = ["dark", "light", "oled_black", "custom"];
 pub const GLOW_STYLES: [&str; 3] = ["blink", "fill", "fly"];
-pub const TAP_EFFECTS: [&str; 3] = ["neon", "vanish", "paint"];
+pub const TAP_EFFECTS: [&str; 3] = ["neon", "glitch", "paint"];
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
@@ -79,7 +79,7 @@ pub struct Settings {
     pub hint_color: String,
     /// Velikost znaku napovedy v procentech (100 = vychozi).
     pub hint_percent: u32,
-    /// Efekt po klepnuti na klavesu: "neon" nebo "vanish" (vypareni). Zapina ho `key_glow`.
+    /// Efekt po klepnuti na klavesu: "neon", "glitch" nebo "paint". Zapina ho `key_glow`.
     pub tap_effect: String,
     /// Barva neonu po klepnuti.
     pub neon_color: String,
@@ -130,6 +130,15 @@ pub struct Settings {
     pub paint_color1: String,
     pub paint_color2: String,
     pub paint_color3: String,
+    /// Poloha hlavniho znaku na klavese: x, y v 0..1 (0,5 = uprostred).
+    pub key_label_x: f32,
+    pub key_label_y: f32,
+    /// Barva znaku klavesy, kterou prochazi prst pri tahu ("" = automaticka).
+    pub passed_text_color: String,
+    /// Barva znaku po klepnuti ("" = vypnuto).
+    pub tap_text_color: String,
+    /// Makro prirazene primo klavese: puvodni znak pozice -> id makra.
+    pub key_macros: BTreeMap<String, u32>,
 }
 
 impl Default for Settings {
@@ -203,6 +212,11 @@ impl Default for Settings {
             paint_color1: "#0080FF".into(),
             paint_color2: "#FF5100".into(),
             paint_color3: "#6A02E8".into(),
+            key_label_x: 0.5,
+            key_label_y: 0.5,
+            passed_text_color: String::new(),
+            tap_text_color: String::new(),
+            key_macros: BTreeMap::new(),
         }
     }
 }
@@ -213,6 +227,8 @@ pub const MAX_KEY_MAP: usize = 64;
 pub const MAX_KEY_ALTS: usize = 64;
 /// Nejvyse tolik variant na klavesu.
 pub const MAX_ALTS_LEN: usize = 12;
+/// Nejvyse tolik klaves s prirazenym makrem.
+pub const MAX_KEY_MACROS: usize = 16;
 pub const HINT_POSITIONS: [&str; 6] =
     ["top_right", "top_left", "top_center", "bottom_right", "bottom_left", "bottom_center"];
 
@@ -307,9 +323,20 @@ impl Settings {
         if !GLOW_STYLES.contains(&self.glow_style.as_str()) {
             self.glow_style = d.glow_style.clone();
         }
+        if self.tap_effect == "vanish" {
+            self.tap_effect = "glitch".into();
+        }
         if !TAP_EFFECTS.contains(&self.tap_effect.as_str()) {
             self.tap_effect = d.tap_effect.clone();
         }
+        for v in [&mut self.key_label_x, &mut self.key_label_y] {
+            *v = if v.is_finite() { v.clamp(0.0, 1.0) } else { 0.5 };
+        }
+        self.key_macros = std::mem::take(&mut self.key_macros)
+            .into_iter()
+            .filter(|(k, v)| single_char(k).is_some() && *v > 0)
+            .take(MAX_KEY_MACROS)
+            .collect();
         self.hint_percent = self.hint_percent.clamp(60, 180);
         self.key_map = std::mem::take(&mut self.key_map)
             .into_iter()
@@ -343,6 +370,8 @@ impl Settings {
         fix_optional_color(&mut self.popup_color);
         fix_optional_color(&mut self.alts_color);
         fix_optional_color(&mut self.hint_color);
+        fix_optional_color(&mut self.passed_text_color);
+        fix_optional_color(&mut self.tap_text_color);
         fix_optional_color(&mut self.digit_text_color);
         fix_optional_color(&mut self.digit_key_color);
         fix_optional_color(&mut self.key_color2);
@@ -686,7 +715,7 @@ mod tests {
         let s = Settings::default();
         assert_eq!((s.hint_color.as_str(), s.hint_percent, s.tap_effect.as_str()), ("", 100, "neon"));
         let s = Settings::from_json(r##"{"hint_color":"#ff8800","hint_percent":150,"tap_effect":"vanish"}"##).unwrap();
-        assert_eq!((s.hint_color.as_str(), s.hint_percent, s.tap_effect.as_str()), ("#FF8800", 150, "vanish"));
+        assert_eq!((s.hint_color.as_str(), s.hint_percent, s.tap_effect.as_str()), ("#FF8800", 150, "glitch"));
         let s = Settings::from_json(r#"{"hint_color":"x","hint_percent":10,"tap_effect":"boom"}"#).unwrap();
         assert_eq!((s.hint_color.as_str(), s.hint_percent, s.tap_effect.as_str()), ("", 60, "neon"));
         let s = Settings::from_json(r#"{"hint_percent":999}"#).unwrap();
@@ -746,5 +775,35 @@ mod tests {
         let old = Settings::from_json(r#"{"theme":"light"}"#).unwrap();
         assert_eq!(old.key_color2, "");
         assert_eq!(old.paint_color2, "#FF5100");
+    }
+
+    #[test]
+    fn label_position_text_colors_and_key_macros() {
+        let s = Settings::default();
+        assert_eq!((s.key_label_x, s.key_label_y), (0.5, 0.5));
+        assert_eq!((s.passed_text_color.as_str(), s.tap_text_color.as_str()), ("", ""));
+        assert!(s.key_macros.is_empty());
+        let s = Settings::from_json(r##"{"key_label_x":0.2,"key_label_y":1.7,"passed_text_color":"#ff0000","tap_text_color":"bad"}"##).unwrap();
+        assert_eq!((s.key_label_x, s.key_label_y), (0.2, 1.0));
+        assert_eq!((s.passed_text_color.as_str(), s.tap_text_color.as_str()), ("#FF0000", ""));
+        let s = Settings::from_json(r#"{"key_label_x":-3.0}"#).unwrap();
+        assert_eq!((s.key_label_x, s.key_label_y), (0.0, 0.5));
+        let s = Settings::from_json(r#"{"key_macros":{"a":3,"bb":4,"c":0," ":5,"d":7}}"#).unwrap();
+        let keys: Vec<(&str, u32)> = s.key_macros.iter().map(|(k, v)| (k.as_str(), *v)).collect();
+        assert_eq!(keys, vec![("a", 3), ("d", 7)]);
+        let many: BTreeMap<String, u32> = (0..40u32).map(|i| (char::from_u32(0x100 + i).unwrap().to_string(), i + 1)).collect();
+        let mut s = Settings { key_macros: many, ..Settings::default() };
+        s.validate();
+        assert_eq!(s.key_macros.len(), MAX_KEY_MACROS);
+        let back = Settings::from_json(&s.to_json()).unwrap();
+        assert_eq!(back, s);
+    }
+
+    #[test]
+    fn vanish_effect_migrates_to_glitch() {
+        let s = Settings::from_json(r#"{"tap_effect":"vanish"}"#).unwrap();
+        assert_eq!(s.tap_effect, "glitch");
+        let s = Settings::from_json(r#"{"tap_effect":"glitch"}"#).unwrap();
+        assert_eq!(s.tap_effect, "glitch");
     }
 }

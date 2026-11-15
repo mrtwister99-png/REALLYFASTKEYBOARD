@@ -157,7 +157,7 @@
     <string name="about_privacy">No internet, no ads, no telemetry. All data stays on the phone and is deleted on uninstall.</string>
 
     <string name="unit_off">off</string>
-    <string name="layout_hint">Tap a letter in the preview below and choose which character it should have, or swap it with another letter. Tap ?123 or Enter, or Shift or ⌫, to swap their positions.</string>
+    <string name="layout_hint">Tap a letter in the preview below and choose which character it should have, or swap it with another letter. Tap ?123 or Enter, or Shift or ⌫, to swap their positions. The Macro button puts a macro on a key instead of a character.</string>
     <string name="layout_mode_letters">Letters</string>
     <string name="layout_mode_symbols">Symbols</string>
     <string name="layout_mode_symbols2">More symbols</string>
@@ -234,7 +234,7 @@
     <string name="animations_hint">Smooth key presses and panel transitions</string>
     <string name="key_popup_hint">A bubble with the character above the pressed key</string>
     <string name="key_shadow_hint">A subtle dark edge under every key</string>
-    <string name="key_glow_hint">A tapped key briefly lights up with neon or evaporates. Style and color are below.</string>
+    <string name="key_glow_hint">A tapped key briefly lights up with neon or flashes with a glitch. Style and color are below.</string>
     <string name="swipe_glow_hint">You can change the animation style and color in Appearance.</string>
     <string name="about_title">fAZT!</string>
     <string name="about_tagline">A fast, private keyboard</string>
@@ -254,7 +254,7 @@
     <string name="hint_size">Hint size</string>
     <string name="tap_effect_label">Effect style</string>
     <string name="tap_effect_neon">Neon</string>
-    <string name="tap_effect_vanish">Evaporate</string>
+    <string name="tap_effect_glitch">Glitch</string>
     <string name="color_done">Done</string>
     <string name="color_brightness">Brightness</string>
     <string name="sec_extra_digits">Digits</string>
@@ -269,10 +269,19 @@
     <string name="paint_color1">Color 1</string>
     <string name="paint_color2">Color 2</string>
     <string name="paint_color3">Color 3</string>
-    <string name="paint_hint">Turn on in Main → Effect style → Paint</string>
-    <string name="tap_effect_paint">Paint</string>
-    <string name="glow_style_fly">Word</string>
-    <string name="fly_hint">After a swipe the letters of the word fly above the keyboard and form the word. Turn on in Main → Animation after a successful swipe → Word</string>
     <string name="notice_ok">OK</string>
     <string name="downgrade_done">Downgrade successful</string>
+    <string name="paint_effect">Paint effect on tap</string>
+    <string name="paint_hint">A tapped key is painted for a few seconds and then slowly fades back.</string>
+    <string name="fly_effect">Word animation after swipe</string>
+    <string name="fly_hint">After a swipe the letters of the word fly above the keyboard and form the word.</string>
+    <string name="sec_extra_chars">Characters</string>
+    <string name="label_pos">Position of the main character on the key</string>
+    <string name="label_adjust">Adjust character position</string>
+    <string name="passed_text_color">Character color while swiping over</string>
+    <string name="tap_text_color">Character color after tap</string>
+    <string name="macro_short">Macro</string>
+    <string name="key_macro_title">Macro on the key</string>
+    <string name="key_macro_none">No macro</string>
+    <string name="key_macro_empty">Create a macro first in Macros and shortcuts</string>
 </resources>

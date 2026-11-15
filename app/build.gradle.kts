@@ -13,8 +13,8 @@ android {
         applicationId = "cz.reallyfast"
         minSdk = 24
         targetSdk = 34
-        versionCode = 12
-        versionName = "1.11.0"
+        versionCode = 13
+        versionName = "1.12.0"
         ndk {
             // arm64-v8a = Galaxy S25 Ultra a vsechny dnesni telefony, x86_64 = emulator.
             abiFilters += listOf("arm64-v8a", "x86_64")

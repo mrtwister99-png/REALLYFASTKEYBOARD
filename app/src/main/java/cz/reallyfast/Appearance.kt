@@ -1,6 +1,7 @@
 package cz.reallyfast
 
 import android.annotation.SuppressLint
+import android.app.AlertDialog
 import android.content.Context
 import android.graphics.Canvas
 import android.graphics.Paint
@@ -39,7 +40,8 @@ import kotlin.math.max
  * `key_alts`) a Rust ji pouzije v rozlozeni i v swipe decoderu.
  * Tlacitko TEST zapne zkusebni rezim nahledu: klavesy reaguji jako na pravde (klepnuti i swipe)
  * a napsany text se ukazuje v radku nad nahledem; nic se nikam nezapisuje ani neuci.
- * "Nastavit" u male napovedy zapne nad klavesnici ovladac polohy napovedy.
+ * "Nastavit" u male napovedy zapne nad klavesnici ovladac polohy napovedy; stejny ovladac nastavuje
+ * i polohu hlavniho znaku (druha zalozka).
  */
 class AppearanceActivity : SettingsScreen() {
 
@@ -54,6 +56,8 @@ class AppearanceActivity : SettingsScreen() {
     private lateinit var hintPad: HintPad
     private lateinit var hintSave: TextView
     private var hintAdjustButton: TextView? = null
+    private var labelAdjustButton: TextView? = null
+    private lateinit var captionView: TextView
     private var statusView: TextView? = null
     private var cancelSwapView: TextView? = null
     private val tabPills = ArrayList<TextView>()
@@ -70,6 +74,7 @@ class AppearanceActivity : SettingsScreen() {
     private val testTyped = StringBuilder()
     private var imeVisible = false
     private var adjusting = false
+    private var adjLabel = false
     private var saving = false
     private var adjX = 1f
     private var adjY = 0f
@@ -88,6 +93,7 @@ class AppearanceActivity : SettingsScreen() {
     private var editSwap: (() -> Unit)? = null
     private var editOriginal: (() -> Unit)? = null
     private var editSave: (() -> Unit)? = null
+    private var editMacro: (() -> Unit)? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -112,6 +118,7 @@ class AppearanceActivity : SettingsScreen() {
         this.captionRow = captionRow
         val caption = label(getString(R.string.preview).uppercase(), 11f, dim)
         caption.letterSpacing = 0.08f
+        captionView = caption
         captionRow.addView(caption, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT))
         // Text napsany v zkusebnim rezimu (jednoradkovy, zkracuje se zepredu).
         val typed = label("", 13f)
@@ -141,8 +148,9 @@ class AppearanceActivity : SettingsScreen() {
         editButton(R.string.swap_short, BLUE, true) { editSwap?.invoke() }
         editButton(R.string.original_short, ORANGE, false) { editOriginal?.invoke() }
         editButton(R.string.save, GREEN, false) { editSave?.invoke() }
+        editButton(R.string.macro_short, PURPLE, false) { editMacro?.invoke() }
         val blp = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
-        blp.leftMargin = dp(12f)
+        blp.leftMargin = dp(8f)
         captionRow.addView(bar, blp)
         editBar = bar
         box.addView(captionRow, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
@@ -153,7 +161,7 @@ class AppearanceActivity : SettingsScreen() {
         val pad = HintPad(this) { x, y ->
             adjX = x
             adjY = y
-            preview.setHintOverride(x, y)
+            if (adjLabel) preview.setLabelOverride(x, y) else preview.setHintOverride(x, y)
         }
         panel.addView(pad, FrameLayout.LayoutParams(dp(156f), dp(156f), Gravity.CENTER))
         val save = label(getString(R.string.save), 15f, GREEN)
@@ -161,7 +169,7 @@ class AppearanceActivity : SettingsScreen() {
         save.gravity = Gravity.CENTER
         save.setPadding(dp(22f), dp(11f), dp(22f), dp(11f))
         save.background = outline(GREEN)
-        save.setOnClickListener { saveHint() }
+        save.setOnClickListener { saveAdjust() }
         val slp = FrameLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.END or Gravity.CENTER_VERTICAL)
         slp.rightMargin = dp(22f)
         panel.addView(save, slp)
@@ -230,13 +238,13 @@ class AppearanceActivity : SettingsScreen() {
         updatePreview()
         updateStatus()
         paintPills()
-        if (adjusting) refreshHintRange()
+        if (adjusting && !adjLabel) refreshHintRange()
     }
 
     override fun onSettingUpdated(key: String, value: Any) {
         // Zmena, kterou neni na staticke klavesnici videt, se ukaze kratkou ukazkou v nahledu.
         when (key) {
-            "neon_color", "key_glow", "tap_effect" -> preview.demoNeon()
+            "neon_color", "key_glow", "tap_effect", "tap_text_color" -> preview.demoNeon()
             "paint_color1", "paint_color2", "paint_color3" -> preview.demoPaint()
             "key_popup", "popup_color" -> preview.demoPopup()
             "alts_color" -> preview.demoAlts()
@@ -255,6 +263,7 @@ class AppearanceActivity : SettingsScreen() {
     /** Radek nahledu: pri uprave klavesy tri tlacitka, jinak napsany text a TEST. */
     private fun setEditing(on: Boolean) {
         editBar.visibility = if (on) View.VISIBLE else View.GONE
+        captionView.visibility = if (on) View.GONE else View.VISIBLE // tlacitka dostanou celou sirku radku
         testView.visibility = if (on) View.GONE else View.VISIBLE
         testButton.visibility = if (on || adjusting) View.GONE else View.VISIBLE
         applyImeLayout()
@@ -322,8 +331,9 @@ class AppearanceActivity : SettingsScreen() {
         override fun onKeyTap(key: KeyboardView.Key) {
             when (key.kind) {
                 KeyboardView.KIND_CHAR -> {
+                    val macro = key.macro
                     val upper = preview.shiftState != KeyboardView.SHIFT_OFF && preview.mode == KeyboardView.MODE_LETTERS
-                    testAppend(if (upper) key.label.uppercase() else key.label)
+                    testAppend(macro?.text ?: if (upper) key.label.uppercase() else key.label)
                     afterLetter()
                 }
                 KeyboardView.KIND_SPACE -> testAppend(" ")
@@ -360,14 +370,16 @@ class AppearanceActivity : SettingsScreen() {
         override fun onVoiceResume() {}
     }
 
-    // ------------------------------------------------------------------ poloha male napovedy
+    // ------------------------------------------------------------------ poloha male napovedy a hlavniho znaku
 
-    private fun startAdjust() {
+    /** Zapne nastavovani polohy napovedy, nebo (`label`) polohy hlavniho znaku na klavese. */
+    private fun startAdjust(label: Boolean) {
         if (adjusting) return
         if (testMode) stopTest()
         currentBubble?.hide(immediate = true)
         cancelSwap()
         adjusting = true
+        adjLabel = label
         saving = false
         applyPickMode()
         if (shownMode != KeyboardView.MODE_LETTERS) {
@@ -375,13 +387,21 @@ class AppearanceActivity : SettingsScreen() {
             preview.setMode(KeyboardView.MODE_LETTERS)
         }
         val s = RustBridge.settings
-        adjX = s.keyHintX
-        adjY = s.keyHintY
-        preview.hintFocus = true
-        refreshHintRange()
+        hintPad.linear = label
+        if (label) {
+            adjX = s.keyLabelX
+            adjY = s.keyLabelY
+            hintPad.setHint(adjX, adjY)
+            preview.setLabelOverride(adjX, adjY)
+        } else {
+            adjX = s.keyHintX
+            adjY = s.keyHintY
+            preview.hintFocus = true
+            refreshHintRange()
+        }
         testButton.visibility = View.GONE
         testView.visibility = View.INVISIBLE
-        hintAdjustButton?.text = getString(R.string.cancel)
+        (if (label) labelAdjustButton else hintAdjustButton)?.text = getString(R.string.cancel)
         hintPanel.visibility = View.VISIBLE
         // Tlacitko Ulozit pritece zprava zpoza okraje obrazovky.
         hintSave.animate().cancel()
@@ -417,21 +437,27 @@ class AppearanceActivity : SettingsScreen() {
         hintSave.animate().cancel()
         hintSave.translationX = 0f
         hintPanel.visibility = View.GONE
-        preview.hintFocus = false
-        preview.clearHintOverride()
+        if (adjLabel) {
+            preview.clearLabelOverride()
+        } else {
+            preview.hintFocus = false
+            preview.clearHintOverride()
+        }
+        hintPad.linear = false
         testButton.visibility = View.VISIBLE
         testView.visibility = View.VISIBLE
         hintAdjustButton?.text = getString(R.string.hint_adjust)
+        labelAdjustButton?.text = getString(R.string.label_adjust)
         applyPickMode()
         paintPills()
     }
 
-    private fun saveHint() {
+    private fun saveAdjust() {
         if (!adjusting || saving) return
         saving = true
         val j = RustBridge.settings.edit()
-        j.put("key_hint_x", Math.round(adjX * 1000f) / 1000.0)
-        j.put("key_hint_y", Math.round(adjY * 1000f) / 1000.0)
+        j.put(if (adjLabel) "key_label_x" else "key_hint_x", Math.round(adjX * 1000f) / 1000.0)
+        j.put(if (adjLabel) "key_label_y" else "key_hint_y", Math.round(adjY * 1000f) / 1000.0)
         RustBridge.setSettings(j)
         // Tlacitko nejdriv odjede doprava za okraj, az pak se obrazovka vrati do normalu.
         hintSave.animate().cancel()
@@ -495,7 +521,7 @@ class AppearanceActivity : SettingsScreen() {
         paintPills()
     }
 
-    /** Druha zalozka: barvy cislic, prechody klaves a pozadi a nastaveni novych efektu. */
+    /** Druha zalozka: barvy cislic, prechody klaves a pozadi, zvlastni efekty a znaky na klavesach. */
     private fun buildExtra(tabBox: LinearLayout) {
         var box = section(tabBox, getString(R.string.sec_extra_digits))
         colorRow(box, R.string.digit_text_color, "digit_text_color", allowAuto = true)
@@ -508,11 +534,28 @@ class AppearanceActivity : SettingsScreen() {
         hintText(box, getString(R.string.background_color2_hint))
 
         box = section(tabBox, getString(R.string.sec_extra_effects))
+        valueSwitchRow(box, R.string.paint_effect, "tap_effect", "paint", "neon")
         colorRow(box, R.string.paint_color1, "paint_color1")
         colorRow(box, R.string.paint_color2, "paint_color2")
         colorRow(box, R.string.paint_color3, "paint_color3")
         hintText(box, getString(R.string.paint_hint))
+        valueSwitchRow(box, R.string.fly_effect, "glow_style", "fly", "blink")
         hintText(box, getString(R.string.fly_hint))
+
+        box = section(tabBox, getString(R.string.sec_extra_chars))
+        // Poloha hlavniho znaku: popisek a pod nim tlacitko, ktere zapne nastavovani nad klavesnici.
+        val labelRow = LinearLayout(this)
+        labelRow.orientation = LinearLayout.VERTICAL
+        labelRow.addView(label(getString(R.string.label_pos), 14f, dim).also { it.setPadding(0, dp(10f), 0, dp(2f)) }, rowParams())
+        val labelAdjust = buttonView(getString(R.string.label_adjust), accent) { if (adjusting) finishAdjust() else startAdjust(true) }
+        val llp = rowParams()
+        llp.topMargin = dp(5f)
+        llp.bottomMargin = dp(5f)
+        labelRow.addView(labelAdjust, llp)
+        labelAdjustButton = labelAdjust
+        box.addView(labelRow, rowParams())
+        colorRow(box, R.string.passed_text_color, "passed_text_color", allowAuto = true)
+        colorRow(box, R.string.tap_text_color, "tap_text_color", allowAuto = true)
     }
 
     private fun buildMain(tabBox: LinearLayout) {
@@ -545,7 +588,7 @@ class AppearanceActivity : SettingsScreen() {
         val hintRow = LinearLayout(this)
         hintRow.orientation = LinearLayout.VERTICAL
         hintRow.addView(label(getString(R.string.layout_hint_pos), 14f, dim).also { it.setPadding(0, dp(10f), 0, dp(2f)) }, rowParams())
-        val adjust = buttonView(getString(R.string.hint_adjust), accent) { if (adjusting) finishAdjust() else startAdjust() }
+        val adjust = buttonView(getString(R.string.hint_adjust), accent) { if (adjusting) finishAdjust() else startAdjust(false) }
         val alp = rowParams()
         alp.topMargin = dp(5f)
         alp.bottomMargin = dp(5f)
@@ -554,19 +597,12 @@ class AppearanceActivity : SettingsScreen() {
         box.addView(hintRow, rowParams())
         switchRow(box, R.string.animations, "animations", hintRes = R.string.animations_hint)
         switchRow(box, R.string.key_glow, "key_glow", hintRes = R.string.key_glow_hint)
-        val tapValues = arrayListOf("neon", "vanish")
-        val tapLabels = arrayListOf(getString(R.string.tap_effect_neon), getString(R.string.tap_effect_vanish))
-        val glowValues = arrayListOf("blink", "fill")
-        val glowLabels = arrayListOf(getString(R.string.glow_style_blink), getString(R.string.glow_style_fill))
-        if (extraOpen) {
-            tapValues.add("paint")
-            tapLabels.add(getString(R.string.tap_effect_paint))
-            glowValues.add("fly")
-            glowLabels.add(getString(R.string.glow_style_fly))
-        }
-        choiceRow(box, R.string.tap_effect_label, "tap_effect", tapValues, tapLabels)
+        // Zvlastni styly (Barvy, Slovo) se zapinaji na druhe zalozce; pri jejich aktivaci neni zadna volba vybrana.
+        choiceRow(box, R.string.tap_effect_label, "tap_effect", listOf("neon", "glitch"),
+            listOf(getString(R.string.tap_effect_neon), getString(R.string.tap_effect_glitch)))
         colorRow(box, R.string.neon_color, "neon_color")
-        choiceRow(box, R.string.glow_style_label, "glow_style", glowValues, glowLabels)
+        choiceRow(box, R.string.glow_style_label, "glow_style", listOf("blink", "fill"),
+            listOf(getString(R.string.glow_style_blink), getString(R.string.glow_style_fill)))
         colorRow(box, R.string.glow_color, "glow_color")
 
         // Jazyk
@@ -629,7 +665,7 @@ class AppearanceActivity : SettingsScreen() {
         buttonRow(box, getString(R.string.layout_reset), danger) {
             confirmDanger(getString(R.string.layout_reset_confirm), getString(R.string.layout_reset_do)) {
                 cancelSwap()
-                writeMaps(LinkedHashMap(), LinkedHashMap(), resetSwaps = true)
+                writeMaps(LinkedHashMap(), LinkedHashMap(), resetSwaps = true, clearMacros = true)
             }
         }
         updateStatus()
@@ -657,6 +693,7 @@ class AppearanceActivity : SettingsScreen() {
         testButton.background = rounded(if (testMode) a else field, dp(50f).toFloat())
         testButton.setTextColor(if (testMode) onA else text)
         hintAdjustButton?.setTextColor(a)
+        labelAdjustButton?.setTextColor(a)
     }
 
     private fun updateStatus() {
@@ -664,7 +701,7 @@ class AppearanceActivity : SettingsScreen() {
         statusView?.text = if (swapping) {
             getString(R.string.layout_status_swap, pendingChar)
         } else {
-            val n = (readMap().keys + readAlts().keys).size
+            val n = (readMap().keys + readAlts().keys + readMacroKeys()).size
             if (n == 0) getString(R.string.layout_status_none) else getString(R.string.layout_status_changed, n)
         }
         cancelSwapView?.visibility = if (swapping) View.VISIBLE else View.GONE
@@ -693,8 +730,19 @@ class AppearanceActivity : SettingsScreen() {
         return out
     }
 
-    /** Obe mapy se zapisuji jednim volanim, aby se rozlozeni prepocitalo jen jednou. */
-    private fun writeMaps(map: Map<String, String>, alts: Map<String, String>, resetSwaps: Boolean = false) {
+    private fun readMacroKeys(): Set<String> {
+        val o = RustBridge.settings.json.optJSONObject("key_macros") ?: return emptySet()
+        return o.keys().asSequence().toSet()
+    }
+
+    /**
+     * Mapy se zapisuji jednim volanim, aby se rozlozeni prepocitalo jen jednou. Makra na klavesach se pri
+     * zapisu bud vsechna smazou (`clearMacros`), nebo se smaze makro jedne klavesy (`dropMacroFor`).
+     */
+    private fun writeMaps(
+        map: Map<String, String>, alts: Map<String, String>, resetSwaps: Boolean = false,
+        clearMacros: Boolean = false, dropMacroFor: String? = null,
+    ) {
         val obj = JSONObject()
         for ((k, v) in map) if (k != v) obj.put(k, v)
         val altsObj = JSONObject()
@@ -702,6 +750,11 @@ class AppearanceActivity : SettingsScreen() {
         val j = RustBridge.settings.edit()
         j.put("key_map", obj)
         j.put("key_alts", altsObj)
+        if (clearMacros) {
+            j.put("key_macros", JSONObject())
+        } else if (dropMacroFor != null) {
+            j.optJSONObject("key_macros")?.remove(dropMacroFor)
+        }
         if (resetSwaps) {
             j.put("swap_mode_enter", false)
             j.put("swap_shift_delete", false)
@@ -842,8 +895,9 @@ class AppearanceActivity : SettingsScreen() {
             val altsMap = readAlts()
             map.remove(srcString(key))
             altsMap.remove(srcString(key))
-            writeMaps(map, altsMap)
+            writeMaps(map, altsMap, dropMacroFor = srcString(key))
         }
+        editMacro = { pickMacro(key) }
         editSave = {
             val typedAlts = altsEdit.text.toString()
             // Nezmenene pole zustane beze zmeny (vychozi varianty delsi nez 5 se tak neorezou).
@@ -870,6 +924,7 @@ class AppearanceActivity : SettingsScreen() {
             editSwap = null
             editOriginal = null
             editSave = null
+            editMacro = null
             preview.hideAltsDemo()
             setEditing(false)
         }
@@ -888,6 +943,29 @@ class AppearanceActivity : SettingsScreen() {
         bubble.show(editorAnchor())
         form.requestFocus()
         rootView.viewTreeObserver.addOnGlobalLayoutListener(editorLayoutListener)
+    }
+
+    /** Seznam ulozenych maker (nazev + zkratka) a "Bez makra"; zvolene makro se zapise na klavesu a editor se zavre. */
+    private fun pickMacro(key: KeyboardView.Key) {
+        val macros = RustBridge.macros()
+        if (macros.isEmpty()) {
+            Toast.makeText(this, R.string.key_macro_empty, Toast.LENGTH_LONG).show()
+            return
+        }
+        val names = ArrayList<String>(macros.size + 1)
+        names.add(getString(R.string.key_macro_none))
+        for (m in macros) names.add(if (m.shortcut.isEmpty()) m.name else "${m.name}  (${m.shortcut})")
+        AlertDialog.Builder(this)
+            .setTitle(R.string.key_macro_title)
+            .setItems(names.toTypedArray()) { _, which ->
+                closeEditor()
+                val j = RustBridge.settings.edit()
+                val o = j.optJSONObject("key_macros") ?: JSONObject()
+                if (which == 0) o.remove(srcString(key)) else o.put(srcString(key), macros[which - 1].id)
+                j.put("key_macros", o)
+                RustBridge.setSettings(j)
+            }
+            .show()
     }
 
     private fun removeEditorListener() {
@@ -968,6 +1046,7 @@ class AppearanceActivity : SettingsScreen() {
         val BLUE = 0xFF3B82F6.toInt()
         val ORANGE = 0xFFF59E0B.toInt()
         val GREEN = 0xFF22C55E.toInt()
+        val PURPLE = 0xFFA855F7.toInt()
     }
 }
 
@@ -1008,7 +1087,7 @@ private class LockDrawable(private val w: Int, private val h: Int) : android.gra
 }
 
 /**
- * Ovladac polohy male napovedy: velky velmi tmavy modry kruh a v nem mensi modra kulicka.
+ * Ovladac polohy male napovedy (a v linearnim rezimu hlavniho znaku): velky velmi tmavy modry kruh a v nem mensi modra kulicka.
  * Poloha kulicky = poloha napovedy na klavese (x: 0 vlevo .. 1 vpravo, y: 0 nahore .. 1 dole; mimo
  * 0..1 je napoveda za okrajem klavesy, az na obrysu sousedni klavesy). Kruh se premapuje na ctverec
  * [-1, 1]^2; vnitrni cast (+-INNER) pokryva vnitrek klavesy, zbytek az po krajni hodnotu (`setRange`,
@@ -1029,6 +1108,13 @@ private class HintPad(context: Context, private val onChange: (Float, Float) -> 
     private var yMin = -0.5f
     private var yMax = 1.5f
 
+    /** Linearni rezim (poloha znaku): cely ovladac je rozsah 0..1, bez vnitrniho kruhu. */
+    var linear = false
+        set(value) {
+            field = value
+            invalidate()
+        }
+
     /** Rozsah hodnot napovedy (viz KeyboardView.hintRange); zavolat pred setHint. */
     fun setRange(minX: Float, maxX: Float, minY: Float, maxY: Float) {
         xMin = minX.coerceAtMost(-0.01f)
@@ -1039,6 +1125,7 @@ private class HintPad(context: Context, private val onChange: (Float, Float) -> 
 
     /** Hodnota napovedy -> poloha na ose ctverce [-1, 1]. */
     private fun toAxis(h: Float, lo: Float, hi: Float): Float = when {
+        linear -> (h - 0.5f) * 2f
         h < 0f -> -INNER - (h / lo) * (1f - INNER)
         h > 1f -> INNER + ((h - 1f) / (hi - 1f)) * (1f - INNER)
         else -> (h - 0.5f) * 2f * INNER
@@ -1046,6 +1133,7 @@ private class HintPad(context: Context, private val onChange: (Float, Float) -> 
 
     /** Poloha na ose ctverce [-1, 1] -> hodnota napovedy. */
     private fun fromAxis(u: Float, lo: Float, hi: Float): Float = when {
+        linear -> 0.5f + u / 2f
         u < -INNER -> (-(u + INNER) / (1f - INNER)) * lo
         u > INNER -> 1f + ((u - INNER) / (1f - INNER)) * (hi - 1f)
         else -> 0.5f + u / (2f * INNER)
@@ -1079,7 +1167,7 @@ private class HintPad(context: Context, private val onChange: (Float, Float) -> 
         paint.color = 0x553B82F6
         canvas.drawCircle(cx, cy, bigR - d / 2f, paint)
         // Vnitrek klavesy: stred kruhu (ctverec [-INNER, INNER]^2 se na kruh premapovava na kruh o polomeru INNER).
-        canvas.drawCircle(cx, cy, INNER * reach, paint)
+        if (!linear) canvas.drawCircle(cx, cy, INNER * reach, paint)
         paint.style = Paint.Style.FILL
         paint.color = 0xFF3B82F6.toInt()
         canvas.drawCircle(cx + kx, cy + ky, knobR, paint)

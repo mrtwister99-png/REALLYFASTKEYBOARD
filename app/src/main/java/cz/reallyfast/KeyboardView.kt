@@ -17,7 +17,6 @@ import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.os.SystemClock
-import android.util.SparseIntArray
 import android.view.MotionEvent
 import android.view.View
 import android.view.accessibility.AccessibilityEvent
@@ -57,6 +56,12 @@ class KeyboardView(context: Context) : View(context) {
         /** Zacatek doznivani neonu po klepnuti; 0 = nesviti, -1 = klavesa je drzena (naplno). */
         var neonAt = 0L
         var changedAt = 0L
+
+        /** Cas posledniho klepnuti (pro barvu znaku po klepnuti); 0 = zadne. */
+        var tapAt = 0L
+
+        /** Makro prirazene klavese (null = obycejna znakova klavesa); nastavuje reloadLayout. */
+        var macro: RustBridge.Macro? = null
         val isLetter: Boolean get() = kind == KIND_CHAR && code in 'a'.code..'z'.code
 
         /** Hlavni popisek je jedna ASCII cislice. */
@@ -165,14 +170,23 @@ class KeyboardView(context: Context) : View(context) {
         private const val BLINK_RISE_MS = 750L
         private const val BLINK_HOLD_MS = 500L
         private const val BLINK_FADE_MS = 350L
-        // Efekt "vypareni": duch klavesy se zmensuje, stoupa a mizi; po celou dobu bliká mezi barvou klavesy a efektu.
         const val HINT_MIN = -1f
         const val HINT_MAX = 2f
-        private const val VANISH_MS = 550L
-        private const val VANISH_SLOTS = 12
-        private const val VANISH_FLICKERS = 11 // pulperiody (~5,5 zablesku)
-        private const val VANISH_MIN_SCALE = 0.15f
-        private const val VANISH_RISE_KEYS = 1.35f
+        // Efekt "glitch": 2-4 zablesky (55 ms svit, 45 ms pauza) dvou obrysu klavesy; nahodne hodnoty se losuji pri klepnuti.
+        private const val GLITCH_SLOTS = 8
+        private const val GLITCH_MAX_FLASHES = 4
+        private const val GLITCH_ON_MS = 55L
+        private const val GLITCH_PERIOD_MS = 100L
+        private const val GLITCH_MIN_ANGLE = 30f
+        private const val GLITCH_ANGLE_SPAN = 147f
+        private const val GLITCH_OFFSET = 0.6f
+        // Efekt "barvy": klavesa drzi barvu 3,0-7,5 s a pak za 1,5 s vybledne; barva znaku po klepnuti drzi 2,5 s a vybledne za 0,4 s.
+        private const val PAINT_SLOTS = 48
+        private const val PAINT_MIN_MS = 3000
+        private const val PAINT_SPAN_MS = 4500
+        private const val PAINT_FADE_MS = 1500f
+        private const val TAP_TEXT_MS = 2500L
+        private const val TAP_TEXT_FADE_MS = 400f
         // Styl "slovo": pismena vzletnou z klaves, slozi slovo, chvili drzi a vybledou.
         private const val FLY_MS = 450L
         private const val FLY_HOLD_MS = 500L
@@ -306,17 +320,27 @@ class KeyboardView(context: Context) : View(context) {
     private var showDivider = true
     private var textPercent = 100
     private var glowFillStyle = false
-    private var vanishEffect = false
+    private var glitchEffect = false
     private var glowFlyStyle = false
-    // Efekt "barvy": index barvy (0..2) obarvene klavesy podle jejiho `src`; jen v pameti.
+    // Efekt "barvy": pevna tabulka obarvenych klaves podle `src` (index barvy, cas obarveni, doba drzeni); jen v pameti.
     private var paintEffect = false
     private val paintCols = IntArray(3)
-    private val paintMap = SparseIntArray()
+    private val paintSrc = IntArray(PAINT_SLOTS)
+    private val paintIdx = IntArray(PAINT_SLOTS) { -1 }
+    private val paintAt = LongArray(PAINT_SLOTS)
+    private val paintHold = IntArray(PAINT_SLOTS)
     private var paintNext = 0
     private var effectSig = ""
-    private var paintUndoSrc = Int.MIN_VALUE
-    private var paintUndoPrev = -1
+    private var paintUndoSlot = -1
+    private var paintUndoSrc = 0
+    private var paintUndoIdx = -1
+    private var paintUndoAt = 0L
+    private var paintUndoHold = 0
     private var paintUndoNext = 0
+    // Barva znaku pri prejeti tahem a po klepnuti (0 = automaticky / vypnuto) a zpozdeny prekres po dobe drzeni.
+    private var passedTextCol = 0
+    private var tapTextCol = 0
+    private val wake = Runnable { invalidate() }
     // Barvy cislic, druha barva klaves a pozadi (0 = vypnuto / automaticky); shadery se stavi jen pri zmene.
     private var digitTextCol = 0
     private var digitKeyCol = 0
@@ -343,6 +367,10 @@ class KeyboardView(context: Context) : View(context) {
     private var hintX = 1f
     private var hintY = 0f
     private var hintOverride = false
+    // Poloha hlavniho znaku na klavese: 0..1, 0,5 = uprostred.
+    private var labelX = 0.5f
+    private var labelY = 0.5f
+    private var labelOverride = false
 
     // Rezim nastavovani napovedy: ukazuje napovedy i kdyz jsou vypnute, klavesy bez napovedy ztlumi.
     private var anyHint = false
@@ -385,6 +413,20 @@ class KeyboardView(context: Context) : View(context) {
         return true
     }
 
+    /** Ziva poloha hlavniho znaku bez ukladani (tazeni v nastaveni). */
+    fun setLabelOverride(x: Float, y: Float) {
+        labelOverride = true
+        labelX = x.coerceIn(0f, 1f)
+        labelY = y.coerceIn(0f, 1f)
+        invalidate()
+    }
+
+    fun clearLabelOverride() {
+        labelOverride = false
+        applyAppearance()
+        invalidate()
+    }
+
     fun clearHintOverride() {
         hintOverride = false
         applyAppearance()
@@ -395,7 +437,7 @@ class KeyboardView(context: Context) : View(context) {
     private fun updateHintInfo() {
         anyHint = false
         hintSample = null
-        for (k in keys) if (k.hint.isNotEmpty()) anyHint = true
+        for (k in keys) if (k.hint.isNotEmpty() && k.macro == null) anyHint = true
         if (hintFocus && !anyHint) hintSample = keys.firstOrNull { it.kind == KIND_CHAR }
     }
 
@@ -415,15 +457,17 @@ class KeyboardView(context: Context) : View(context) {
         textPercent = s.keyTextPercent
         glowFillStyle = s.glowStyle == "fill"
         glowFlyStyle = s.glowStyle == "fly"
-        vanishEffect = s.tapEffect == "vanish"
+        glitchEffect = s.tapEffect == "glitch"
         paintEffect = s.tapEffect == "paint" && s.keyGlow
         val sig = s.tapEffect + s.keyGlow
         if (sig != effectSig) {
             effectSig = sig
-            paintMap.clear()
+            java.util.Arrays.fill(paintIdx, -1)
             paintNext = 0
-            paintUndoSrc = Int.MIN_VALUE
+            paintUndoSlot = -1
         }
+        passedTextCol = Theme.parse(s.passedTextColor, 0)
+        tapTextCol = Theme.parse(s.tapTextColor, 0)
         paintCols[0] = Theme.parse(s.paintColor1, 0xFF0080FF.toInt())
         paintCols[1] = Theme.parse(s.paintColor2, 0xFFFF5100.toInt())
         paintCols[2] = Theme.parse(s.paintColor3, 0xFF6A02E8.toInt())
@@ -438,6 +482,10 @@ class KeyboardView(context: Context) : View(context) {
         if (!hintOverride) {
             hintX = s.keyHintX
             hintY = s.keyHintY
+        }
+        if (!labelOverride) {
+            labelX = s.keyLabelX
+            labelY = s.keyLabelY
         }
         neon = Theme.parse(s.neonColor, 0xFF0080FF.toInt())
         neonText = textOn(neon)
@@ -559,27 +607,42 @@ class KeyboardView(context: Context) : View(context) {
     private val demoToken = Any()
     private var glowStart = 0L
 
-    // --- efekt "vypareni": pevny zasobnik duchu (klavesa + cas startu), bez alokace za behu
-    private val ghostKeys = arrayOfNulls<Key>(VANISH_SLOTS)
-    private val ghostAt = LongArray(VANISH_SLOTS)
+    // --- efekt "glitch": pevny zasobnik klepnuti (klavesa, cas, pocet zablesku, nahodne hodnoty), bez alokace za behu
+    private val glitchKeys = arrayOfNulls<Key>(GLITCH_SLOTS)
+    private val glitchAt = LongArray(GLITCH_SLOTS)
+    private val glitchCount = IntArray(GLITCH_SLOTS)
+    private val glitchInv = IntArray(GLITCH_SLOTS)
+    private val glitchAngle = FloatArray(GLITCH_SLOTS * GLITCH_MAX_FLASHES)
+    private val glitchDx = FloatArray(GLITCH_SLOTS * GLITCH_MAX_FLASHES)
+    private val glitchDy = FloatArray(GLITCH_SLOTS * GLITCH_MAX_FLASHES)
 
-    private fun startGhost(k: Key, at: Long) {
+    private fun startGlitch(k: Key, at: Long) {
         var slot = -1
         var oldest = 0
-        for (i in 0 until VANISH_SLOTS) {
-            if (ghostKeys[i] == null) {
+        for (i in 0 until GLITCH_SLOTS) {
+            if (glitchKeys[i] == null) {
                 slot = i
                 break
             }
-            if (ghostAt[i] < ghostAt[oldest]) oldest = i
+            if (glitchAt[i] < glitchAt[oldest]) oldest = i
         }
         if (slot < 0) slot = oldest
-        ghostKeys[slot] = k
-        ghostAt[slot] = at
+        glitchKeys[slot] = k
+        glitchAt[slot] = at
+        glitchCount[slot] = 2 + random.nextInt(3)
+        // Invertovana barva vyplne klavesy (RGB opacne).
+        val fillCol = if (k.isDigit && digitKeyCol != 0) digitKeyCol else theme.key
+        glitchInv[slot] = 0xFF000000.toInt() or (fillCol.inv() and 0x00FFFFFF)
+        for (j in 0 until GLITCH_MAX_FLASHES) {
+            val i = slot * GLITCH_MAX_FLASHES + j
+            glitchAngle[i] = (GLITCH_MIN_ANGLE + random.nextFloat() * GLITCH_ANGLE_SPAN) * (if (random.nextBoolean()) 1f else -1f)
+            glitchDx[i] = (random.nextFloat() * 2f - 1f) * GLITCH_OFFSET
+            glitchDy[i] = (random.nextFloat() * 2f - 1f) * GLITCH_OFFSET
+        }
     }
 
-    private fun clearGhosts(k: Key? = null) {
-        for (i in 0 until VANISH_SLOTS) if (k == null || ghostKeys[i] === k) ghostKeys[i] = null
+    private fun clearGlitch(k: Key? = null) {
+        for (i in 0 until GLITCH_SLOTS) if (k == null || glitchKeys[i] === k) glitchKeys[i] = null
     }
     private var menuKey: Key? = null
     private var menuSel = -1
@@ -626,6 +689,12 @@ class KeyboardView(context: Context) : View(context) {
     /** Obrazek na klavese maker; dekoduje se jednou (null = nepodarilo se, kresli se blesk). */
     private val macroBitmap: Bitmap? = try {
         BitmapFactory.decodeResource(resources, R.drawable.dollo)
+    } catch (_: Throwable) {
+        null
+    }
+    /** Obrazek na klavese s prirazenym makrem; dekoduje se jednou (null = nepodarilo se, kresli se znak). */
+    private val keyBitmap: Bitmap? = try {
+        BitmapFactory.decodeResource(resources, R.drawable.trol)
     } catch (_: Throwable) {
         null
     }
@@ -703,7 +772,7 @@ class KeyboardView(context: Context) : View(context) {
         trailCount = 0
         glowCount = 0
         flyCount = 0
-        clearGhosts()
+        clearGlitch()
         popupKey = null
         altsDemo = false
         handler.removeCallbacksAndMessages(demoToken)
@@ -735,10 +804,29 @@ class KeyboardView(context: Context) : View(context) {
             // Jadro neni k dispozici: klavesnice zustane prazdna, ale nespadne.
         }
         keys = parsed
+        resolveMacros()
         if (glowSide.size != parsed.size) glowSide = IntArray(parsed.size) { -1 }
         updateMetrics()
         updateHintInfo()
         invalidate()
+    }
+
+    /**
+     * Prida klavesam makra z `key_macros`; makro, ktere uz neexistuje, klavesu nechava obycejnou.
+     * Vola se jen pri nacteni rozlozeni (to bezi pri kazde zmene nastaveni i pri zobrazeni klavesnice), ne pri
+     * kresleni ani klepnuti.
+     */
+    private fun resolveMacros() {
+        val map = RustBridge.settings.keyMacros
+        if (map.size() == 0) {
+            for (k in keys) k.macro = null
+        } else {
+            val list = RustBridge.macros()
+            for (k in keys) {
+                val id = if (k.kind == KIND_CHAR) map.get(k.src, 0) else 0
+                k.macro = if (id > 0) list.firstOrNull { it.id == id.toLong() } else null
+            }
+        }
     }
 
     override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
@@ -796,6 +884,9 @@ class KeyboardView(context: Context) : View(context) {
         }
         val now = SystemClock.uptimeMillis()
         var animating = false
+        var wakeIn = Long.MAX_VALUE
+        var paintLive = false
+        if (paintEffect) for (i in 0 until PAINT_SLOTS) if (paintIdx[i] >= 0) paintLive = true
         val radius = keyRadius
         val upper = shiftState != SHIFT_OFF && mode == MODE_LETTERS
 
@@ -843,17 +934,42 @@ class KeyboardView(context: Context) : View(context) {
             val dimKey = hintFocus && !(k.kind == KIND_CHAR && hintText.isNotEmpty())
             val marked = k.kind == KIND_CHAR && k.src == markedSrc
             val accentKey = marked || k.kind == KIND_ENTER || (k.kind == KIND_SHIFT && shiftState == SHIFT_CAPS)
-            val paintIdx = if (paintEffect && k.kind == KIND_CHAR) paintMap.get(k.src, -1) else -1
+            var paintA = 0f
+            var pIdx = -1
+            if (paintLive && k.kind == KIND_CHAR) {
+                var slot = -1
+                for (i in 0 until PAINT_SLOTS) if (paintIdx[i] >= 0 && paintSrc[i] == k.src) {
+                    slot = i
+                    break
+                }
+                if (slot >= 0) {
+                    val t = now - paintAt[slot]
+                    val hold = paintHold[slot]
+                    if (t < hold) {
+                        paintA = 1f
+                        pIdx = paintIdx[slot]
+                        wakeIn = min(wakeIn, hold - t)
+                    } else {
+                        val f = (t - hold) / PAINT_FADE_MS
+                        if (f >= 1f) {
+                            paintIdx[slot] = -1
+                        } else {
+                            paintA = 1f - f * f * (3f - 2f * f)
+                            pIdx = paintIdx[slot]
+                            animating = true
+                        }
+                    }
+                }
+            }
             val digitOwn = k.isDigit && digitKeyCol != 0
             val base = when {
                 accentKey -> theme.accent
-                paintIdx >= 0 -> paintCols[paintIdx]
                 digitOwn -> digitKeyCol
                 k.kind == KIND_CHAR || k.kind == KIND_SPACE -> theme.key
                 else -> theme.keySpecial
             }
             val shader = keyShader
-            gradKey = shader != null && !accentKey && paintIdx < 0 && !digitOwn && (k.kind == KIND_CHAR || k.kind == KIND_SPACE)
+            gradKey = shader != null && !accentKey && !digitOwn && (k.kind == KIND_CHAR || k.kind == KIND_SPACE)
             ovA = 0f
             ovR = 0f
             ovG = 0f
@@ -871,6 +987,7 @@ class KeyboardView(context: Context) : View(context) {
                 canvas.drawRoundRect(rect, radius, radius, fill)
             }
             var keyColor = base
+            if (paintA > 0f && !accentKey) keyColor = tint(keyColor, paintCols[pIdx], paintA)
             if (p > 0f) keyColor = tint(keyColor, if (accentKey) theme.text else theme.keyPressed, if (accentKey) 0.25f * p else p)
             if (k.passed) keyColor = tint(keyColor, theme.accent, 0.55f)
             val glow = if (glowActive && !glowFill) glowAmount(ki, now) else 0f
@@ -926,17 +1043,34 @@ class KeyboardView(context: Context) : View(context) {
 
             var fg = when {
                 accentKey -> theme.onAccent
-                paintIdx >= 0 -> textOn(paintCols[paintIdx])
                 k.isDigit && digitTextCol != 0 -> digitTextCol
                 else -> theme.text
             }
-            if (k.passed) fg = Theme.blend(fg, theme.onAccent, 0.55f)
+            if (paintA > 0f && !accentKey) fg = Theme.blend(fg, textOn(paintCols[pIdx]), paintA)
+            if (k.passed) fg = if (passedTextCol != 0) passedTextCol else Theme.blend(fg, theme.onAccent, 0.55f)
             if (glow > 0f) fg = Theme.blend(fg, glowText, glow)
             if (fillSide >= 0) fg = Theme.blend(fg, glowText, (fillProgress * fillAlpha).coerceIn(0f, 1f))
             if (neonA > 0f) fg = Theme.blend(fg, neonText, neonA)
+            if (k.tapAt != 0L && tapTextCol != 0) {
+                val t = now - k.tapAt
+                if (t < TAP_TEXT_MS) {
+                    fg = tapTextCol
+                    wakeIn = min(wakeIn, TAP_TEXT_MS - t)
+                } else {
+                    val f = (t - TAP_TEXT_MS) / TAP_TEXT_FADE_MS
+                    if (f >= 1f) {
+                        k.tapAt = 0L
+                    } else {
+                        fg = Theme.blend(fg, tapTextCol, 1f - f)
+                        animating = true
+                    }
+                }
+            }
             if (dimKey) fg = Theme.blend(fg, theme.background, 0.7f)
             when (k.kind) {
-                KIND_CHAR -> {
+                KIND_CHAR -> if (k.macro != null && keyBitmap != null) {
+                    drawMacroImage(canvas, keyBitmap, cx, cy, hw, hh, dimKey, 0.85f)
+                } else {
                     val hinted = (drawHints || hintFocus) && hintText.isNotEmpty()
                     textPaint.color = fg
                     if (flyCount > 0 && flyLabel < 1f && isFlying(ki)) {
@@ -945,7 +1079,10 @@ class KeyboardView(context: Context) : View(context) {
                     textPaint.textSize = labelSize
                     val n = labelChars(k.label, upper)
                     val shift = if (!hinted) 0f else labelSize * 0.06f * (1f - 2f * hintY.coerceIn(0f, 1f))
-                    canvas.drawText(charBuf, 0, n, cx, cy + shift - (textPaint.ascent() + textPaint.descent()) / 2f, textPaint)
+                    // Poloha znaku: 0,5 / 0,5 = uprostred; jinak se stred pohybuje tam, kde se znak jeste vejde do klavesy.
+                    val offX = if (labelX == 0.5f) 0f else (labelX - 0.5f) * 2f * max(0f, hw - labelSize * 0.3f - 2f * density)
+                    val offY = if (labelY == 0.5f) 0f else (labelY - 0.5f) * 2f * max(0f, hh - labelSize * 0.36f - 2f * density)
+                    canvas.drawText(charBuf, 0, n, cx + offX, cy + offY + shift - (textPaint.ascent() + textPaint.descent()) / 2f, textPaint)
                 }
                 KIND_SPACE -> {
                     textPaint.color = theme.textDim
@@ -970,20 +1107,26 @@ class KeyboardView(context: Context) : View(context) {
         if (drawHints || hintFocus) {
             for (ki in keys.indices) {
                 val k = keys[ki]
-                if (k.kind != KIND_CHAR) continue
+                if (k.kind != KIND_CHAR || k.macro != null) continue
                 val hintText = if (k === hintSample) "1" else k.hint
                 if (hintText.isEmpty()) continue
                 drawHint(canvas, k, hintText, if (k.changedAt == 0L) 0f else pressAmount(k, now), radius)
             }
         }
-        if (drawGhosts(canvas, now)) animating = true
+        if (drawGlitch(canvas, now)) animating = true
         if (drawTrail(canvas, now)) animating = true
         if (drawPreview(canvas, now)) animating = true
         drawPopup(canvas)
         drawMenu(canvas)
         drawFly(canvas, now)
         if (drawVoice(canvas)) animating = true
-        if (animating) postInvalidateOnAnimation()
+        if (animating) {
+            postInvalidateOnAnimation()
+        } else if (wakeIn != Long.MAX_VALUE) {
+            // Barva drzi bez animace: staci jeden zpozdeny prekres na zacatek vybledani.
+            handler.removeCallbacks(wake)
+            handler.postDelayed(wake, wakeIn + 1L)
+        }
     }
 
     /**
@@ -1094,30 +1237,42 @@ class KeyboardView(context: Context) : View(context) {
         invalidate()
     }
 
-    /** Duchove klaves efektu "vypareni"; vraci true, dokud nektery leti. */
-    private fun drawGhosts(canvas: Canvas, now: Long): Boolean {
+    /**
+     * Efekt "glitch": pro kazdy zablesk obrys klavesy v invertovane barve (otoceny o nahodny uhel kolem
+     * stredu klavesy) a obrys v barve efektu bez otoceni, nahodne posunuty. Vraci true, dokud nektery bezi.
+     */
+    private fun drawGlitch(canvas: Canvas, now: Long): Boolean {
         var active = false
-        for (i in 0 until VANISH_SLOTS) {
-            val k = ghostKeys[i] ?: continue
-            val t = (now - ghostAt[i]) / VANISH_MS.toFloat()
-            if (t >= 1f) {
-                ghostKeys[i] = null
+        stroke.style = Paint.Style.STROKE
+        stroke.strokeWidth = 2f * density
+        for (i in 0 until GLITCH_SLOTS) {
+            val k = glitchKeys[i] ?: continue
+            val count = glitchCount[i]
+            val rel = now - glitchAt[i]
+            if (rel >= (count - 1) * GLITCH_PERIOD_MS + GLITCH_ON_MS) {
+                glitchKeys[i] = null
                 continue
             }
             active = true
-            if (t < 0f) continue
-            val rise = 1f - (1f - t) * (1f - t) // zpomalovani stoupani
-            val scale = 1f - (1f - VANISH_MIN_SCALE) * rise
+            if (rel < 0L) continue
+            val flash = (rel / GLITCH_PERIOD_MS).toInt()
+            if (flash >= count || rel - flash * GLITCH_PERIOD_MS >= GLITCH_ON_MS) continue
+            val j = i * GLITCH_MAX_FLASHES + flash
             val cx = k.vx + k.vw / 2f
-            val cy = k.y + k.h / 2f - k.h * VANISH_RISE_KEYS * rise
-            val hw = (k.vw / 2f - padX) * scale
-            val hh = (k.h / 2f - padY) * scale
-            val alpha = (255f * (1f - t) * (1f - t * 0.3f)).toInt().coerceIn(0, 255)
-            val base = if ((t * VANISH_FLICKERS).toInt() and 1 == 0) theme.key else neon
-            fill.color = (base and 0x00FFFFFF) or (alpha shl 24)
+            val cy = k.y + k.h / 2f
+            val hw = k.vw / 2f - padX
+            val hh = k.h / 2f - padY
+            stroke.color = glitchInv[i]
+            canvas.save()
+            canvas.rotate(glitchAngle[j], cx, cy)
             rect.set(cx - hw, cy - hh, cx + hw, cy + hh)
-            val r = keyRadius * scale
-            canvas.drawRoundRect(rect, r, r, fill)
+            canvas.drawRoundRect(rect, keyRadius, keyRadius, stroke)
+            canvas.restore()
+            val ox = cx + glitchDx[j] * hw * 2f
+            val oy = cy + glitchDy[j] * hh * 2f
+            stroke.color = neon
+            rect.set(ox - hw, oy - hh, ox + hw, oy + hh)
+            canvas.drawRoundRect(rect, keyRadius, keyRadius, stroke)
         }
         return active
     }
@@ -1132,12 +1287,14 @@ class KeyboardView(context: Context) : View(context) {
         return n
     }
 
-    /** Obrazek na klavese maker: stred klavesy, pomer stran bitmapy, ~78 % vnitrni vysky (max 80 % sirky). */
-    private fun drawMacroImage(canvas: Canvas, bmp: Bitmap, cx: Float, cy: Float, hw: Float, hh: Float, dimmed: Boolean) {
+    /** Obrazek na klavese: stred klavesy, pomer stran bitmapy, ~78 % vnitrni vysky (max `maxWidth` vnitrni sirky). */
+    private fun drawMacroImage(
+        canvas: Canvas, bmp: Bitmap, cx: Float, cy: Float, hw: Float, hh: Float, dimmed: Boolean, maxWidth: Float = 0.8f,
+    ) {
         val ratio = bmp.width.toFloat() / bmp.height
         var h = hh * 2f * 0.78f
         var w = h * ratio
-        val maxW = hw * 2f * 0.8f
+        val maxW = hw * 2f * maxWidth
         if (w > maxW) {
             w = maxW
             h = w / ratio
@@ -1583,46 +1740,76 @@ class KeyboardView(context: Context) : View(context) {
 
     /** Ukazka neonu po klepnuti (nahled v nastaveni): par pismenovych klaves se rozsviti a doznivaji. */
     fun demoNeon() {
-        if (!neonEnabled) return
-        if (paintEffect) {
-            demoPaint()
-            return
-        }
         val now = SystemClock.uptimeMillis()
-        var n = 0
-        for (k in keys) {
-            if (k.isLetter && n < 4 && k.code.toChar() in "ahoj") {
-                if (vanishEffect) startGhost(k, now + n * 140L) else k.neonAt = now
-                n++
+        if (tapTextCol != 0) for (c in "ahoj") demoLetter(c)?.tapAt = now
+        if (neonEnabled) {
+            if (paintEffect) {
+                demoPaint()
+            } else {
+                var n = 0
+                for (k in keys) {
+                    if (k.isLetter && n < 4 && k.code.toChar() in "ahoj") {
+                        if (glitchEffect) startGlitch(k, now + n * 140L) else k.neonAt = now
+                        n++
+                    }
+                }
             }
         }
-        if (n > 0) invalidate()
+        invalidate()
     }
 
-    /** Obarveni klavesy dalsi barvou v poradi; klavesa si ji drzi (podle `src`), dokud se nezmeni efekt. */
-    private fun paintKey(k: Key) {
-        paintUndoSrc = k.src
-        paintUndoPrev = paintMap.get(k.src, -1)
+    /**
+     * Obarveni klavesy dalsi barvou v poradi na nahodnou dobu 3,0-7,5 s (potom vybledne); klavesa se hleda podle `src`,
+     * stejna klavesa se prebarvi. Bez alokace: pevna tabulka, pri zaplneni se prepise nejstarsi polozka.
+     */
+    private fun paintKey(k: Key, now: Long) {
+        var slot = -1
+        var free = -1
+        var oldest = -1
+        for (i in 0 until PAINT_SLOTS) {
+            if (paintIdx[i] < 0) {
+                if (free < 0) free = i
+            } else if (paintSrc[i] == k.src) {
+                slot = i
+                break
+            } else if (oldest < 0 || paintAt[i] < paintAt[oldest]) {
+                oldest = i
+            }
+        }
+        if (slot < 0) slot = if (free >= 0) free else oldest
+        paintUndoSlot = slot
+        paintUndoSrc = paintSrc[slot]
+        paintUndoIdx = paintIdx[slot]
+        paintUndoAt = paintAt[slot]
+        paintUndoHold = paintHold[slot]
         paintUndoNext = paintNext
-        paintMap.put(k.src, paintNext)
+        paintSrc[slot] = k.src
+        paintIdx[slot] = paintNext
+        paintAt[slot] = now
+        paintHold[slot] = PAINT_MIN_MS + random.nextInt(PAINT_SPAN_MS + 1)
         paintNext = (paintNext + 1) % paintCols.size
     }
 
     /** Tah misto klepnuti: vrati posledni obarveni. */
     private fun undoPaint(k: Key) {
-        if (paintUndoSrc != k.src) return
-        if (paintUndoPrev < 0) paintMap.delete(k.src) else paintMap.put(k.src, paintUndoPrev)
+        val slot = paintUndoSlot
+        if (slot < 0 || paintSrc[slot] != k.src || paintIdx[slot] < 0) return
+        paintSrc[slot] = paintUndoSrc
+        paintIdx[slot] = paintUndoIdx
+        paintAt[slot] = paintUndoAt
+        paintHold[slot] = paintUndoHold
         paintNext = paintUndoNext
-        paintUndoSrc = Int.MIN_VALUE
+        paintUndoSlot = -1
     }
 
     /** Ukazka efektu "barvy" (nahled v nastaveni): par pismenovych klaves se obarvi za sebou. */
     fun demoPaint() {
         if (!paintEffect || (preview && previewTouch)) return
-        paintMap.clear()
+        java.util.Arrays.fill(paintIdx, -1)
         paintNext = 0
-        for (c in "ahoj") demoLetter(c)?.let { paintKey(it) }
-        paintUndoSrc = Int.MIN_VALUE
+        val now = SystemClock.uptimeMillis()
+        for (c in "ahoj") demoLetter(c)?.let { paintKey(it, now) }
+        paintUndoSlot = -1
         invalidate()
     }
 
@@ -1800,8 +1987,9 @@ class KeyboardView(context: Context) : View(context) {
         if (down) {
             // Neon svici po dobu stisku i bez animaci; doznivani po pusteni jen s animacemi.
             if (neonEnabled && k.kind == KIND_CHAR) {
-                if (paintEffect) paintKey(k) else if (vanishEffect) startGhost(k, now) else k.neonAt = -1L
+                if (paintEffect) paintKey(k, now) else if (glitchEffect) startGlitch(k, now) else k.neonAt = -1L
             }
+            if (tapTextCol != 0 && k.kind == KIND_CHAR) k.tapAt = now
         } else if (k.neonAt == -1L) {
             k.neonAt = if (animate) now else 0L
         }
@@ -2043,7 +2231,7 @@ class KeyboardView(context: Context) : View(context) {
         }
         if (k.kind == KIND_BACKSPACE) handler.postDelayed(repeat, 350)
         val delay = RustBridge.settings.longPressDelayMs.toLong()
-        if (k.alts.isNotEmpty()) {
+        if (k.alts.isNotEmpty() && k.macro == null) {
             handler.postDelayed(longPress, delay)
         } else if (k.kind == KIND_MODE && (k.code == CODE_SYMBOLS || k.code == CODE_LETTERS)) {
             handler.postDelayed(longPress, maxOf(delay, 300L))
@@ -2086,7 +2274,8 @@ class KeyboardView(context: Context) : View(context) {
                 if (swipeAllowed && k.isLetter && mode == MODE_LETTERS && RustBridge.settings.swipeEnabled) {
                     touchMode = T_SWIPE
                     k.neonAt = 0L // pri tahu se klavesa nerozsveti
-                    clearGhosts(k)
+                    clearGlitch(k)
+                    k.tapAt = 0L
                     undoPaint(k)
                     endPreview()
                     if (glowEnabled) {
@@ -2192,7 +2381,7 @@ class KeyboardView(context: Context) : View(context) {
             invalidate()
             return
         }
-        if (touchMode != T_TAP || k.alts.isEmpty()) return
+        if (touchMode != T_TAP || k.alts.isEmpty() || k.macro != null) return
         openPopup(k, k.alts)
         popupSel = 0
         previewKey = null

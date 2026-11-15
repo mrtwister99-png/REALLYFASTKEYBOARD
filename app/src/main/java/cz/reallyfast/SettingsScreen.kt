@@ -207,6 +207,28 @@ abstract class SettingsScreen : BaseScreen() {
     }
 
     /**
+     * Prepinac nad textovou volbou: zapnuto = `onValue`, vypnuto = `offValue`. Stav se bere z nastaveni
+     * (kdyz je v klici jina hodnota, prepinac je vypnuty) a drzi se v souladu pres posluchace nastaveni.
+     */
+    protected fun valueSwitchRow(box: LinearLayout, labelRes: Int, key: String, onValue: String, offValue: String, hintRes: Int = 0) {
+        val row = LinearLayout(this)
+        row.gravity = Gravity.CENTER_VERTICAL
+        row.minimumHeight = dp(52f)
+        row.addView(label(getString(labelRes)), LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+        val sw = ToggleView(this)
+        sw.contentDescription = getString(labelRes)
+        sw.setChecked(RustBridge.settings.json.optString(key) == onValue, false)
+        sw.onChange = { checked ->
+            if ((RustBridge.settings.json.optString(key) == onValue) != checked) update(key, if (checked) onValue else offValue)
+        }
+        row.addView(sw)
+        row.setOnClickListener { sw.toggle() }
+        box.addView(row, rowParams())
+        if (hintRes != 0) hintText(box, getString(hintRes))
+        refreshers.add { sw.setChecked(RustBridge.settings.json.optString(key) == onValue, false) }
+    }
+
+    /**
      * Posuvnik. `scale` = delitel (100 pro float hodnoty typu 0.5-1.5).
      * Hodnota se zapisuje uz behem tazeni, aby nahled reagoval okamzite.
      */
@@ -302,6 +324,7 @@ abstract class SettingsScreen : BaseScreen() {
         return when (key) {
             "popup_color", "alts_color" -> t.popup
             "hint_color" -> t.hint
+            "tap_text_color" -> t.accent
             "digit_key_color", "key_color2" -> t.key
             "background_color2" -> t.background
             else -> t.text

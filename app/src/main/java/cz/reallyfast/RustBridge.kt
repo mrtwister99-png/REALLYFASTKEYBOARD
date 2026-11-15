@@ -295,8 +295,16 @@ object RustBridge {
         return call(OP_MACRO_SAVE, o.toString()) == "1"
     }
 
+    /** Smaze makro i jeho prirazeni klavesam (`key_macros`), aby na klavese nezustal obrazek bez funkce. */
     fun deleteMacro(id: Long) {
         call(OP_MACRO_DELETE, null, null, id)
+        val assigned = settings.json.optJSONObject("key_macros") ?: return
+        val drop = assigned.keys().asSequence().filter { assigned.optLong(it) == id }.toList()
+        if (drop.isEmpty()) return
+        val j = settings.edit()
+        val o = j.optJSONObject("key_macros") ?: return
+        for (k in drop) o.remove(k)
+        setSettings(j)
     }
 
     /** Text makra pro napsanou zkratku; prazdny retezec, kdyz zadna nesedi. */

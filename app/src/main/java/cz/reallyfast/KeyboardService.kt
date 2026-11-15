@@ -50,6 +50,8 @@ class KeyboardService : InputMethodService(), KeyboardView.Listener,
         const val BACKEND_DEFAULT = 2
         const val GOOGLE_APP = "com.google.android.googlequicksearchbox"
         const val GOOGLE_RECOGNIZER = "com.google.android.voicesearch.serviceapi.GoogleRecognitionService"
+        const val REATTACH_MAX = 48
+        const val REATTACH_GRACE_MS = 400L
     }
 
     /** Posledni slovo vlozene swipem - lze ho nahradit alternativou nebo smazat jednim backspace. */
@@ -71,6 +73,11 @@ class KeyboardService : InputMethodService(), KeyboardView.Listener,
     private var passwordField = false
     private var noLearning = false
     private var useComposing = true
+
+    /** Slovo znovu pripojene k rozepsanemu po smazani zpet do nej (nenauci se podruhe, kdyz se nezmenilo). */
+    private var reattached: String? = null
+    private var reattachAt = 0L
+    private var reattachEnd = -1
     private var searchMode = false
     private var addWordMode = false
 
@@ -242,6 +249,7 @@ class KeyboardService : InputMethodService(), KeyboardView.Listener,
 
         if (!restarting) {
             composing.setLength(0)
+            reattached = null
             lastSwipe = null
             autoSpace = false
             shift = KeyboardView.SHIFT_OFF
@@ -293,8 +301,13 @@ class KeyboardService : InputMethodService(), KeyboardView.Listener,
     override fun onUpdateSelection(oldSelStart: Int, oldSelEnd: Int, newSelStart: Int, newSelEnd: Int, candidatesStart: Int, candidatesEnd: Int) {
         super.onUpdateSelection(oldSelStart, oldSelEnd, newSelStart, newSelEnd, candidatesStart, candidatesEnd)
         // Uzivatel presunul kurzor mimo rozepsane slovo (nebo ho aplikace zrusila): ukoncit skladani.
-        if (composing.isNotEmpty() && (candidatesStart == -1 || newSelStart != candidatesEnd || newSelEnd != candidatesEnd)) {
+        // Opozdena zprava po mazani (kandidati jeste nejsou nastaveni) nesmi zrusit prave pripojene slovo.
+        val staleAfterReattach = candidatesStart == -1 && newSelStart == reattachEnd && newSelEnd == reattachEnd &&
+            SystemClock.uptimeMillis() - reattachAt < REATTACH_GRACE_MS
+        if (composing.isNotEmpty() && !staleAfterReattach &&
+            (candidatesStart == -1 || newSelStart != candidatesEnd || newSelEnd != candidatesEnd)) {
             composing.setLength(0)
+            reattached = null
             currentInputConnection?.finishComposingText()
         }
         if (composing.isEmpty() && SystemClock.uptimeMillis() - lastShiftTap > 600) updateShift()
@@ -367,7 +380,10 @@ class KeyboardService : InputMethodService(), KeyboardView.Listener,
     override fun onKeyTap(key: KeyboardView.Key) {
         if (dictating) cancelDictation() // psani behem diktovani poslech ukonci
         when (key.kind) {
-            KeyboardView.KIND_CHAR -> typeText(String(Character.toChars(key.code)))
+            KeyboardView.KIND_CHAR -> {
+                val macro = key.macro
+                if (macro != null && !searchMode) insertMacro(macro) else typeText(String(Character.toChars(key.code)))
+            }
             KeyboardView.KIND_SHIFT -> {
                 val now = SystemClock.uptimeMillis()
                 setShift(RustBridge.shiftTap(shift, now - lastShiftTap))
@@ -421,6 +437,7 @@ class KeyboardService : InputMethodService(), KeyboardView.Listener,
         flushSwipeLearning()
         val out = if (!alreadyCased && shift != KeyboardView.SHIFT_OFF) text.uppercase() else text
         if (useComposing && isWordChar(out)) {
+            if (composing.isEmpty()) reattached = null
             composing.append(out)
             ic.setComposingText(composing, 1)
             autoSpace = false
@@ -447,9 +464,11 @@ class KeyboardService : InputMethodService(), KeyboardView.Listener,
         if (composing.isEmpty()) return
         val word = composing.toString()
         composing.setLength(0)
+        val unchanged = word == reattached
+        reattached = null
         val before = ic.getTextBeforeCursor(64, 0)?.toString()?.removeSuffix(word) ?: ""
         ic.finishComposingText()
-        learn(word, before)
+        if (!unchanged) learn(word, before)
     }
 
     private fun learn(word: String, textBefore: String) {
@@ -577,6 +596,7 @@ class KeyboardService : InputMethodService(), KeyboardView.Listener,
             return
         }
         val ic = currentInputConnection ?: return
+        var wholeWord = false
         if (composing.isNotEmpty()) {
             composing.setLength(composing.offsetByCodePoints(composing.length, -1))
             ic.setComposingText(composing, 1)
@@ -584,6 +604,7 @@ class KeyboardService : InputMethodService(), KeyboardView.Listener,
             val ls = lastSwipe
             lastSwipe = null
             if (ls != null && ic.getTextBeforeCursor(ls.text.length, 0)?.toString() == ls.text) {
+                wholeWord = true
                 // Backspace hned po swipe smaze cele vlozene slovo; klavesnice si zapamatuje,
                 // ze tohle slovo nebylo to prave, a priste ho nabidne niz.
                 ic.deleteSurroundingText(ls.text.length, 0)
@@ -594,9 +615,48 @@ class KeyboardService : InputMethodService(), KeyboardView.Listener,
             }
         }
         autoSpace = false
+        if (!wholeWord) reattachWord(ic)
         updateShift()
         scheduleSuggestions()
     }
+
+    /**
+     * Po smazani zpet do slova (kurzor tesne za slovem, za kurzorem uz neni pismeno) se slovo znovu stane
+     * rozepsanym: ukazou se k nemu navrhy a psani / mazani v nem pokracuje. Slova jsou posloupnosti pismen
+     * s apostrofem uvnitr, nejvyse REATTACH_MAX znaku (delsi se nepripojuji, aby se nerezala v pulce).
+     */
+    private fun reattachWord(ic: InputConnection) {
+        if (!useComposing || passwordField || composing.isNotEmpty()) return
+        val before = ic.getTextBeforeCursor(REATTACH_MAX + 1, 0)?.toString() ?: return
+        val after = ic.getTextAfterCursor(1, 0)?.toString() ?: return
+        if (before.isEmpty() || !Character.isLetter(before.codePointBefore(before.length))) return
+        if (after.isNotEmpty() && isWordCodePoint(after.codePointAt(0))) return
+        var i = before.length
+        while (i > 0) {
+            val cp = before.codePointBefore(i)
+            if (!isWordCodePoint(cp)) break
+            i -= Character.charCount(cp)
+        }
+        while (i < before.length && before[i] == '\'') i++ // apostrof na zacatku slova k nemu nepatri
+        val word = before.substring(i)
+        if (word.isEmpty() || word.length > REATTACH_MAX) return
+        val et = ic.getExtractedText(reattachRequest, 0) ?: return
+        if (et.selectionStart != et.selectionEnd) return // vyber textu
+        val end = et.startOffset + et.selectionEnd
+        val start = end - word.length
+        if (start < 0) return
+        ic.beginBatchEdit()
+        ic.setComposingRegion(start, end)
+        ic.endBatchEdit()
+        composing.append(word)
+        reattached = word
+        reattachAt = SystemClock.uptimeMillis()
+        reattachEnd = end
+    }
+
+    private fun isWordCodePoint(cp: Int) = Character.isLetter(cp) || cp == '\''.code
+
+    private val reattachRequest = ExtractedTextRequest().apply { hintMaxChars = 1 }
 
     private fun enter() {
         if (searchMode) {
@@ -733,6 +793,16 @@ class KeyboardService : InputMethodService(), KeyboardView.Listener,
             before = ic.getTextBeforeCursor(64, 0)?.toString()?.removeSuffix(composing.toString()) ?: ""
             composing.setLength(0)
             ic.commitText("$word ", 1) // nahradi rozepsane slovo
+            if (word == reattached) {
+                reattached = null
+                ic.endBatchEdit()
+                autoSpace = true
+                if (shift == KeyboardView.SHIFT_ONCE) setShift(KeyboardView.SHIFT_OFF)
+                updateShift()
+                scheduleSuggestions()
+                return // slovo uz je naucene, nezapocitat ho podruhe
+            }
+            reattached = null
         } else {
             before = ic.getTextBeforeCursor(64, 0)?.toString() ?: ""
             ic.commitText((if (needsSpaceBefore(ic)) " " else "") + word + " ", 1)

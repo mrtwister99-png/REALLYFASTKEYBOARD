@@ -29,8 +29,25 @@ class SettingsActivity : SettingsScreen() {
         const val REQ_BACKUP_EXPORT = 10
         const val REQ_BACKUP_IMPORT = 11
         const val REQ_SWIPE_LOG_EXPORT = 12
+        const val TITLE_MS = 900L
+        const val TITLE_BRAKE_AT = 0.7f
+
+        /**
+         * Nadpis: prvnich 70 % drahy rovnomerne, zbytek zpomaluje (kvadraticky) az do klidu; casy jsou zvolene tak,
+         * aby na styku rychlost navazovala (rovnomerna cast zabere ~54 % casu).
+         */
+        val TITLE_SLIDE = android.animation.TimeInterpolator { f ->
+            val linearTime = 1f / (1f + (1f - TITLE_BRAKE_AT) * 2f / TITLE_BRAKE_AT)
+            if (f < linearTime) {
+                TITLE_BRAKE_AT * f / linearTime
+            } else {
+                val u = (f - linearTime) / (1f - linearTime)
+                TITLE_BRAKE_AT + (1f - TITLE_BRAKE_AT) * (1f - (1f - u) * (1f - u))
+            }
+        }
     }
 
+    private var animateTitle = false
     private var statusView: TextView? = null
     private var swipeLogButton: TextView? = null
 
@@ -38,6 +55,7 @@ class SettingsActivity : SettingsScreen() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        animateTitle = true
         val scroll = ScrollView(this)
         scroll.setBackgroundColor(bg)
         scroll.fitsSystemWindows = true
@@ -74,7 +92,19 @@ class SettingsActivity : SettingsScreen() {
     // ------------------------------------------------------------------ obsah
 
     private fun build(container: LinearLayout) {
-        title(container, getString(R.string.app_name), back = false)
+        val heading = title(container, getString(R.string.app_name), back = false)
+        if (animateTitle) {
+            // Nadpis vyjede zprava za okrajem obrazovky a doleti na sve misto (jen pri vytvoreni obrazovky).
+            animateTitle = false
+            val from = resources.displayMetrics.widthPixels.toFloat()
+            heading.translationX = from
+            android.animation.ObjectAnimator.ofFloat(heading, android.view.View.TRANSLATION_X, from, 0f).apply {
+                duration = TITLE_MS
+                interpolator = TITLE_SLIDE
+                startDelay = 60L
+                start()
+            }
+        }
         container.addView(label(getString(R.string.settings_subtitle), 14f, dim))
 
         if (!RustBridge.isLoaded) {

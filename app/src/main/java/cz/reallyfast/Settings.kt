@@ -1,6 +1,7 @@
 package cz.reallyfast
 
 import android.graphics.Color
+import android.util.SparseIntArray
 import org.json.JSONObject
 
 /**
@@ -45,7 +46,7 @@ class Settings(val json: JSONObject) {
     /** Prazdny retezec = automaticka barva napovedy podle motivu. */
     val hintColor: String get() = json.optString("hint_color", "")
     val hintPercent: Int get() = json.optInt("hint_percent", 100).coerceIn(60, 180)
-    /** Efekt po klepnuti: "neon", "vanish" nebo "paint". */
+    /** Efekt po klepnuti: "neon", "glitch" nebo "paint". */
     val tapEffect: String get() = json.optString("tap_effect", "neon")
     val neonColor: String get() = json.optString("neon_color", "#0080FF")
     val glowColor: String get() = json.optString("glow_color", "#0080FF")
@@ -69,6 +70,26 @@ class Settings(val json: JSONObject) {
     val paintColor1: String get() = json.optString("paint_color1", "#0080FF")
     val paintColor2: String get() = json.optString("paint_color2", "#FF5100")
     val paintColor3: String get() = json.optString("paint_color3", "#6A02E8")
+    /** Poloha hlavniho znaku na klavese: 0..1, 0,5 = uprostred. */
+    val keyLabelX: Float get() = json.optDouble("key_label_x", 0.5).toFloat().coerceIn(0f, 1f)
+    val keyLabelY: Float get() = json.optDouble("key_label_y", 0.5).toFloat().coerceIn(0f, 1f)
+    /** Prazdny retezec = automaticka barva znaku pri prejeti tahem / vypnuta barva znaku po klepnuti. */
+    val passedTextColor: String get() = json.optString("passed_text_color", "")
+    val tapTextColor: String get() = json.optString("tap_text_color", "")
+
+    /** Makra prirazena klavesam: puvodni kod pozice (`Key.src`) -> id makra. Sestavi se jednou pro kazde nastaveni. */
+    val keyMacros: SparseIntArray by lazy {
+        val out = SparseIntArray()
+        val o = json.optJSONObject("key_macros")
+        if (o != null) {
+            for (name in o.keys()) {
+                if (name.isEmpty()) continue
+                val id = o.optInt(name, 0)
+                if (id > 0) out.put(name.codePointAt(0), id)
+            }
+        }
+        out
+    }
 
     /** Kopie k uprave (SettingsActivity). */
     fun edit(): JSONObject = JSONObject(json.toString())

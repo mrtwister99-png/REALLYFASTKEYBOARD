@@ -96,8 +96,8 @@ abstract class BaseScreen : Activity() {
         return h
     }
 
-    /** Velky nadpis obrazovky; s `back` i sipka zpet. */
-    protected fun title(parent: LinearLayout, s: CharSequence, back: Boolean) {
+    /** Velky nadpis obrazovky; s `back` i sipka zpet. Vraci text nadpisu (kvuli animaci). */
+    protected fun title(parent: LinearLayout, s: CharSequence, back: Boolean): TextView {
         val row = LinearLayout(this)
         row.gravity = Gravity.CENTER_VERTICAL
         if (back) {
@@ -111,6 +111,7 @@ abstract class BaseScreen : Activity() {
         t.typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
         row.addView(t)
         parent.addView(row, rowParams())
+        return t
     }
 
     /** Nadpis sekce + zaoblena karta, do ktere se vkladaji radky. */
