@@ -56,6 +56,11 @@ object RustBridge {
     private const val OP_SHORTCUT = 37
     private const val OP_CORRECTION = 38
     private const val OP_CALIBRATION_RESET = 39
+    private const val OP_SWIPE_LOG_EXPORT = 40
+    private const val OP_SWIPE_LOG_CLEAR = 41
+    private const val OP_SWIPE_LOG_COUNT = 42
+    private const val OP_BACKUP_EXPORT = 43
+    private const val OP_BACKUP_IMPORT = 44
 
     const val FLAG_CAPITALIZE = 1
     const val FLAG_FROM_SWIPE = 4
@@ -342,6 +347,30 @@ object RustBridge {
     fun clearUserDictionary() {
         call(OP_USER_CLEAR)
     }
+
+    // ------------------------------------------------------------------ zaloha a zaznam tahu
+
+    /** Uplna zaloha (nastaveni, slovnik, opravy, makra, prizpusobeni swipe) jako JSON text. */
+    fun exportBackup(): String = call(OP_BACKUP_EXPORT)
+
+    /**
+     * Obnova ze zalohy. Vraci pocet prijatych slov slovniku, -1 pri neplatnem souboru.
+     * Po uspechu se zmena nastaveni oznami stejne jako po setSettings.
+     */
+    fun importBackup(json: String): Int {
+        val n = call(OP_BACKUP_IMPORT, json).toIntOrNull() ?: -1
+        if (n >= 0) settingsChanged(call(OP_GET_SETTINGS))
+        return n
+    }
+
+    /** Zaznamenane tahy (jen kdyz je zapnuty swipe_log) jako JSON pro nastroj tune. */
+    fun exportSwipeLog(): String = call(OP_SWIPE_LOG_EXPORT)
+
+    fun clearSwipeLog() {
+        call(OP_SWIPE_LOG_CLEAR)
+    }
+
+    fun swipeLogCount(): Int = call(OP_SWIPE_LOG_COUNT).toIntOrNull() ?: 0
 
     // ------------------------------------------------------------------ schranka
 

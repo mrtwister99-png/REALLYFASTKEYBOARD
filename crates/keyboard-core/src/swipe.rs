@@ -38,6 +38,21 @@ const ANCHOR_WEIGHT: f32 = 1.0;
 const EPS_COST: f32 = 0.02;
 /// Strmost prevodu prumerne chyby na geometricke skore 0..1.
 const GEO_K: f32 = 3.0;
+
+/// Ladici vahy skore (nastroj `tune` je meni; vychozi hodnoty jsou konstanty vyse).
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Weights {
+    pub geometry: f32,
+    pub language: f32,
+    pub personal: f32,
+    pub geo_k: f32,
+}
+
+impl Default for Weights {
+    fn default() -> Self {
+        Weights { geometry: W_GEOMETRY, language: W_LANGUAGE, personal: W_PERSONAL, geo_k: GEO_K }
+    }
+}
 /// Jazykove skore pro osobni slova, ktera nejsou ve vestavenem slovniku.
 const USER_ONLY_LM: f32 = 0.3;
 /// Kratsi draha nez tohle (v sirkach klaves) je tap.
@@ -171,6 +186,7 @@ pub struct SwipeDecoder {
     pts: [Pt; RESAMPLE_N],
     keyseq: Vec<u8>,
     finals: Vec<Final>,
+    pub weights: Weights,
 }
 
 impl Default for SwipeDecoder {
@@ -491,6 +507,7 @@ impl SwipeDecoder {
             pts: [(0.0, 0.0); RESAMPLE_N],
             keyseq: Vec::with_capacity(RESAMPLE_N),
             finals: Vec::with_capacity(4 * BEAM_WIDTH),
+            weights: Weights::default(),
         }
     }
 
@@ -531,6 +548,7 @@ impl SwipeDecoder {
             return Vec::new();
         }
 
+        let wt = self.weights;
         self.finals.clear();
         for (di, dict) in dicts.iter().enumerate().take(255) {
             self.beam(dict.swipe_fst(), geom, sens, di as u8);
@@ -541,7 +559,7 @@ impl SwipeDecoder {
         for f in &self.finals {
             let Some(dict) = dicts.get(f.dict as usize) else { continue };
             let mean = f.cost / RESAMPLE_N as f32;
-            let geo = W_GEOMETRY * (-GEO_K * mean).exp();
+            let geo = wt.geometry * (-wt.geo_k * mean).exp();
             // Trie pro swipe je bez diakritiky: ke kazdemu nalezu dohledame skutecna slova
             // (s -> s i š ...) vcetne frekvence.
             for v in crate::predict::accent_variants(dict, &f.word[..f.len as usize]) {
@@ -549,7 +567,7 @@ impl SwipeDecoder {
                 if v.entry.cap {
                     word = charmap::capitalize(&word);
                 }
-                let score = geo + W_LANGUAGE * (v.entry.freq as f32 / 255.0) + W_PERSONAL * user.strength(&word, now);
+                let score = geo + wt.language * (v.entry.freq as f32 / 255.0) + wt.personal * user.strength(&word, now);
                 scored.push(SwipeCandidate { word, score, cost: mean });
             }
         }
@@ -562,9 +580,9 @@ impl SwipeDecoder {
             }
             if let Some(cost) = align_cost(&enc, &self.pts, geom, sens) {
                 let mean = cost / RESAMPLE_N as f32;
-                let score = W_GEOMETRY * (-GEO_K * mean).exp()
-                    + W_LANGUAGE * USER_ONLY_LM
-                    + W_PERSONAL * crate::learning::strength_of(*uw, now);
+                let score = wt.geometry * (-wt.geo_k * mean).exp()
+                    + wt.language * USER_ONLY_LM
+                    + wt.personal * crate::learning::strength_of(*uw, now);
                 scored.push(SwipeCandidate { word: w.clone(), score, cost: mean });
             }
         }
@@ -591,6 +609,7 @@ impl SwipeDecoder {
     /// nejsou spekulativni stavy typu "mozna pojedu k X" a 50 mist staci i na dlouha slova.
     fn beam(&mut self, fst: &Fst<Vec<u8>>, geom: &KeyGeom, sens: f32, dict: u8) {
         let inv = 1.0 / (sens * sens);
+        let w = self.weights;
         let r2 = (ANCHOR_RADIUS * sens) * (ANCHOR_RADIUS * sens);
         let pts = self.pts;
         let last = RESAMPLE_N - 1;
@@ -621,7 +640,7 @@ impl SwipeDecoder {
                 push_doubled(&mut self.cur, fst, geom, &s);
             }
         }
-        prune(&mut self.cur, &pts, 0, geom, inv);
+        prune(&mut self.cur, &pts, 0, geom, inv, &w);
 
         for j in 1..RESAMPLE_N {
             if self.cur.is_empty() {
@@ -666,7 +685,7 @@ impl SwipeDecoder {
                 }
             }
             if j < last {
-                prune(&mut self.next, &pts, j, geom, inv);
+                prune(&mut self.next, &pts, j, geom, inv, &w);
                 std::mem::swap(&mut self.cur, &mut self.next);
             }
         }
@@ -730,7 +749,7 @@ fn push_doubled(v: &mut Vec<State>, fst: &Fst<Vec<u8>>, geom: &KeyGeom, s: &Stat
 /// vysledne skore): geometrie z dosavadni ceny + jazyk z nejcastejsiho slova pod predponou.
 /// Body, ktere stav jeste nezapocital (ceka na dalsi pismeno), se odhadnou vuci primce od
 /// posledniho pismene k aktualnimu bodu - kdyz draha mezitim zatocila, stav nejake pismeno minul.
-fn prune(v: &mut Vec<State>, pts: &[Pt; RESAMPLE_N], j: usize, geom: &KeyGeom, inv: f32) {
+fn prune(v: &mut Vec<State>, pts: &[Pt; RESAMPLE_N], j: usize, geom: &KeyGeom, inv: f32, w: &Weights) {
     let here = pts[j];
     for s in v.iter_mut() {
         let from = geom.centers[s.key as usize];
@@ -740,7 +759,7 @@ fn prune(v: &mut Vec<State>, pts: &[Pt; RESAMPLE_N], j: usize, geom: &KeyGeom, i
         }
         let mean = (s.cost + pending * inv) / RESAMPLE_N as f32;
         let best_freq = 255u32.saturating_sub(s.out) as f32 / 255.0;
-        s.rank = -(W_GEOMETRY * (-GEO_K * mean).exp() + W_LANGUAGE * best_freq);
+        s.rank = -(w.geometry * (-w.geo_k * mean).exp() + w.language * best_freq);
     }
     if v.len() > PRESORT_KEEP {
         v.select_nth_unstable_by(PRESORT_KEEP, |a, b| a.rank.total_cmp(&b.rank));
@@ -926,6 +945,13 @@ mod tests {
         assert!((W_GEOMETRY + W_LANGUAGE + W_PERSONAL - 1.0).abs() < 1e-6);
         assert_eq!((W_GEOMETRY, W_LANGUAGE, W_PERSONAL), (0.6, 0.25, 0.15));
         assert_eq!(BEAM_WIDTH, 50);
+    }
+
+    #[test]
+    fn default_weights_equal_constants() {
+        let w = Weights::default();
+        assert_eq!((w.geometry, w.language, w.personal, w.geo_k), (W_GEOMETRY, W_LANGUAGE, W_PERSONAL, GEO_K));
+        assert_eq!(SwipeDecoder::new().weights, w);
     }
 
     #[test]

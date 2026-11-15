@@ -13,6 +13,10 @@ crate-type = ["cdylib", "rlib"]
 name = "build-dict"
 path = "src/bin/build_dict.rs"
 
+[[bin]]
+name = "tune"
+path = "src/bin/tune.rs"
+
 [[bench]]
 name = "core"
 harness = false

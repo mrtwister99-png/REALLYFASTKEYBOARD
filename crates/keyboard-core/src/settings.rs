@@ -54,6 +54,8 @@ pub struct Settings {
     pub swipe_glow: bool,
     /// Prizpusobeni swipe stylu psani (posun stredu klaves podle potvrzenych tahu).
     pub swipe_adapt: bool,
+    /// Zaznam tahu pro ladeni: ulozi drahy tahu spolu s potvrzenymi slovy (jen v zarizeni).
+    pub swipe_log: bool,
     // --- gesta (kazde lze vypnout) ---
     pub gesture_delete_word: bool,
     pub gesture_space_cursor: bool,
@@ -99,6 +101,7 @@ impl Default for Settings {
             swipe_trail: true,
             swipe_glow: true,
             swipe_adapt: true,
+            swipe_log: false,
             gesture_delete_word: true,
             gesture_space_cursor: true,
             gesture_swipe_up_caps: true,
@@ -276,6 +279,7 @@ mod tests {
         let s = Settings::default();
         assert!(s.key_popup && s.key_hints && s.key_shadow && s.animations && s.swipe_trail);
         assert!(s.voice_input && s.swipe_glow && s.swipe_adapt);
+        assert!(!s.swipe_log);
         assert_eq!(s.key_radius_dp, 10);
         let s = Settings::from_json(r#"{"key_radius_dp":99,"animations":false}"#).unwrap();
         assert_eq!(s.key_radius_dp, 22);

@@ -86,6 +86,9 @@ class SettingsActivity : BaseScreen() {
 
     private companion object {
         const val REQ_MIC = 3
+        const val REQ_BACKUP_EXPORT = 10
+        const val REQ_BACKUP_IMPORT = 11
+        const val REQ_SWIPE_LOG_EXPORT = 12
         val PRESETS = listOf(
             Preset("Graphite", "dark", "#101012", "#2A2A30", "#F5F5F7", "#0080FF"),
             Preset("Amber", "dark", "#101012", "#2A2A30", "#F5F5F7", "#F59E0B"),
@@ -108,6 +111,7 @@ class SettingsActivity : BaseScreen() {
     private var previewBox: LinearLayout? = null
     private var customColors: LinearLayout? = null
     private var aboutView: TextView? = null
+    private var swipeLogButton: TextView? = null
     private val refreshers = ArrayList<() -> Unit>()
     private val listener: () -> Unit = { onSettingsChanged() }
 
@@ -178,6 +182,7 @@ class SettingsActivity : BaseScreen() {
         super.onResume()
         updateStatus()
         aboutView?.text = RustBridge.info()
+        updateSwipeLogButton()
     }
 
     override fun onWindowFocusChanged(hasFocus: Boolean) {
@@ -454,6 +459,43 @@ class SettingsActivity : BaseScreen() {
         navRow(box, getString(R.string.dictionary_open)) { startActivity(Intent(this, DictionaryActivity::class.java)) }
         navRow(box, getString(R.string.macros_open)) { startActivity(Intent(this, MacrosActivity::class.java)) }
 
+        // Zaloha a ladeni
+        box = section(container, getString(R.string.sec_backup))
+        buttonRow(box, getString(R.string.backup_export), accent) {
+            val i = Intent(Intent.ACTION_CREATE_DOCUMENT)
+            i.addCategory(Intent.CATEGORY_OPENABLE)
+            i.type = "application/json"
+            i.putExtra(Intent.EXTRA_TITLE, "reallyfast-zaloha.json")
+            startActivityForResult(i, REQ_BACKUP_EXPORT)
+        }
+        buttonRow(box, getString(R.string.backup_import), accent) {
+            val i = Intent(Intent.ACTION_OPEN_DOCUMENT)
+            i.addCategory(Intent.CATEGORY_OPENABLE)
+            i.type = "*/*"
+            startActivityForResult(i, REQ_BACKUP_IMPORT)
+        }
+        hintText(box, getString(R.string.backup_hint))
+        switchRow(box, R.string.swipe_log, "swipe_log")
+        hintText(box, getString(R.string.swipe_log_hint))
+        swipeLogButton = buttonRow(box, getString(R.string.swipe_log_export, RustBridge.swipeLogCount()), accent) {
+            val i = Intent(Intent.ACTION_CREATE_DOCUMENT)
+            i.addCategory(Intent.CATEGORY_OPENABLE)
+            i.type = "application/json"
+            i.putExtra(Intent.EXTRA_TITLE, "reallyfast-tahy.json")
+            startActivityForResult(i, REQ_SWIPE_LOG_EXPORT)
+        }
+        buttonRow(box, getString(R.string.swipe_log_clear), danger) {
+            AlertDialog.Builder(this)
+                .setMessage(R.string.swipe_log_clear_confirm)
+                .setPositiveButton(R.string.delete) { _, _ ->
+                    RustBridge.clearSwipeLog()
+                    updateSwipeLogButton()
+                    Toast.makeText(this, R.string.swipe_log_cleared, Toast.LENGTH_SHORT).show()
+                }
+                .setNegativeButton(R.string.cancel, null)
+                .show()
+        }
+
         // Jazyk
         box = section(container, getString(R.string.sec_language))
         choiceRow(box, R.string.language, "language", listOf("cs", "en", "cs+en"),
@@ -539,6 +581,57 @@ class SettingsActivity : BaseScreen() {
         }
 
         updateStatus()
+    }
+
+    private fun updateSwipeLogButton() {
+        swipeLogButton?.text = getString(R.string.swipe_log_export, RustBridge.swipeLogCount())
+    }
+
+    @Deprecated("Deprecated in Java")
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+        val uri = data?.data
+        if (resultCode != RESULT_OK || uri == null) return
+        try {
+            when (requestCode) {
+                REQ_BACKUP_EXPORT -> {
+                    contentResolver.openOutputStream(uri)?.use {
+                        it.write(RustBridge.exportBackup().toByteArray(Charsets.UTF_8))
+                    }
+                    Toast.makeText(this, R.string.backup_exported, Toast.LENGTH_SHORT).show()
+                }
+                REQ_BACKUP_IMPORT -> {
+                    val json = contentResolver.openInputStream(uri)?.use { it.readBytes().toString(Charsets.UTF_8) } ?: ""
+                    confirmRestore(json)
+                }
+                REQ_SWIPE_LOG_EXPORT -> {
+                    contentResolver.openOutputStream(uri)?.use {
+                        it.write(RustBridge.exportSwipeLog().toByteArray(Charsets.UTF_8))
+                    }
+                    Toast.makeText(this, R.string.swipe_log_exported, Toast.LENGTH_SHORT).show()
+                }
+            }
+        } catch (t: Throwable) {
+            val msg = if (requestCode == REQ_BACKUP_IMPORT) R.string.backup_restore_failed else R.string.backup_export_failed
+            Toast.makeText(this, msg, Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    /** Obnova prepise nastaveni, proto se pred ni zeptame. Po uspechu se obrazovka postavi znovu. */
+    private fun confirmRestore(json: String) {
+        AlertDialog.Builder(this)
+            .setMessage(R.string.backup_restore_confirm)
+            .setPositiveButton(R.string.backup_restore) { _, _ ->
+                val n = RustBridge.importBackup(json)
+                if (n >= 0) {
+                    Toast.makeText(this, getString(R.string.backup_restored, n), Toast.LENGTH_SHORT).show()
+                    recreate()
+                } else {
+                    Toast.makeText(this, R.string.backup_restore_failed, Toast.LENGTH_SHORT).show()
+                }
+            }
+            .setNegativeButton(R.string.cancel, null)
+            .show()
     }
 
     private fun updateStatus() {

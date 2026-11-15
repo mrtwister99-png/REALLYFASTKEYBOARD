@@ -55,6 +55,8 @@ takže nic odeslat nemůže.
 | Makra a zkratky | tlačítko s bleskem otevře seznam vlastních maker (textových bloků); makro se zkratkou se vloží i napsáním zkratky a mezery (`mfg` → „S pozdravem“); v textu lze použít `{datum}` a `{cas}`; správa v Nastavení → Makra a zkratky |
 | Učení z oprav | když po swipe vybereš jinou alternativu nebo slovo hned smažeš, klávesnice si to zapamatuje a chybné slovo příště nabídne níž |
 | Přizpůsobení swipe | z potvrzených tahů se učí, kudy prstem skutečně jezdíš, a posouvá si středy kláves (lze vypnout a smazat) |
+| Záloha a obnova | Nastavení → Záloha a ladění: jeden JSON soubor s nastavením, osobním slovníkem, opravami, makry a přizpůsobením swipe |
+| Záznam tahů | volitelný, ve výchozím stavu vypnutý; ukládá dráhy tahů s potvrzenými slovy pro ladění vah (nástroj `tune`) |
 | Predikce z kontextu dvou slov | trigramy z korpusu (cs 47 749, en 113 443) + osobní trigramy |
 | Rozsvícení kláves | během swipe se podbarví projeté klávesy; písmena výsledného slova se rozsvítí žlutě (1 s náběh, 0,5 s drží, zhasne) |
 | Živý náhled | v nastavení je dole připnutá klávesnice ve skutečné velikosti, každá změna je hned vidět |
@@ -85,6 +87,8 @@ crates/keyboard-core/              Rust jádro
   src/layout.rs  swipe.rs  dictionary.rs  predict.rs  settings.rs
       gestures.rs  storage.rs  learning.rs  clipboard.rs  emoji.rs  charmap.rs  jni.rs  lib.rs
   src/bin/build_dict.rs            sestavení dictionary.bin z TSV
+  src/bin/tune.rs                  offline ladění vah swipe nad záznamem tahů
+  src/backup.rs                    formát úplné zálohy
   benches/core.rs                  benchmarky
 dictionaries/                      zdrojová data slovníku (cs_CZ.dic, cs_CZ.aff, czech_freq_15k.txt)
 scripts/download-dictionary.py     stažení korpusů + sestavení slovníku
@@ -116,9 +120,9 @@ Poznámky k odchylkám od zadání:
 ## 8. Testy a benchmarky
 
 ```
-scripts/ci.sh                      # cargo test (120 testů)
+scripts/ci.sh                      # cargo test (130 testů)
 scripts/ci.sh --bench --jni        # + benchmarky + JVM test JNI mostu
-gradlew.bat :app:testDebugUnitTest # 9 testů JNI mostu (načte Rust jádro do JVM)
+gradlew.bat :app:testDebugUnitTest # 10 testů JNI mostu (načte Rust jádro do JVM)
 ```
 
 Benchmark `cargo bench` nad reálným slovníkem. **Měřeno na vývojovém PC (x86-64), ne na telefonu** –
@@ -137,6 +141,32 @@ na S25 Ultra čekej několikanásobně vyšší časy, stále s velkou rezervou 
 Přesnost je měřená na simulovaných tazích (ideální dráha + šum), ne na skutečném psaní prstem.
 Vykreslení snímku, odezva tapu, start klávesnice a paměť **nebyly na zařízení změřeny** (bez telefonu
 ani emulátoru); kód je na ně navržen (žádné alokace v `onDraw`, synchronní JNI, líné načtení slovníku).
+
+### Záloha a obnova
+
+Nastavení → **Záloha a ladění** → *Zálohovat do souboru* uloží jeden JSON (`reallyfast-zaloha.json`):
+nastavení, osobní slovník (slova, bigramy, trigramy), opravy, makra a přizpůsobení swipe.
+Historie schránky, nedávná emoji a záznam tahů se do zálohy **nedávají** (soukromí).
+
+*Obnovit ze souboru* se nejdřív zeptá a pak: nastavení **přepíše**, slovník, opravy a makra **sloučí**
+(u slov a oprav platí vyšší počet, existující makra se nezdvojují) a přizpůsobení swipe nahradí, pokud je
+v souboru. Opakované obnovení stejného souboru už nic nezmění. Neplatný soubor (nebo soubor jiné aplikace)
+se odmítne a nic se nezmění. Samostatný export/import jen slovníku zůstává na obrazovce Osobní slovník.
+
+### Záznam tahů a ladění vah swipe
+
+Přepínač **Záznam tahů pro ladění** (ve výchozím stavu vypnutý) ukládá do databáze v telefonu syrové dráhy
+tahů, geometrii kláves a výsledek: potvrzený první návrh, vybraná alternativa nebo slovo hned smazané.
+Nezaznamenává se v polích pro hesla ani tam, kde je učení zakázané; drží se nejvýše 1000 posledních tahů.
+Tlačítko *Exportovat záznam tahů* ho uloží do `reallyfast-tahy.json`, *Smazat záznam tahů* ho vymaže.
+
+Nástroj `tune` tahy přehraje přes decoder, změří přesnost s výchozími vahami, vypíše chyby a zkusí mřížku
+vah (geometrie 0,45–0,75, jazyk = 0,85 − geometrie, osobní 0,15, strmost 2,0–4,0). Pod 30 použitelných tahů
+jen vypíše, že vzorek je příliš malý na změnu vah. Spuštění z `crates/keyboard-core`:
+
+```
+cargo run --release --bin tune -- ../../app/src/main/assets/dictionary.bin <soubor>
+```
 
 ## 9. Soukromí a bezpečnost
 

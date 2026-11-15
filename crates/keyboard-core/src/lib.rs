@@ -4,6 +4,7 @@
 //!
 //! Zadna sit, zadna telemetrie. `unsafe` je pouze v modulu `jni` (hranice JNI).
 
+pub mod backup;
 pub mod charmap;
 pub mod clipboard;
 pub mod dictionary;
@@ -68,6 +69,11 @@ pub const OP_MACRO_DELETE: i32 = 36;
 pub const OP_SHORTCUT: i32 = 37;
 pub const OP_CORRECTION: i32 = 38;
 pub const OP_CALIBRATION_RESET: i32 = 39;
+pub const OP_SWIPE_LOG_EXPORT: i32 = 40;
+pub const OP_SWIPE_LOG_CLEAR: i32 = 41;
+pub const OP_SWIPE_LOG_COUNT: i32 = 42;
+pub const OP_BACKUP_EXPORT: i32 = 43;
+pub const OP_BACKUP_IMPORT: i32 = 44;
 
 /// Priznaky pro swipe / suggest.
 pub const FLAG_CAPITALIZE: i64 = 1;
@@ -77,6 +83,13 @@ pub const FLAG_FROM_SWIPE: i64 = 4;
 
 pub fn now_ms() -> i64 {
     SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_millis() as i64).unwrap_or(0)
+}
+
+/// Posledni dekodovany swipe cekajici na vysledek (potvrzeni / vyber alternativy / smazani).
+struct PendingSwipe {
+    raw: Vec<f32>,
+    geom: KeyGeom,
+    first: String,
 }
 
 pub struct Engine {
@@ -89,6 +102,7 @@ pub struct Engine {
     geom: Option<KeyGeom>,
     macros: Vec<macros::Macro>,
     calibration: swipe::Calibration,
+    swipe_pending: Option<PendingSwipe>,
 }
 
 fn active<'a>(dicts: &'a [Dictionary], s: &Settings) -> Vec<&'a Dictionary> {
@@ -119,6 +133,7 @@ impl Engine {
             user,
             decoder: SwipeDecoder::new(),
             geom: None,
+            swipe_pending: None,
         }
     }
 
@@ -184,14 +199,21 @@ impl Engine {
 
     /// Swipe decode. Prazdny vysledek = brat jako tap.
     pub fn swipe(&mut self, raw: &[f32], capitalize: bool, now: i64) -> Vec<String> {
+        self.swipe_pending = None;
         if !self.settings.swipe_enabled {
             return Vec::new();
         }
-        let Some(geom) = self.geom else { return Vec::new() };
+        let Some(raw_geom) = self.geom else { return Vec::new() };
         // Prizpusobeni stylu psani: stredy klaves posunute podle potvrzenych tahu.
-        let geom = if self.settings.swipe_adapt { self.calibration.apply(&geom) } else { geom };
+        let geom = if self.settings.swipe_adapt { self.calibration.apply(&raw_geom) } else { raw_geom };
         let dicts = active(&self.dicts, &self.settings);
         let res = self.decoder.decode(raw, &geom, &dicts, &self.user, self.settings.swipe_sensitivity, now);
+        if self.settings.swipe_log && raw.iter().all(|v| v.is_finite()) {
+            if let Some(first) = res.first() {
+                // Geometrie se uklada pred prizpusobenim, aby sel tah presne prehrat.
+                self.swipe_pending = Some(PendingSwipe { raw: raw.to_vec(), geom: raw_geom, first: first.word.clone() });
+            }
+        }
         res.into_iter().map(|c| if capitalize { charmap::capitalize(&c.word) } else { c.word }).collect()
     }
 
@@ -240,6 +262,9 @@ impl Engine {
     /// `before` je text pred slovem (kontext pro bigramy / trigramy a zacatek vety),
     /// `from_swipe` rika, ze slovo vzniklo poslednim swipem (pouzije se k prizpusobeni swipe).
     pub fn learn(&mut self, word: &str, before: &str, from_swipe: bool, now: i64) -> bool {
+        if from_swipe {
+            self.finish_swipe_log(Some(word));
+        }
         if !self.settings.learn_from_typing {
             return false;
         }
@@ -285,6 +310,9 @@ impl Engine {
     /// Uceni z oprav: uzivatel po swipe nahradil `bad` slovem `good`,
     /// nebo slovo smazal (`good` prazdne).
     pub fn note_correction(&mut self, bad: &str, good: &str) {
+        if good.is_empty() && !bad.is_empty() {
+            self.finish_swipe_log(None); // smazano hned po swipe
+        }
         if !self.settings.learn_from_typing || bad.is_empty() {
             return;
         }
@@ -295,6 +323,41 @@ impl Engine {
         }
         let c = self.user.note_correction(&bad, &good);
         self.storage.put_correction(&bad, &good, c);
+    }
+
+    /// Zapise zapamatovany tah do zaznamu, kdyz je zaznam zapnuty, a tah zapomene.
+    /// `chosen` = potvrzene slovo (outcome 0 / 1), `None` = slovo smazano (outcome 2).
+    fn finish_swipe_log(&mut self, chosen: Option<&str>) {
+        let Some(p) = self.swipe_pending.take() else { return };
+        if !self.settings.swipe_log {
+            return;
+        }
+        let (word, outcome) = match chosen {
+            Some(w) if w.is_empty() => return,
+            Some(w) => (w, if w.to_lowercase() == p.first.to_lowercase() { 0 } else { 1 }),
+            None => ("", 2),
+        };
+        let Ok(geom) = serde_json::to_string(&p.geom) else { return };
+        let points = p.raw.iter().map(|v| v.to_string()).collect::<Vec<_>>().join(",");
+        self.storage.swipe_log_add(now_ms(), word, &p.first, outcome, &geom, &points);
+    }
+
+    pub fn swipe_log_count(&self) -> i64 {
+        self.storage.swipe_log_count()
+    }
+
+    pub fn clear_swipe_log(&mut self) {
+        self.storage.swipe_log_clear();
+    }
+
+    /// Zaznam tahu jako JSON (vstup nastroje `tune`).
+    pub fn export_swipe_log(&self) -> String {
+        let file = storage::SwipeLogFile {
+            app: backup::APP_NAME.to_string(),
+            version: backup::BACKUP_VERSION,
+            swipes: self.storage.swipe_log_list(),
+        };
+        serde_json::to_string(&file).unwrap_or_else(|_| "{}".to_string())
     }
 
     /// Rucni pridani slova do osobniho slovniku (z nastaveni) - funguje i pri vypnutem uceni.
@@ -357,6 +420,85 @@ impl Engine {
             }
             None => -1,
         }
+    }
+
+    /// Uplna zaloha (nastaveni, slovnik, opravy, makra, prizpusobeni swipe) jako JSON.
+    pub fn export_backup(&self, now: i64) -> String {
+        let calibration = (0..26)
+            .filter(|&k| self.calibration.n[k] > 0)
+            .map(|k| backup::BackupKey {
+                key: k as u32,
+                sx: self.calibration.sum[k].0,
+                sy: self.calibration.sum[k].1,
+                n: self.calibration.n[k],
+            })
+            .collect();
+        let data = backup::Backup {
+            app: backup::APP_NAME.to_string(),
+            version: backup::BACKUP_VERSION,
+            created: now,
+            settings: serde_json::to_value(&self.settings).ok(),
+            user: self.user.export(),
+            corrections: self
+                .user
+                .corrections_list()
+                .into_iter()
+                .map(|(bad, good, count)| backup::BackupCorrection { bad, good, count })
+                .collect(),
+            macros: self.macros.clone(),
+            calibration,
+        };
+        serde_json::to_string_pretty(&data).unwrap_or_else(|_| "{}".to_string())
+    }
+
+    /// Obnova ze zalohy. Nastaveni se prepise (stejna validace jako `set_settings_json`),
+    /// slovnik, opravy a makra se slouci, prizpusobeni swipe se nahradi (kdyz je v souboru).
+    /// Vraci pocet prijatych slov slovniku, -1 pri neplatnem souboru.
+    pub fn import_backup(&mut self, json: &str) -> i64 {
+        let Ok(data) = serde_json::from_str::<backup::Backup>(json) else { return -1 };
+        if data.app != backup::APP_NAME {
+            return -1;
+        }
+        if let Some(v) = data.settings.as_ref().filter(|v| v.is_object()) {
+            if let Some(s) = Settings::from_json(&v.to_string()) {
+                self.set_settings(s);
+            }
+        }
+        let n = self.user.import(&data.user);
+        self.storage.replace_user(&self.user.export());
+        for c in &data.corrections {
+            if c.bad.is_empty() || c.count == 0 || c.bad.chars().count() > 64 || c.good.chars().count() > 64 {
+                continue;
+            }
+            let count = self.user.merge_correction(&c.bad, &c.good, c.count);
+            self.storage.put_correction(&c.bad, &c.good, count);
+        }
+        let mut known: Vec<(String, String, String)> =
+            self.macros.iter().map(|m| (m.name.clone(), m.text.clone(), m.shortcut.clone())).collect();
+        for m in &data.macros {
+            let Some(mut m) = m.clone().normalized() else { continue };
+            m.id = 0;
+            let triple = (m.name.clone(), m.text.clone(), m.shortcut.clone());
+            if !known.contains(&triple) && self.storage.macro_save(&m) {
+                known.push(triple);
+            }
+        }
+        self.macros = self.storage.macro_list();
+        let mut cal = swipe::Calibration::default();
+        let mut any = false;
+        for k in &data.calibration {
+            if k.key < 26 && k.n > 0 && k.sx.is_finite() && k.sy.is_finite() {
+                cal.sum[k.key as usize] = (k.sx, k.sy);
+                cal.n[k.key as usize] = k.n;
+                any = true;
+            }
+        }
+        if any {
+            self.calibration = cal;
+            self.storage.clear_calibration();
+            self.storage.save_calibration(&self.calibration);
+        }
+        n as i64
     }
 
     pub fn clip_add(&self, text: &str, now: i64) -> bool {
@@ -505,6 +647,14 @@ pub fn dispatch(op: i32, a: &[u8], b: &[u8], num: i64) -> Vec<u8> {
             e.reset_calibration();
             Vec::new()
         }
+        OP_SWIPE_LOG_EXPORT => e.export_swipe_log().into_bytes(),
+        OP_SWIPE_LOG_CLEAR => {
+            e.clear_swipe_log();
+            Vec::new()
+        }
+        OP_SWIPE_LOG_COUNT => e.swipe_log_count().to_string().into_bytes(),
+        OP_BACKUP_EXPORT => e.export_backup(now).into_bytes(),
+        OP_BACKUP_IMPORT => e.import_backup(&sa).to_string().into_bytes(),
         OP_USER_WORDS => serde_json::to_vec(&e.user().list()).unwrap_or_default(),
         OP_USER_DELETE => {
             e.delete_user_word(&sa);
@@ -742,6 +892,197 @@ mod tests {
         assert_eq!(e.import_user("{{"), -1);
     }
 
+    fn macro_triples(e: &Engine) -> Vec<(String, String, String)> {
+        e.macros().iter().map(|m| (m.name.clone(), m.text.clone(), m.shortcut.clone())).collect()
+    }
+
+    #[test]
+    fn backup_round_trip_into_fresh_engine() {
+        let mut a = engine_with_dict();
+        let mut s = a.settings().clone();
+        s.theme = "light".into();
+        s.language = "cs".into();
+        s.vibration_ms = 33;
+        s.swipe_log = true;
+        a.set_settings(s);
+        a.learn("Novák", "pan Jan ", false, NOW);
+        a.learn("pes", "ahoj dobrý ", false, NOW);
+        a.note_correction("mas", "máš");
+        a.note_correction("blbost", "");
+        assert!(a.save_macro(r#"{"id":0,"name":"Pozdrav","text":"S pozdravem","shortcut":"mfg"}"#));
+        assert!(a.save_macro(r#"{"id":0,"name":"Mail","text":"jan@example.com"}"#));
+        for _ in 0..10 {
+            a.calibration.add(0, 0.2, -0.1);
+            a.calibration.add(3, -0.05, 0.1);
+        }
+        let json = a.export_backup(NOW);
+        assert!(json.contains("\"app\": \"reallyFAST\""));
+        assert!(!json.contains("\"clipboard\":") && !json.contains("emoji") && !json.contains("\"swipes\""));
+
+        let mut b = Engine::with_storage(Storage::in_memory(), NOW);
+        assert_eq!(b.import_backup(&json), a.user().len() as i64);
+        assert_eq!(b.settings(), a.settings());
+        assert_eq!(b.user().export(), a.user().export());
+        assert!(!b.user().export().bigrams.is_empty() && !b.user().export().trigrams.is_empty());
+        assert_eq!(b.user().corrections_list(), a.user().corrections_list());
+        assert_eq!(b.user().corrections_list().len(), 2);
+        assert_eq!(macro_triples(&b), macro_triples(&a));
+        assert_eq!(b.macros().len(), 2);
+        assert_eq!(b.calibration.sum, a.calibration.sum);
+        assert_eq!(b.calibration.n, a.calibration.n);
+        // vse je i v uloziste, ne jen v pameti
+        assert_eq!(b.storage.load_user().export(), a.user().export());
+        assert_eq!(b.storage.load_user().corrections_list(), a.user().corrections_list());
+        assert_eq!(b.storage.macro_list(), b.macros());
+        assert_eq!(b.storage.load_calibration().n, a.calibration.n);
+    }
+
+    #[test]
+    fn backup_import_is_idempotent() {
+        let mut a = engine_with_dict();
+        a.learn("Novák", "pan Jan ", false, NOW);
+        a.learn("Novák", "pan Jan ", false, NOW);
+        a.note_correction("mas", "máš");
+        a.note_correction("mas", "máš");
+        assert!(a.save_macro(r#"{"id":0,"name":"Pozdrav","text":"S pozdravem","shortcut":"mfg"}"#));
+        for _ in 0..8 {
+            a.calibration.add(5, 0.1, 0.1);
+        }
+        let json = a.export_backup(NOW);
+        let mut b = engine_with_dict();
+        let n = b.import_backup(&json);
+        assert_eq!(n, 1);
+        let once = b.export_backup(NOW);
+        assert_eq!(b.import_backup(&json), n);
+        assert_eq!(b.export_backup(NOW), once);
+        assert_eq!(b.user().get("Novák").unwrap().count, 2);
+        assert_eq!(b.macros().len(), 1);
+        assert_eq!(b.storage.macro_list().len(), 1);
+        // slouceni: vyssi pocet vyhrava, existujici makra se nezdvojuji
+        b.learn("Novák", "pan Jan ", false, NOW);
+        assert_eq!(b.import_backup(&json), n);
+        assert_eq!(b.user().get("Novák").unwrap().count, 3);
+    }
+
+    #[test]
+    fn backup_rejects_invalid_and_keeps_missing_parts() {
+        let mut e = engine_with_dict();
+        let mut s = e.settings().clone();
+        s.theme = "light".into();
+        e.set_settings(s);
+        e.learn("ahoj", "", false, NOW);
+        assert_eq!(e.import_backup("not json"), -1);
+        assert_eq!(e.import_backup(r#"{"app":"jina-aplikace","settings":{"theme":"dark"}}"#), -1);
+        assert_eq!(e.import_backup("{}"), -1);
+        assert_eq!(e.import_backup(r#"[1,2]"#), -1);
+        assert_eq!(e.settings().theme, "light");
+        // castecny soubor: bez nastaveni a prizpusobeni zustava aktualni stav
+        e.calibration.add(1, 0.1, 0.1);
+        assert_eq!(e.import_backup(r#"{"app":"reallyFAST","user":{"words":[{"word":"nove","count":2,"last_used":5}]}}"#), 1);
+        assert_eq!(e.settings().theme, "light");
+        assert_eq!(e.calibration.n[1], 1);
+        assert_eq!(e.user().get("nove").unwrap().count, 2);
+        assert!(e.user().get("ahoj").is_some());
+        // nastaveni ze souboru projde validaci
+        assert_eq!(e.import_backup(r#"{"app":"reallyFAST","settings":{"key_height_dp":999,"theme":"pink"}}"#), 0);
+        assert_eq!(e.settings().key_height_dp, 72);
+        assert_eq!(e.settings().theme, "dark");
+    }
+
+    fn logging_engine(log: bool) -> (Engine, Vec<f32>, KeyGeom) {
+        let mut e = engine_with_dict();
+        let mut s = e.settings().clone();
+        s.swipe_log = log;
+        e.set_settings(s);
+        let l = e.layout(1440.0, 1000.0, MODE_LETTERS, true);
+        let g = l.geom();
+        let path = swipe::ideal_path("ahoj", &g, 12);
+        (e, path, g)
+    }
+
+    #[test]
+    fn swipe_log_is_off_by_default() {
+        assert!(!Settings::default().swipe_log);
+        let (mut e, path, _) = logging_engine(false);
+        assert_eq!(e.swipe(&path, false, NOW)[0], "ahoj");
+        e.learn("ahoj", "", true, NOW);
+        e.swipe(&path, false, NOW);
+        e.note_correction("ahoj", "");
+        assert_eq!(e.swipe_log_count(), 0);
+    }
+
+    #[test]
+    fn swipe_log_records_outcomes() {
+        let (mut e, path, g) = logging_engine(true);
+        // prijato prvni navrh (velikost pismen se nerozlisuje)
+        assert_eq!(e.swipe(&path, true, NOW)[0], "Ahoj");
+        assert!(e.learn("Ahoj", "", true, NOW));
+        // vybrana alternativa
+        e.swipe(&path, false, NOW);
+        e.learn("den", "", true, NOW);
+        // smazano hned po swipe
+        e.swipe(&path, false, NOW);
+        e.note_correction("ahoj", "");
+        let list = e.storage.swipe_log_list();
+        assert_eq!(list.len(), 3);
+        assert_eq!((list[0].outcome, list[0].word.as_str(), list[0].first.as_str()), (0, "Ahoj", "ahoj"));
+        assert_eq!((list[1].outcome, list[1].word.as_str(), list[1].first.as_str()), (1, "den", "ahoj"));
+        assert_eq!((list[2].outcome, list[2].word.as_str(), list[2].first.as_str()), (2, "", "ahoj"));
+        // body a geometrie jsou presne ty, ktere sel prehrat
+        assert_eq!(list[0].points, path);
+        assert_eq!(list[0].geom.centers, g.centers);
+        assert_eq!(list[0].geom.present, g.present);
+        assert_eq!(e.swipe_log_count(), 3);
+        // export ma ocekavany tvar a jde nacist zpet
+        let v: serde_json::Value = serde_json::from_str(&e.export_swipe_log()).unwrap();
+        assert_eq!(v["app"], "reallyFAST");
+        assert_eq!(v["version"], 1);
+        assert_eq!(v["swipes"].as_array().unwrap().len(), 3);
+        assert_eq!(v["swipes"][1]["outcome"], 1);
+        let file: storage::SwipeLogFile = serde_json::from_str(&e.export_swipe_log()).unwrap();
+        assert_eq!(file.swipes[0].points, path);
+        e.clear_swipe_log();
+        assert_eq!(e.swipe_log_count(), 0);
+    }
+
+    #[test]
+    fn swipe_log_never_logs_twice_and_ignores_typing() {
+        let (mut e, path, _) = logging_engine(true);
+        e.swipe(&path, false, NOW);
+        e.learn("ahoj", "", false, NOW); // psano klavesami, ne ze swipe
+        assert_eq!(e.swipe_log_count(), 0);
+        e.learn("ahoj", "", true, NOW);
+        e.learn("ahoj", "", true, NOW);
+        e.note_correction("ahoj", "");
+        assert_eq!(e.swipe_log_count(), 1);
+        // oprava na jine slovo nic nezapisuje, zapise az nasledne ucici volani
+        e.swipe(&path, false, NOW);
+        e.note_correction("ahoj", "den");
+        assert_eq!(e.swipe_log_count(), 1);
+        e.learn("den", "", true, NOW);
+        assert_eq!(e.swipe_log_count(), 2);
+        assert_eq!(e.storage.swipe_log_list()[1].outcome, 1);
+        // swipe bez vysledku (kratky tah) si nic nepamatuje
+        e.swipe(&[100.0, 100.0, 0.0, 110.0, 104.0, 30.0], false, NOW);
+        e.learn("ahoj", "", true, NOW);
+        assert_eq!(e.swipe_log_count(), 2);
+    }
+
+    #[test]
+    fn swipe_log_works_with_learning_off() {
+        let (mut e, path, _) = logging_engine(true);
+        let mut s = e.settings().clone();
+        s.learn_from_typing = false;
+        e.set_settings(s);
+        e.swipe(&path, false, NOW);
+        assert!(!e.learn("ahoj", "", true, NOW));
+        e.swipe(&path, false, NOW);
+        e.note_correction("ahoj", "");
+        assert_eq!(e.swipe_log_count(), 2);
+        assert!(e.user().is_empty());
+        assert_eq!(e.user().rejections("ahoj"), 0);
+    }
+
     #[test]
     fn invalid_settings_json_keeps_current() {
         let mut e = engine_with_dict();
@@ -791,6 +1132,13 @@ mod tests {
         assert_eq!(dispatch(OP_DELETE_WORD_LEN, "ahoj světe".as_bytes(), b"", 0), b"5");
         assert_eq!(dispatch(OP_SHOULD_CAPITALIZE, b"Ahoj. ", b"", 0), b"1");
         assert_eq!(dispatch(OP_GESTURE, b"2,-200,0,100,140,150", b"", 0), b"1");
+        assert_eq!(dispatch(OP_SWIPE_LOG_COUNT, b"", b"", 0), b"0");
+        assert!(String::from_utf8(dispatch(OP_SWIPE_LOG_EXPORT, b"", b"", 0)).unwrap().contains("\"swipes\""));
+        dispatch(OP_SWIPE_LOG_CLEAR, b"", b"", 0);
+        let backup = dispatch(OP_BACKUP_EXPORT, b"", b"", 0);
+        assert!(String::from_utf8_lossy(&backup).contains("\"reallyFAST\""));
+        assert_eq!(dispatch(OP_BACKUP_IMPORT, &backup, b"", 0), b"1");
+        assert_eq!(dispatch(OP_BACKUP_IMPORT, b"nonsense", b"", 0), b"-1");
         assert!(dispatch(9999, b"", b"", 0).is_empty());
         assert!(swipe_global(&[f32::NAN; 9], 0).is_empty());
 

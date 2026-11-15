@@ -43,6 +43,7 @@ class Settings(val json: JSONObject) {
     val animations: Boolean get() = json.optBoolean("animations", true)
     val swipeTrail: Boolean get() = json.optBoolean("swipe_trail", true)
     val swipeGlow: Boolean get() = json.optBoolean("swipe_glow", true)
+    val swipeLog: Boolean get() = json.optBoolean("swipe_log", false)
 
     /** Kopie k uprave (SettingsActivity). */
     fun edit(): JSONObject = JSONObject(json.toString())

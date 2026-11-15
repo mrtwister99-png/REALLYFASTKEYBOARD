@@ -10,11 +10,13 @@
 //! (allowBackup=false), takze data zarizeni neopusti a pri odinstalaci se smazou.
 
 use crate::clipboard::{self, ClipItem};
+use crate::layout::KeyGeom;
 use crate::learning::{Export, UserDict};
 use crate::macros::Macro;
 use crate::swipe::Calibration;
 use crate::settings::Settings;
 use rusqlite::{params, Connection};
+use serde::{Deserialize, Serialize};
 use std::fs;
 use std::io;
 use std::path::{Path, PathBuf};
@@ -22,6 +24,8 @@ use std::path::{Path, PathBuf};
 const SETTINGS_FILE: &str = "settings.json";
 const DB_FILE: &str = "reallyfast.db";
 const EMOJI_RECENT_MAX: usize = 32;
+/// Nejvyse tolik tahu se drzi v zaznamu (nejstarsi se mazou).
+pub const SWIPE_LOG_MAX: i64 = 1000;
 
 const SCHEMA: &str = "
 CREATE TABLE IF NOT EXISTS user_words (
@@ -42,7 +46,31 @@ CREATE TABLE IF NOT EXISTS macros (
     shortcut TEXT NOT NULL DEFAULT '');
 CREATE TABLE IF NOT EXISTS key_calibration (
     key INTEGER PRIMARY KEY, sx REAL NOT NULL, sy REAL NOT NULL, n INTEGER NOT NULL);
+CREATE TABLE IF NOT EXISTS swipe_log (
+    id INTEGER PRIMARY KEY AUTOINCREMENT, ts INTEGER NOT NULL, word TEXT NOT NULL,
+    first TEXT NOT NULL, outcome INTEGER NOT NULL, geom TEXT NOT NULL, points TEXT NOT NULL);
 ";
+
+/// Jeden zaznamenany tah. `outcome`: 0 = prijato prvni navrh, 1 = vybrana alternativa,
+/// 2 = slovo hned smazano. `points` jsou syrove trojice (x, y, t) tak, jak prisly do decoderu.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct SwipeTrace {
+    pub ts: i64,
+    pub word: String,
+    pub first: String,
+    pub outcome: i64,
+    pub geom: KeyGeom,
+    pub points: Vec<f32>,
+}
+
+/// Soubor s exportem zaznamu tahu (vstup nastroje `tune`).
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(default)]
+pub struct SwipeLogFile {
+    pub app: String,
+    pub version: u32,
+    pub swipes: Vec<SwipeTrace>,
+}
 
 pub struct Storage {
     dir: Option<PathBuf>,
@@ -377,6 +405,62 @@ impl Storage {
         }
     }
 
+    // ------------------------------------------------------------------ zaznam tahu
+
+    /// Prida tah do zaznamu a orizne zaznam na poslednich `SWIPE_LOG_MAX` radku.
+    pub fn swipe_log_add(&self, ts: i64, word: &str, first: &str, outcome: i64, geom: &str, points: &str) {
+        let Some(conn) = &self.conn else { return };
+        let _ = conn.execute(
+            "INSERT INTO swipe_log (ts, word, first, outcome, geom, points) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+            params![ts, word, first, outcome, geom, points],
+        );
+        let _ = conn.execute(
+            "DELETE FROM swipe_log WHERE id NOT IN (SELECT id FROM swipe_log ORDER BY id DESC LIMIT ?1)",
+            params![SWIPE_LOG_MAX],
+        );
+    }
+
+    pub fn swipe_log_count(&self) -> i64 {
+        let Some(conn) = &self.conn else { return 0 };
+        conn.query_row("SELECT COUNT(*) FROM swipe_log", [], |r| r.get(0)).unwrap_or(0)
+    }
+
+    pub fn swipe_log_clear(&self) {
+        if let Some(conn) = &self.conn {
+            let _ = conn.execute_batch("DELETE FROM swipe_log;");
+        }
+    }
+
+    /// Zaznam od nejstarsiho; radky s necitelnou geometrii se preskoci.
+    pub fn swipe_log_list(&self) -> Vec<SwipeTrace> {
+        let Some(conn) = &self.conn else { return Vec::new() };
+        let Ok(mut st) = conn.prepare("SELECT ts, word, first, outcome, geom, points FROM swipe_log ORDER BY id") else {
+            return Vec::new();
+        };
+        let rows = st.query_map([], |r| {
+            Ok((
+                r.get::<_, i64>(0)?,
+                r.get::<_, String>(1)?,
+                r.get::<_, String>(2)?,
+                r.get::<_, i64>(3)?,
+                r.get::<_, String>(4)?,
+                r.get::<_, String>(5)?,
+            ))
+        });
+        let out = match rows {
+            Ok(rows) => rows
+                .flatten()
+                .filter_map(|(ts, word, first, outcome, geom, points)| {
+                    let geom: KeyGeom = serde_json::from_str(&geom).ok()?;
+                    let points = points.split(',').map(|p| p.trim().parse::<f32>()).collect::<Result<Vec<f32>, _>>().ok()?;
+                    Some(SwipeTrace { ts, word, first, outcome, geom, points })
+                })
+                .collect(),
+            Err(_) => Vec::new(),
+        };
+        out
+    }
+
     // ------------------------------------------------------------------ emoji
 
     pub fn emoji_used(&self, emoji: &str, now: i64) {
@@ -557,6 +641,25 @@ mod tests {
         assert_eq!(st.load_calibration().n[0], 0);
         drop(st);
         let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn swipe_log_keeps_newest_1000() {
+        let st = Storage::in_memory();
+        let geom = crate::layout::Layout::build(1440.0, 1000.0, true, crate::layout::MODE_LETTERS, true, "x").geom();
+        let g = serde_json::to_string(&geom).unwrap();
+        for i in 0..1005 {
+            st.swipe_log_add(i, &format!("slovo{i}"), "prvni", (i % 3) as i64, &g, "1.5,2.5,0,3,4,16");
+        }
+        assert_eq!(st.swipe_log_count(), SWIPE_LOG_MAX);
+        let list = st.swipe_log_list();
+        assert_eq!(list.len(), 1000);
+        assert_eq!(list[0].word, "slovo5");
+        assert_eq!(list[999].word, "slovo1004");
+        assert_eq!(list[0].points, vec![1.5, 2.5, 0.0, 3.0, 4.0, 16.0]);
+        assert_eq!(list[0].geom.centers, geom.centers);
+        st.swipe_log_clear();
+        assert_eq!(st.swipe_log_count(), 0);
     }
 
     #[test]

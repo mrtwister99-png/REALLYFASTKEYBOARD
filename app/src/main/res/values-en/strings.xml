@@ -144,6 +144,24 @@
     <string name="dictionary_import_failed">Could not read the file</string>
     <string name="dictionary_show_more">Showing the first %1$d words</string>
 
+    <string name="sec_backup">Backup and tuning</string>
+    <string name="backup_export">Back up to file</string>
+    <string name="backup_import">Restore from file</string>
+    <string name="backup_hint">The backup contains settings, personal dictionary, corrections, macros and swipe adaptation. Clipboard history is not included.</string>
+    <string name="backup_exported">Backup saved</string>
+    <string name="backup_export_failed">Could not save the backup</string>
+    <string name="backup_restore_confirm">Restore from backup? Settings will be overwritten, dictionary and macros will be merged with what you already have.</string>
+    <string name="backup_restore">Restore</string>
+    <string name="backup_restored">Restored, accepted words: %1$d</string>
+    <string name="backup_restore_failed">The file is not a valid reallyFAST backup</string>
+    <string name="swipe_log">Record swipes for tuning</string>
+    <string name="swipe_log_hint">Records swipe paths together with the confirmed words, only on this device, never in password fields, at most 1000 swipes. Off by default.</string>
+    <string name="swipe_log_export">Export swipe log (%1$d)</string>
+    <string name="swipe_log_exported">Swipe log exported</string>
+    <string name="swipe_log_clear">Delete swipe log</string>
+    <string name="swipe_log_clear_confirm">Really delete all recorded swipes?</string>
+    <string name="swipe_log_cleared">Swipe log deleted</string>
+
     <string name="sec_about">About</string>
     <string name="about_privacy">No internet, no ads, no telemetry. All data stays on the phone and is deleted on uninstall.</string>
 

@@ -328,6 +328,32 @@ impl UserDict {
         }
     }
 
+    /// Vsechny opravy (spatne, spravne, pocet) setridene; nulove pocty se vynechaji.
+    pub fn corrections_list(&self) -> Vec<(String, String, u32)> {
+        let mut v: Vec<(String, String, u32)> = self
+            .corrections
+            .iter()
+            .flat_map(|(bad, l)| l.iter().filter(|(_, c)| *c > 0).map(move |(g, c)| (bad.clone(), g.clone(), *c)))
+            .collect();
+        v.sort();
+        v
+    }
+
+    /// Slouci opravu ze zalohy (pocet = maximum). Vraci novy pocet k ulozeni.
+    pub fn merge_correction(&mut self, bad: &str, good: &str, count: u32) -> u32 {
+        let list = self.corrections.entry(bad.to_string()).or_default();
+        match list.iter_mut().find(|(g, _)| g == good) {
+            Some(e) => {
+                e.1 = e.1.max(count);
+                e.1
+            }
+            None => {
+                list.push((good.to_string(), count));
+                count
+            }
+        }
+    }
+
     /// Kolikrat bylo slovo po swipe smazano.
     pub fn rejections(&self, word: &str) -> u32 {
         self.corrections.get(word).and_then(|l| l.iter().find(|(g, _)| g.is_empty())).map_or(0, |e| e.1)
@@ -474,6 +500,28 @@ mod tests {
         assert_eq!(u.forgive("blbost"), Some(0));
         assert_eq!(u.forgive("blbost"), None);
         assert_eq!(u.forgive("nikdy"), None);
+    }
+
+    #[test]
+    fn corrections_list_and_merge() {
+        let mut u = UserDict::new();
+        u.note_correction("mas", "máš");
+        u.note_correction("blbost", "");
+        u.note_correction("blbost", "");
+        assert_eq!(u.merge_correction("mas", "máš", 5), 5);
+        assert_eq!(u.merge_correction("mas", "máš", 2), 5);
+        assert_eq!(u.merge_correction("nove", "nové", 1), 1);
+        assert_eq!(
+            u.corrections_list(),
+            vec![
+                ("blbost".to_string(), String::new(), 2),
+                ("mas".to_string(), "máš".to_string(), 5),
+                ("nove".to_string(), "nové".to_string(), 1),
+            ]
+        );
+        u.forgive("blbost");
+        u.forgive("blbost");
+        assert_eq!(u.corrections_list().len(), 2); // nulove pocty se nevypisuji
     }
 
     #[test]

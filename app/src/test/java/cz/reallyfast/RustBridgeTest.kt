@@ -152,6 +152,17 @@ class RustBridgeTest {
     }
 
     @Test
+    fun backupExportImportAndSwipeLogThroughBridge() {
+        requireCore()
+        val json = RustBridge.exportBackup()
+        assertTrue(json.contains("\"app\""))
+        assertTrue(RustBridge.importBackup(json) >= 0)
+        assertEquals(-1, RustBridge.importBackup("nonsense"))
+        assertEquals(0, RustBridge.swipeLogCount())
+        assertTrue(RustBridge.exportSwipeLog().contains("\"swipes\""))
+    }
+
+    @Test
     fun editingHelpers() {
         requireCore()
         assertEquals(5, RustBridge.deleteWordLen("ahoj světe"))

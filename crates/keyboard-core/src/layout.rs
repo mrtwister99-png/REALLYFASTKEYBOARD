@@ -2,7 +2,7 @@
 //! Rust pocita geometrii (v pixelech), Kotlin ji jen vykresli. Stejnou geometrii
 //! pouziva swipe decoder, takze se vykresleni a dekodovani nemohou rozejit.
 
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 pub const KIND_CHAR: u8 = 0;
 pub const KIND_SHIFT: u8 = 1;
@@ -63,7 +63,7 @@ pub struct Layout {
 }
 
 /// Stredy pismen a-z v normalizovanych jednotkach (1 = sirka klavesy / vyska radku).
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub struct KeyGeom {
     pub centers: [(f32, f32); 26],
     pub present: [bool; 26],

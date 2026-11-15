@@ -147,6 +147,24 @@
     <string name="dictionary_import_failed">Soubor se nepodařilo načíst</string>
     <string name="dictionary_show_more">Zobrazeno prvních %1$d slov</string>
 
+    <string name="sec_backup">Záloha a ladění</string>
+    <string name="backup_export">Zálohovat do souboru</string>
+    <string name="backup_import">Obnovit ze souboru</string>
+    <string name="backup_hint">Záloha obsahuje nastavení, osobní slovník, opravy, makra a přizpůsobení swipe. Historie schránky v ní není.</string>
+    <string name="backup_exported">Záloha uložena</string>
+    <string name="backup_export_failed">Zálohu se nepodařilo uložit</string>
+    <string name="backup_restore_confirm">Obnovit ze zálohy? Nastavení se přepíše, slovník a makra se sloučí s tím, co už máš.</string>
+    <string name="backup_restore">Obnovit</string>
+    <string name="backup_restored">Obnoveno, přijatých slov: %1$d</string>
+    <string name="backup_restore_failed">Soubor není platná záloha reallyFAST</string>
+    <string name="swipe_log">Záznam tahů pro ladění</string>
+    <string name="swipe_log_hint">Ukládá dráhy tahů spolu s potvrzenými slovy, jen v tomto zařízení, nikdy v polích pro hesla, nejvýše 1000 tahů. Ve výchozím stavu vypnuto.</string>
+    <string name="swipe_log_export">Exportovat záznam tahů (%1$d)</string>
+    <string name="swipe_log_exported">Záznam tahů exportován</string>
+    <string name="swipe_log_clear">Smazat záznam tahů</string>
+    <string name="swipe_log_clear_confirm">Opravdu smazat všechny zaznamenané tahy?</string>
+    <string name="swipe_log_cleared">Záznam tahů smazán</string>
+
     <string name="sec_about">O aplikaci</string>
     <string name="about_privacy">Bez internetu, bez reklam, bez telemetrie. Všechna data zůstávají v telefonu a při odinstalaci se smažou.</string>
 

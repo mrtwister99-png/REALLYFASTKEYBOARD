@@ -34,6 +34,14 @@ abstract class BaseScreen : Activity() {
 
     protected fun rowParams() = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
 
+    /** Mensi tlumeny popisek pod radky (vysvetleni volby). */
+    protected fun hintText(box: LinearLayout, s: CharSequence): TextView {
+        val h = label(s, 12f, dim)
+        h.setPadding(0, 0, 0, dp(10f))
+        box.addView(h, rowParams())
+        return h
+    }
+
     /** Velky nadpis obrazovky; s `back` i sipka zpet. */
     protected fun title(parent: LinearLayout, s: CharSequence, back: Boolean) {
         val row = LinearLayout(this)
