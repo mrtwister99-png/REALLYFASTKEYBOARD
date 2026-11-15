@@ -14,6 +14,7 @@ use crate::layout::KeyGeom;
 use crate::learning::{Export, UserDict};
 use crate::macros::Macro;
 use crate::swipe::Calibration;
+use crate::voice::VoiceCommand;
 use crate::settings::Settings;
 use rusqlite::{params, Connection};
 use serde::{Deserialize, Serialize};
@@ -44,6 +45,9 @@ CREATE TABLE IF NOT EXISTS corrections (
 CREATE TABLE IF NOT EXISTS macros (
     id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, text TEXT NOT NULL,
     shortcut TEXT NOT NULL DEFAULT '');
+CREATE TABLE IF NOT EXISTS voice_commands (
+    id INTEGER PRIMARY KEY AUTOINCREMENT, phrase TEXT NOT NULL, action TEXT NOT NULL,
+    text TEXT NOT NULL DEFAULT '');
 CREATE TABLE IF NOT EXISTS key_calibration (
     key INTEGER PRIMARY KEY, sx REAL NOT NULL, sy REAL NOT NULL, n INTEGER NOT NULL);
 CREATE TABLE IF NOT EXISTS swipe_log (
@@ -362,6 +366,50 @@ impl Storage {
         }
     }
 
+    // ------------------------------------------------------------------ hlasove povely
+
+    pub fn voice_list(&self) -> Vec<VoiceCommand> {
+        let Some(conn) = &self.conn else { return Vec::new() };
+        let Ok(mut st) = conn.prepare("SELECT id, phrase, action, text FROM voice_commands ORDER BY id") else {
+            return Vec::new();
+        };
+        let out = match st.query_map([], |r| {
+            Ok(VoiceCommand { id: r.get(0)?, phrase: r.get(1)?, action: r.get(2)?, text: r.get(3)? })
+        }) {
+            Ok(rows) => rows.flatten().collect(),
+            Err(_) => Vec::new(),
+        };
+        out
+    }
+
+    /// Ulozi povel (id 0 = novy). Vraci false pri prekroceni limitu nebo chybe databaze.
+    pub fn voice_save(&self, c: &VoiceCommand) -> bool {
+        let Some(conn) = &self.conn else { return false };
+        if c.id > 0 {
+            conn.execute(
+                "UPDATE voice_commands SET phrase = ?2, action = ?3, text = ?4 WHERE id = ?1",
+                params![c.id, c.phrase, c.action, c.text],
+            )
+            .is_ok()
+        } else {
+            let count: i64 = conn.query_row("SELECT COUNT(*) FROM voice_commands", [], |r| r.get(0)).unwrap_or(0);
+            if count as usize >= crate::voice::MAX_COMMANDS {
+                return false;
+            }
+            conn.execute(
+                "INSERT INTO voice_commands (phrase, action, text) VALUES (?1, ?2, ?3)",
+                params![c.phrase, c.action, c.text],
+            )
+            .is_ok()
+        }
+    }
+
+    pub fn voice_delete(&self, id: i64) {
+        if let Some(conn) = &self.conn {
+            let _ = conn.execute("DELETE FROM voice_commands WHERE id = ?1", params![id]);
+        }
+    }
+
     // ------------------------------------------------------------------ prizpusobeni swipe
 
     pub fn load_calibration(&self) -> Calibration {
@@ -613,6 +661,34 @@ mod tests {
         st.macro_delete(list[0].id);
         assert_eq!(st.macro_list().len(), 1);
         assert_eq!(st.macro_list()[0].shortcut, "@@");
+    }
+
+    #[test]
+    fn voice_commands_crud() {
+        let st = Storage::in_memory();
+        let cmd = |phrase: &str, action: &str, text: &str| VoiceCommand {
+            id: 0,
+            phrase: phrase.into(),
+            action: action.into(),
+            text: text.into(),
+        };
+        assert!(st.voice_list().is_empty());
+        assert!(st.voice_save(&cmd("smazat", "delete_word", "")));
+        assert!(st.voice_save(&cmd("tecka", "text", ".")));
+        let mut list = st.voice_list();
+        assert_eq!(list.len(), 2);
+        list[1].text = "!".into();
+        assert!(st.voice_save(&list[1]));
+        assert_eq!(st.voice_list()[1].text, "!");
+        st.voice_delete(list[0].id);
+        assert_eq!(st.voice_list().len(), 1);
+        assert_eq!(st.voice_list()[0].phrase, "tecka");
+        // limit poctu
+        for i in 0..crate::voice::MAX_COMMANDS {
+            let _ = st.voice_save(&cmd(&format!("p{i}"), "enter", ""));
+        }
+        assert_eq!(st.voice_list().len(), crate::voice::MAX_COMMANDS);
+        assert!(!st.voice_save(&cmd("navic", "enter", "")));
     }
 
     #[test]

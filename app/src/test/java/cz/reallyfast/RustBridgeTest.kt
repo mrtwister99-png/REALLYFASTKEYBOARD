@@ -139,6 +139,45 @@ class RustBridgeTest {
     }
 
     @Test
+    fun voiceCommandsThroughBridge() {
+        requireCore()
+        assertTrue(RustBridge.saveVoiceCommand(0, "Nový řádek", "newline", ""))
+        assertTrue(RustBridge.saveVoiceCommand(0, "tečka", "text", "."))
+        assertFalse(RustBridge.saveVoiceCommand(0, "x", "text", "  "))
+        assertFalse(RustBridge.saveVoiceCommand(0, "x", "neznama", ""))
+        val cmds = RustBridge.voiceCommands()
+        assertEquals(2, cmds.size)
+        val seg = RustBridge.voiceSplit("ahoj novy radek konec tečka")
+        assertEquals(listOf("", "newline", "", "text"), seg.map { it.action })
+        assertEquals("ahoj", seg[0].text)
+        assertEquals(".", seg[3].text)
+        for (c in cmds) RustBridge.deleteVoiceCommand(c.id)
+        assertTrue(RustBridge.voiceCommands().isEmpty())
+        assertEquals(listOf(RustBridge.VoiceSegment("", "novy radek")), RustBridge.voiceSplit("novy radek"))
+    }
+
+    @Test
+    fun keyMapChangesLayoutJson() {
+        requireCore()
+        val j = RustBridge.settings.edit()
+        j.put("key_map", JSONObject().put("q", "w").put("w", "q"))
+        RustBridge.setSettings(j)
+        try {
+            val keys = JSONObject(RustBridge.layout(1440, 1050, 0, true)).getJSONArray("keys")
+            val all = (0 until keys.length()).map { keys.getJSONObject(it) }
+            val q = all.first { it.getInt("src") == 'q'.code }
+            assertEquals("w", q.getString("label"))
+            assertEquals('w'.code, q.getInt("code"))
+        } finally {
+            j.put("key_map", JSONObject())
+            RustBridge.setSettings(j)
+        }
+        val keys = JSONObject(RustBridge.layout(1440, 1050, 0, true)).getJSONArray("keys")
+        assertTrue((0 until keys.length()).all { keys.getJSONObject(it).let { k -> k.getInt("src") == k.getInt("code") } })
+        assertTrue(RustBridge.settings.keyGlow)
+    }
+
+    @Test
     fun twoWordContextAndManualWords() {
         requireCore()
         // vestaveny trigram z korpusu: "na konci" -> "roku"

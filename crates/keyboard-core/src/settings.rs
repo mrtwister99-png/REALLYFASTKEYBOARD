@@ -2,6 +2,7 @@
 //! Kotlin (SettingsActivity) i Rust ctou a zapisuji stejny soubor pres tento modul.
 
 use serde::{Deserialize, Serialize};
+use std::collections::BTreeMap;
 
 pub const LANGUAGES: [&str; 3] = ["cs", "en", "cs+en"];
 pub const LAYOUTS: [&str; 2] = ["qwertz", "qwerty"];
@@ -56,6 +57,10 @@ pub struct Settings {
     pub swipe_adapt: bool,
     /// Zaznam tahu pro ladeni: ulozi drahy tahu spolu s potvrzenymi slovy (jen v zarizeni).
     pub swipe_log: bool,
+    /// Neonove rozsviceni klavesy pri klepnuti.
+    pub key_glow: bool,
+    /// Premapovani klaves: puvodni znak pozice -> znak, ktery tam je.
+    pub key_map: BTreeMap<String, String>,
     // --- gesta (kazde lze vypnout) ---
     pub gesture_delete_word: bool,
     pub gesture_space_cursor: bool,
@@ -102,6 +107,8 @@ impl Default for Settings {
             swipe_glow: true,
             swipe_adapt: true,
             swipe_log: false,
+            key_glow: true,
+            key_map: BTreeMap::new(),
             gesture_delete_word: true,
             gesture_space_cursor: true,
             gesture_swipe_up_caps: true,
@@ -111,6 +118,19 @@ impl Default for Settings {
             clipboard_ttl_minutes: 60,
         }
     }
+}
+
+/// Nejvyse tolik premapovanych klaves se drzi v nastaveni.
+pub const MAX_KEY_MAP: usize = 64;
+
+/// Jediny znak, ktery neni mezera ani ridici.
+fn single_char(s: &str) -> Option<char> {
+    let mut it = s.chars();
+    let c = it.next()?;
+    if it.next().is_some() || c.is_whitespace() || c.is_control() {
+        return None;
+    }
+    Some(c)
 }
 
 pub const SETTINGS_VERSION: u32 = 2;
@@ -155,6 +175,11 @@ impl Settings {
         self.long_press_delay_ms = self.long_press_delay_ms.clamp(150, 500);
         self.clipboard_ttl_minutes = self.clipboard_ttl_minutes.clamp(1, 1440);
         self.key_radius_dp = self.key_radius_dp.clamp(2, 22);
+        self.key_map = std::mem::take(&mut self.key_map)
+            .into_iter()
+            .filter(|(k, v)| matches!((single_char(k), single_char(v)), (Some(a), Some(b)) if a != b))
+            .take(MAX_KEY_MAP)
+            .collect();
         fix_color(&mut self.accent_color, &d.accent_color);
         fix_color(&mut self.custom_background, &d.custom_background);
         fix_color(&mut self.custom_key, &d.custom_key);
@@ -301,6 +326,42 @@ mod tests {
         // oranzova zvolena uz v nove verzi se neprepise
         let s = Settings::from_json(r##"{"settings_version":2,"accent_color":"#F59E0B"}"##).unwrap();
         assert_eq!(s.accent_color, "#F59E0B");
+    }
+
+    #[test]
+    fn key_glow_and_key_map_defaults() {
+        let s = Settings::default();
+        assert!(s.key_glow);
+        assert!(s.key_map.is_empty());
+        let old = Settings::from_json(r#"{"theme":"light"}"#).unwrap();
+        assert!(old.key_glow && old.key_map.is_empty());
+    }
+
+    #[test]
+    fn invalid_key_map_entries_are_dropped() {
+        let s = Settings::from_json(
+            r#"{"key_map":{"a":"b","c":"c","d":"","e":"fg"," ":"x","f":" ","g":"\n","":"z","h":"ě"}}"#,
+        )
+        .unwrap();
+        let keys: Vec<&str> = s.key_map.keys().map(String::as_str).collect();
+        assert_eq!(keys, vec!["a", "h"]);
+        assert_eq!(s.key_map["h"], "ě");
+        // limit poctu
+        let many: BTreeMap<String, String> =
+            (0..100u32).map(|i| (char::from_u32(0x4E00 + i).unwrap().to_string(), "x".to_string())).collect();
+        let mut s = Settings { key_map: many, ..Settings::default() };
+        s.validate();
+        assert_eq!(s.key_map.len(), MAX_KEY_MAP);
+    }
+
+    #[test]
+    fn key_map_roundtrip() {
+        let mut s = Settings::default();
+        s.key_map.insert("q".into(), "w".into());
+        s.key_map.insert("w".into(), "q".into());
+        s.key_glow = false;
+        let back = Settings::from_json(&s.to_json()).unwrap();
+        assert_eq!(back, s);
     }
 
     #[test]

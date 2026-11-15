@@ -62,5 +62,17 @@
             android:exported="false"
             android:label="@string/macros"
             android:windowSoftInputMode="adjustResize" />
+
+        <activity
+            android:name=".LayoutActivity"
+            android:exported="false"
+            android:label="@string/layout_open"
+            android:windowSoftInputMode="adjustResize" />
+
+        <activity
+            android:name=".VoiceActivity"
+            android:exported="false"
+            android:label="@string/voice_open"
+            android:windowSoftInputMode="adjustResize" />
     </application>
 </manifest>

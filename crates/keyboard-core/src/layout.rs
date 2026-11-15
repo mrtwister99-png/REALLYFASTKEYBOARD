@@ -3,6 +3,7 @@
 //! pouziva swipe decoder, takze se vykresleni a dekodovani nemohou rozejit.
 
 use serde::{Deserialize, Serialize};
+use std::collections::BTreeMap;
 
 pub const KIND_CHAR: u8 = 0;
 pub const KIND_SHIFT: u8 = 1;
@@ -43,6 +44,8 @@ pub struct Key {
     pub vx: f32,
     pub vw: f32,
     pub code: i32,
+    /// Puvodni kod pozice (shodny s `code`, dokud klavesa neni premapovana).
+    pub src: i32,
     pub kind: u8,
     pub label: String,
     /// Varianty pro dlouhy stisk (kazdy znak = jedna varianta).
@@ -256,6 +259,7 @@ impl Layout {
                     vx: x,
                     vw,
                     code: d.code,
+                    src: d.code,
                     kind: d.kind,
                     label: d.label,
                     alts: d.alts,
@@ -265,6 +269,30 @@ impl Layout {
             }
         }
         Layout { keys, width, height, rows: n_rows, unit_w, row_h, mode }
+    }
+
+    /// Premapuje znakove klavesy podle nastaveni (puvodni znak pozice -> novy znak).
+    /// Geometrie se nemeni, takze swipe decoder nasleduje nove rozlozeni pismen.
+    pub fn apply_key_map(&mut self, map: &BTreeMap<String, String>) {
+        if map.is_empty() {
+            return;
+        }
+        for k in self.keys.iter_mut().filter(|k| k.kind == KIND_CHAR) {
+            let Some(old) = char::from_u32(k.src as u32) else { continue };
+            let Some(new) = map.get(old.to_string().as_str()).and_then(|v| v.chars().next()) else { continue };
+            let digit = k.alts.chars().next().filter(char::is_ascii_digit);
+            let alts: String = if new.is_ascii_lowercase() {
+                digit.into_iter().chain(letter_alts(new).chars()).collect()
+            } else if old.is_ascii_lowercase() {
+                digit.into_iter().collect()
+            } else {
+                std::mem::take(&mut k.alts)
+            };
+            k.code = new as i32;
+            k.label = new.to_string();
+            k.desc = describe(new);
+            k.alts = alts;
+        }
     }
 
     /// Klavesa pod bodem; mimo klavesy vraci nejblizsi.
@@ -402,6 +430,68 @@ mod tests {
         assert!(l.key_for_code(CODE_MACRO).is_some());
         assert!(l.key_for_code(CODE_GLOBE).is_none());
         assert_eq!(l.key_for_code(CODE_MACRO).unwrap().kind, KIND_MACRO);
+    }
+
+    fn map_of(pairs: &[(&str, &str)]) -> BTreeMap<String, String> {
+        pairs.iter().map(|(a, b)| (a.to_string(), b.to_string())).collect()
+    }
+
+    #[test]
+    fn key_map_swaps_letters_and_geometry() {
+        let before = letters(true).geom();
+        let mut l = letters(true);
+        l.apply_key_map(&map_of(&[("q", "w"), ("w", "q")]));
+        let k = l.keys.iter().find(|k| k.src == 'q' as i32).unwrap();
+        assert_eq!((k.code, k.label.as_str()), ('w' as i32, "w"));
+        let g = l.geom();
+        let (qi, wi) = (('q' as u8 - b'a') as usize, ('w' as u8 - b'a') as usize);
+        assert_eq!(g.centers[wi], before.centers[qi]);
+        assert_eq!(g.centers[qi], before.centers[wi]);
+        assert!(g.present.iter().all(|&p| p));
+    }
+
+    #[test]
+    fn key_map_to_non_letter_removes_it_from_geom() {
+        let mut l = Layout::build(1440.0, 1000.0, true, MODE_LETTERS, false, "x");
+        l.apply_key_map(&map_of(&[("q", "!")]));
+        let g = l.geom();
+        assert!(!g.present[('q' as u8 - b'a') as usize]);
+        let k = l.keys.iter().find(|k| k.src == 'q' as i32).unwrap();
+        assert_eq!((k.code, k.alts.as_str(), k.src), ('!' as i32, "1", 'q' as i32)); // jen cislice
+    }
+
+    #[test]
+    fn key_map_adjusts_alts() {
+        let mut l = Layout::build(1440.0, 1000.0, true, MODE_LETTERS, false, "x");
+        l.apply_key_map(&map_of(&[("e", "a"), (",", ";"), ("r", "5")]));
+        // pismeno -> pismeno: cislice zustane, diakritika podle noveho pismene
+        assert_eq!(l.keys.iter().find(|k| k.src == 'e' as i32).unwrap().alts, "3áä");
+        // znak -> znak: puvodni alts se nemeni
+        let comma = l.keys.iter().find(|k| k.src == ',' as i32).unwrap();
+        assert_eq!((comma.code, comma.alts.as_str()), (';' as i32, "'\"-_/@"));
+        // pismeno -> ne-pismeno: jen cislice (r je v horni rade s cislici 4)
+        assert_eq!(l.keys.iter().find(|k| k.src == 'r' as i32).unwrap().alts, "4");
+        // nemapovane klavesy zustavaji
+        let w = l.keys.iter().find(|k| k.src == 'w' as i32).unwrap();
+        assert_eq!((w.code, w.alts.as_str()), ('w' as i32, "2"));
+    }
+
+    #[test]
+    fn key_map_ignores_special_keys() {
+        let mut l = letters(true);
+        l.apply_key_map(&map_of(&[("⏎", "x"), (" ", "x")]));
+        assert!(l.key_for_code(CODE_SPACE).is_some() && l.key_for_code(CODE_ENTER).is_some());
+        assert!(l.keys.iter().filter(|k| k.kind != KIND_CHAR).all(|k| k.src == k.code));
+    }
+
+    #[test]
+    fn json_contains_src() {
+        let mut l = letters(true);
+        l.apply_key_map(&map_of(&[("q", "w")]));
+        let v: serde_json::Value = serde_json::from_str(&l.to_json()).unwrap();
+        let keys = v["keys"].as_array().unwrap();
+        assert!(keys.iter().all(|k| k["src"].is_i64()));
+        assert!(keys.iter().any(|k| k["src"] == 'q' as i32 && k["code"] == 'w' as i32));
     }
 
     #[test]

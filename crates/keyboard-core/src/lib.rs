@@ -18,6 +18,7 @@ pub mod predict;
 pub mod settings;
 pub mod storage;
 pub mod swipe;
+pub mod voice;
 
 use dictionary::Dictionary;
 use layout::{KeyGeom, Layout, MODE_LETTERS};
@@ -74,6 +75,10 @@ pub const OP_SWIPE_LOG_CLEAR: i32 = 41;
 pub const OP_SWIPE_LOG_COUNT: i32 = 42;
 pub const OP_BACKUP_EXPORT: i32 = 43;
 pub const OP_BACKUP_IMPORT: i32 = 44;
+pub const OP_VOICE_LIST: i32 = 45;
+pub const OP_VOICE_SAVE: i32 = 46;
+pub const OP_VOICE_DELETE: i32 = 47;
+pub const OP_VOICE_SPLIT: i32 = 48;
 
 /// Priznaky pro swipe / suggest.
 pub const FLAG_CAPITALIZE: i64 = 1;
@@ -101,6 +106,7 @@ pub struct Engine {
     decoder: SwipeDecoder,
     geom: Option<KeyGeom>,
     macros: Vec<macros::Macro>,
+    voice: Vec<voice::VoiceCommand>,
     calibration: swipe::Calibration,
     swipe_pending: Option<PendingSwipe>,
 }
@@ -122,9 +128,11 @@ impl Engine {
         }
         storage.clip_expire(now, settings.clipboard_ttl_minutes);
         let macros = storage.macro_list();
+        let voice = storage.voice_list();
         let calibration = storage.load_calibration();
         Engine {
             macros,
+            voice,
             calibration,
             storage,
             settings,
@@ -183,7 +191,7 @@ impl Engine {
     /// Spocita rozlozeni pro danou plochu. S `remember` si rozlozeni pismen zapamatuje
     /// pro swipe decoder (nahled v nastaveni vola s `remember = false`).
     pub fn layout(&mut self, width: f32, height: f32, mode: u8, remember: bool) -> Layout {
-        let l = Layout::build(
+        let mut l = Layout::build(
             width,
             height,
             self.settings.is_qwertz(),
@@ -191,6 +199,8 @@ impl Engine {
             self.settings.show_number_row,
             self.settings.language_label(),
         );
+        // Premapovani pred zapamatovanim geometrie, aby swipe sel podle noveho rozlozeni.
+        l.apply_key_map(&self.settings.key_map);
         if remember && mode == MODE_LETTERS {
             self.geom = Some(l.geom());
         }
@@ -396,6 +406,30 @@ impl Engine {
         macros::expand(&self.macros, token).unwrap_or("")
     }
 
+    pub fn voice_commands(&self) -> &[voice::VoiceCommand] {
+        &self.voice
+    }
+
+    /// Ulozi hlasovy povel z JSON ({id, phrase, action, text}); id 0 = novy.
+    pub fn save_voice(&mut self, json: &str) -> bool {
+        let Some(c) = serde_json::from_str::<voice::VoiceCommand>(json).ok().and_then(voice::VoiceCommand::normalized) else {
+            return false;
+        };
+        let ok = self.storage.voice_save(&c);
+        self.voice = self.storage.voice_list();
+        ok
+    }
+
+    pub fn delete_voice(&mut self, id: i64) {
+        self.storage.voice_delete(id);
+        self.voice = self.storage.voice_list();
+    }
+
+    /// Rozdeli nadiktovany text na obycejny text a povely (JSON pole segmentu).
+    pub fn voice_split(&self, spoken: &str) -> String {
+        serde_json::to_string(&voice::split(&self.voice, spoken)).unwrap_or_else(|_| "[]".to_string())
+    }
+
     pub fn delete_user_word(&mut self, word: &str) {
         self.user.remove(word);
         self.storage.delete_word(word);
@@ -422,7 +456,7 @@ impl Engine {
         }
     }
 
-    /// Uplna zaloha (nastaveni, slovnik, opravy, makra, prizpusobeni swipe) jako JSON.
+    /// Uplna zaloha (nastaveni, slovnik, opravy, makra, hlasove povely, prizpusobeni swipe) jako JSON.
     pub fn export_backup(&self, now: i64) -> String {
         let calibration = (0..26)
             .filter(|&k| self.calibration.n[k] > 0)
@@ -446,6 +480,7 @@ impl Engine {
                 .map(|(bad, good, count)| backup::BackupCorrection { bad, good, count })
                 .collect(),
             macros: self.macros.clone(),
+            voice: self.voice.clone(),
             calibration,
         };
         serde_json::to_string_pretty(&data).unwrap_or_else(|_| "{}".to_string())
@@ -484,6 +519,17 @@ impl Engine {
             }
         }
         self.macros = self.storage.macro_list();
+        let mut known_voice: Vec<(String, String, String)> =
+            self.voice.iter().map(|c| (c.phrase.clone(), c.action.clone(), c.text.clone())).collect();
+        for c in &data.voice {
+            let Some(mut c) = c.clone().normalized() else { continue };
+            c.id = 0;
+            let triple = (c.phrase.clone(), c.action.clone(), c.text.clone());
+            if !known_voice.contains(&triple) && self.storage.voice_save(&c) {
+                known_voice.push(triple);
+            }
+        }
+        self.voice = self.storage.voice_list();
         let mut cal = swipe::Calibration::default();
         let mut any = false;
         for k in &data.calibration {
@@ -638,6 +684,13 @@ pub fn dispatch(op: i32, a: &[u8], b: &[u8], num: i64) -> Vec<u8> {
             e.delete_macro(num);
             Vec::new()
         }
+        OP_VOICE_LIST => serde_json::to_vec(e.voice_commands()).unwrap_or_default(),
+        OP_VOICE_SAVE => bool_bytes(e.save_voice(&sa)),
+        OP_VOICE_DELETE => {
+            e.delete_voice(num);
+            Vec::new()
+        }
+        OP_VOICE_SPLIT => e.voice_split(&sa).into_bytes(),
         OP_SHORTCUT => e.expand_shortcut(&sa).as_bytes().to_vec(),
         OP_CORRECTION => {
             e.note_correction(&sa, &sb);
@@ -832,6 +885,47 @@ mod tests {
     }
 
     #[test]
+    fn voice_commands_save_split_delete() {
+        let mut e = engine_with_dict();
+        assert!(e.save_voice(r#"{"id":0,"phrase":"Nový řádek","action":"newline"}"#));
+        assert!(e.save_voice(r#"{"id":0,"phrase":"tečka","action":"text","text":"."}"#));
+        assert!(!e.save_voice(r#"{"id":0,"phrase":"x","action":"text","text":" "}"#));
+        assert!(!e.save_voice(r#"{"id":0,"phrase":"x","action":"nope"}"#));
+        assert!(!e.save_voice("nonsense"));
+        assert_eq!(e.voice_commands().len(), 2);
+        let v: serde_json::Value = serde_json::from_str(&e.voice_split("ahoj novy radek konec tecka")).unwrap();
+        let acts: Vec<&str> = v.as_array().unwrap().iter().map(|s| s["action"].as_str().unwrap()).collect();
+        assert_eq!(acts, vec!["", "newline", "", "text"]);
+        assert_eq!(v[3]["text"], ".");
+        let id = e.voice_commands()[0].id;
+        e.delete_voice(id);
+        assert_eq!(e.voice_commands().len(), 1);
+        assert_eq!(e.voice_split("novy radek"), r#"[{"action":"","text":"novy radek"}]"#);
+    }
+
+    #[test]
+    fn key_map_changes_layout_and_swipe() {
+        let mut e = engine_with_dict();
+        let mut s = e.settings().clone();
+        s.key_map.insert("a".into(), "b".into());
+        s.key_map.insert("b".into(), "a".into());
+        e.set_settings(s);
+        let l = e.layout(1440.0, 1000.0, MODE_LETTERS, true);
+        let k = l.keys.iter().find(|k| k.src == 'a' as i32).unwrap();
+        assert_eq!(k.code, 'b' as i32);
+        // swipe po puvodnich pozicich b-h-o-j se po premapovani cte jako "ahoj"
+        let plain = Layout::build(1440.0, 1000.0, true, MODE_LETTERS, true, "x").geom();
+        let path = swipe::ideal_path("bhoj", &plain, 12);
+        assert_eq!(e.swipe(&path, false, NOW)[0], "ahoj");
+        // vynulovani vrati puvodni rozlozeni
+        let mut s = e.settings().clone();
+        s.key_map.clear();
+        e.set_settings(s);
+        let l = e.layout(1440.0, 1000.0, MODE_LETTERS, true);
+        assert_eq!(l.key_for_code('a' as i32).unwrap().src, 'a' as i32);
+    }
+
+    #[test]
     fn manual_word_and_corrections() {
         let mut e = engine_with_dict();
         let mut s = e.settings().clone();
@@ -896,6 +990,10 @@ mod tests {
         e.macros().iter().map(|m| (m.name.clone(), m.text.clone(), m.shortcut.clone())).collect()
     }
 
+    fn voice_triples(e: &Engine) -> Vec<(String, String, String)> {
+        e.voice_commands().iter().map(|c| (c.phrase.clone(), c.action.clone(), c.text.clone())).collect()
+    }
+
     #[test]
     fn backup_round_trip_into_fresh_engine() {
         let mut a = engine_with_dict();
@@ -911,6 +1009,8 @@ mod tests {
         a.note_correction("blbost", "");
         assert!(a.save_macro(r#"{"id":0,"name":"Pozdrav","text":"S pozdravem","shortcut":"mfg"}"#));
         assert!(a.save_macro(r#"{"id":0,"name":"Mail","text":"jan@example.com"}"#));
+        assert!(a.save_voice(r#"{"id":0,"phrase":"smazat","action":"delete_word"}"#));
+        assert!(a.save_voice(r#"{"id":0,"phrase":"tečka","action":"text","text":"."}"#));
         for _ in 0..10 {
             a.calibration.add(0, 0.2, -0.1);
             a.calibration.add(3, -0.05, 0.1);
@@ -928,12 +1028,15 @@ mod tests {
         assert_eq!(b.user().corrections_list().len(), 2);
         assert_eq!(macro_triples(&b), macro_triples(&a));
         assert_eq!(b.macros().len(), 2);
+        assert_eq!(voice_triples(&b), voice_triples(&a));
+        assert_eq!(b.voice_commands().len(), 2);
         assert_eq!(b.calibration.sum, a.calibration.sum);
         assert_eq!(b.calibration.n, a.calibration.n);
         // vse je i v uloziste, ne jen v pameti
         assert_eq!(b.storage.load_user().export(), a.user().export());
         assert_eq!(b.storage.load_user().corrections_list(), a.user().corrections_list());
         assert_eq!(b.storage.macro_list(), b.macros());
+        assert_eq!(b.storage.voice_list(), b.voice_commands());
         assert_eq!(b.storage.load_calibration().n, a.calibration.n);
     }
 
@@ -945,6 +1048,7 @@ mod tests {
         a.note_correction("mas", "máš");
         a.note_correction("mas", "máš");
         assert!(a.save_macro(r#"{"id":0,"name":"Pozdrav","text":"S pozdravem","shortcut":"mfg"}"#));
+        assert!(a.save_voice(r#"{"id":0,"phrase":"smazat","action":"delete_word"}"#));
         for _ in 0..8 {
             a.calibration.add(5, 0.1, 0.1);
         }
@@ -958,6 +1062,8 @@ mod tests {
         assert_eq!(b.user().get("Novák").unwrap().count, 2);
         assert_eq!(b.macros().len(), 1);
         assert_eq!(b.storage.macro_list().len(), 1);
+        assert_eq!(b.voice_commands().len(), 1);
+        assert_eq!(b.storage.voice_list().len(), 1);
         // slouceni: vyssi pocet vyhrava, existujici makra se nezdvojuji
         b.learn("Novák", "pan Jan ", false, NOW);
         assert_eq!(b.import_backup(&json), n);
@@ -1132,6 +1238,15 @@ mod tests {
         assert_eq!(dispatch(OP_DELETE_WORD_LEN, "ahoj světe".as_bytes(), b"", 0), b"5");
         assert_eq!(dispatch(OP_SHOULD_CAPITALIZE, b"Ahoj. ", b"", 0), b"1");
         assert_eq!(dispatch(OP_GESTURE, b"2,-200,0,100,140,150", b"", 0), b"1");
+        assert_eq!(dispatch(OP_VOICE_SAVE, br#"{"id":0,"phrase":"smazat","action":"delete_word"}"#, b"", 0), b"1");
+        assert_eq!(dispatch(OP_VOICE_SAVE, br#"{"id":0,"phrase":"","action":"enter"}"#, b"", 0), b"0");
+        let vl: serde_json::Value = serde_json::from_slice(&dispatch(OP_VOICE_LIST, b"", b"", 0)).unwrap();
+        assert_eq!(vl[0]["phrase"], "smazat");
+        let sp: serde_json::Value = serde_json::from_slice(&dispatch(OP_VOICE_SPLIT, "ahoj smazat".as_bytes(), b"", 0)).unwrap();
+        assert_eq!(sp[1]["action"], "delete_word");
+        let vid = vl[0]["id"].as_i64().unwrap();
+        dispatch(OP_VOICE_DELETE, b"", b"", vid);
+        assert_eq!(dispatch(OP_VOICE_LIST, b"", b"", 0), b"[]");
         assert_eq!(dispatch(OP_SWIPE_LOG_COUNT, b"", b"", 0), b"0");
         assert!(String::from_utf8(dispatch(OP_SWIPE_LOG_EXPORT, b"", b"", 0)).unwrap().contains("\"swipes\""));
         dispatch(OP_SWIPE_LOG_CLEAR, b"", b"", 0);

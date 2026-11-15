@@ -61,6 +61,10 @@ object RustBridge {
     private const val OP_SWIPE_LOG_COUNT = 42
     private const val OP_BACKUP_EXPORT = 43
     private const val OP_BACKUP_IMPORT = 44
+    private const val OP_VOICE_LIST = 45
+    private const val OP_VOICE_SAVE = 46
+    private const val OP_VOICE_DELETE = 47
+    private const val OP_VOICE_SPLIT = 48
 
     const val FLAG_CAPITALIZE = 1
     const val FLAG_FROM_SWIPE = 4
@@ -298,6 +302,48 @@ object RustBridge {
     /** Text makra pro napsanou zkratku; prazdny retezec, kdyz zadna nesedi. */
     fun expandShortcut(token: String): String = call(OP_SHORTCUT, token)
 
+    // ------------------------------------------------------------------ hlasove povely
+
+    data class VoiceCommand(val id: Long, val phrase: String, val action: String, val text: String)
+
+    /** Usek nadiktovaneho textu: `action` prazdna = obycejny text, jinak povel. */
+    data class VoiceSegment(val action: String, val text: String)
+
+    fun voiceCommands(): List<VoiceCommand> = try {
+        val arr = JSONArray(call(OP_VOICE_LIST))
+        List(arr.length()) { i ->
+            val o = arr.getJSONObject(i)
+            VoiceCommand(o.getLong("id"), o.getString("phrase"), o.getString("action"), o.getString("text"))
+        }
+    } catch (_: Throwable) {
+        emptyList()
+    }
+
+    /** Ulozi povel (id 0 = novy). Vraci false pri neplatne fraze / akci nebo prilis mnoha povelech. */
+    fun saveVoiceCommand(id: Long, phrase: String, action: String, text: String): Boolean {
+        val o = JSONObject()
+        o.put("id", id)
+        o.put("phrase", phrase)
+        o.put("action", action)
+        o.put("text", text)
+        return call(OP_VOICE_SAVE, o.toString()) == "1"
+    }
+
+    fun deleteVoiceCommand(id: Long) {
+        call(OP_VOICE_DELETE, null, null, id)
+    }
+
+    /** Rozdeli nadiktovany text na obycejne useky a povely; pri selhani vrati cely text jako jeden usek. */
+    fun voiceSplit(spoken: String): List<VoiceSegment> = try {
+        val arr = JSONArray(call(OP_VOICE_SPLIT, spoken))
+        List(arr.length()) { i ->
+            val o = arr.getJSONObject(i)
+            VoiceSegment(o.getString("action"), o.getString("text"))
+        }
+    } catch (_: Throwable) {
+        listOf(VoiceSegment("", spoken))
+    }
+
     fun gesture(startKind: Int, dx: Float, dy: Float, dtMs: Float, keyW: Float, keyH: Float): Int =
         call(OP_GESTURE, "$startKind,$dx,$dy,$dtMs,$keyW,$keyH").toIntOrNull() ?: ACTION_NONE
 
@@ -349,7 +395,7 @@ object RustBridge {
 
     // ------------------------------------------------------------------ zaloha a zaznam tahu
 
-    /** Uplna zaloha (nastaveni, slovnik, opravy, makra, prizpusobeni swipe) jako JSON text. */
+    /** Uplna zaloha (nastaveni, slovnik, opravy, makra, hlasove povely, prizpusobeni swipe) jako JSON text. */
     fun exportBackup(): String = call(OP_BACKUP_EXPORT)
 
     /**

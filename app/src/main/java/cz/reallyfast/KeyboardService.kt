@@ -366,6 +366,7 @@ class KeyboardService : InputMethodService(), KeyboardView.Listener,
     }
 
     private val keyboardSpaceKey = KeyboardView.Key(0f, 0f, 0f, 0f, 0f, 0f, 32, KeyboardView.KIND_SPACE, "", "", "")
+    private val keyboardBackspaceKey = KeyboardView.Key(0f, 0f, 0f, 0f, 0f, 0f, -2, KeyboardView.KIND_BACKSPACE, "", "", "")
 
     private fun setShift(state: Int) {
         shift = state
@@ -734,8 +735,7 @@ class KeyboardService : InputMethodService(), KeyboardView.Listener,
                     composing.setLength(0)
                     ic.setComposingText("", 1)
                 } else {
-                    val n = RustBridge.deleteWordLen(ic.getTextBeforeCursor(64, 0)?.toString() ?: "")
-                    if (n > 0) ic.deleteSurroundingText(n, 0) else sendDownUpKeyEvents(KeyEvent.KEYCODE_DEL)
+                    deleteWordBeforeCursor(ic)
                 }
                 autoSpace = false
                 updateShift()
@@ -752,6 +752,12 @@ class KeyboardService : InputMethodService(), KeyboardView.Listener,
                 if (n > 0) moveCursorBy(ic, if (forward) n else -n)
             }
         }
+    }
+
+    /** Smaze slovo pred kurzorem (bez rozepsaneho slova). */
+    private fun deleteWordBeforeCursor(ic: InputConnection) {
+        val n = RustBridge.deleteWordLen(ic.getTextBeforeCursor(64, 0)?.toString() ?: "")
+        if (n > 0) ic.deleteSurroundingText(n, 0) else sendDownUpKeyEvents(KeyEvent.KEYCODE_DEL)
     }
 
     /** Pomaly tah po mezerniku: posun kurzoru po znacich. */
@@ -896,9 +902,7 @@ class KeyboardService : InputMethodService(), KeyboardView.Listener,
         commitComposing(ic)
         closeSearch(false)
         showKeyboard()
-        val before = ic.getTextBeforeCursor(48, 0)?.toString() ?: ""
-        dictationPrefix = if (needsSpaceBefore(ic)) " " else ""
-        dictationCapitalize = settings.autoCapitalize && RustBridge.shouldCapitalize(before)
+        refreshDictationContext(ic)
         dictationText = ""
         backendAttempts = 0
         silentErrors = 0
@@ -933,11 +937,7 @@ class KeyboardService : InputMethodService(), KeyboardView.Listener,
     private fun continueSession() {
         val ic = currentInputConnection
         dictationText = ""
-        if (ic != null) {
-            val before = ic.getTextBeforeCursor(48, 0)?.toString() ?: ""
-            dictationPrefix = if (needsSpaceBefore(ic)) " " else ""
-            dictationCapitalize = settings.autoCapitalize && RustBridge.shouldCapitalize(before)
-        }
+        if (ic != null) refreshDictationContext(ic)
         keyboard?.voiceLevel = 0f
         showVoiceStatus(getString(R.string.voice_preparing))
         if (!startListening()) {
@@ -945,6 +945,103 @@ class KeyboardService : InputMethodService(), KeyboardView.Listener,
             endDictation()
             showVoiceStatus(getString(R.string.voice_unavailable), 3000)
         }
+    }
+
+    /** Mezera pred diktovanym textem a velke pocatecni pismeno podle textu pred kurzorem. */
+    private fun refreshDictationContext(ic: InputConnection) {
+        val before = ic.getTextBeforeCursor(48, 0)?.toString() ?: ""
+        dictationPrefix = if (needsSpaceBefore(ic)) " " else ""
+        dictationCapitalize = settings.autoCapitalize && RustBridge.shouldCapitalize(before)
+    }
+
+    /**
+     * Tlacitko smazani na obrazovce diktovani: je-li videt prubezny prepis, zahodi ho a poslech
+     * zacne znovu; jinak smaze posledni slovo pred kurzorem.
+     */
+    override fun onVoiceDelete() {
+        if (!dictating) return
+        onPressFeedback(keyboardBackspaceKey)
+        val ic = currentInputConnection ?: return
+        if (dictationText.isNotBlank()) {
+            try {
+                recognizer?.cancel()
+            } catch (_: Throwable) {
+                // ignorovat
+            }
+            ic.setComposingText("", 1)
+            ic.finishComposingText()
+            continueSession()
+            return
+        }
+        lastSwipe = null
+        deleteWordBeforeCursor(ic)
+        autoSpace = false
+        refreshDictationContext(ic)
+    }
+
+    /** Posledni text vlozeny diktovanim (povel "smazat naposledy nadiktovane"). */
+    private var lastDictated = ""
+
+    /**
+     * Vlozi nadiktovany text; hlasove povely v nem provede (smazat, novy radek, vlozit text...).
+     * Vraci true, kdyz zazel povel "ukoncit diktovani".
+     */
+    private fun commitDictation(ic: InputConnection, text: String): Boolean {
+        val segments = RustBridge.voiceSplit(text)
+        if (segments.size <= 1 && segments.firstOrNull()?.action.isNullOrEmpty()) {
+            val out = dictated(text) + " "
+            ic.commitText(out, 1) // nahradi prubezny prepis
+            lastDictated = out
+            autoSpace = true
+            return false
+        }
+        var stop = false
+        var spaceAfter = false
+        ic.beginBatchEdit()
+        ic.commitText("", 1) // odstrani rozepsany prubezny prepis
+        lastSwipe = null
+        for (s in segments) {
+            refreshDictationContext(ic)
+            spaceAfter = false
+            when (s.action) {
+                "" -> {
+                    val out = dictated(s.text) + " "
+                    ic.commitText(out, 1)
+                    lastDictated = out
+                    spaceAfter = true
+                }
+                "delete_word" -> deleteWordBeforeCursor(ic)
+                "delete_last" -> {
+                    val n = lastDictated.length
+                    if (n > 0 && ic.getTextBeforeCursor(n, 0)?.toString() == lastDictated) {
+                        ic.deleteSurroundingText(n, 0)
+                        lastDictated = ""
+                    } else {
+                        deleteWordBeforeCursor(ic)
+                    }
+                }
+                "newline" -> {
+                    if (ic.getTextBeforeCursor(1, 0)?.toString() == " ") ic.deleteSurroundingText(1, 0)
+                    ic.commitText("\n", 1)
+                }
+                "enter" -> enter()
+                "text" -> {
+                    val t = s.text
+                    var out = t
+                    if (t.isNotEmpty() && t[0] in ".,!?:;)") {
+                        if (ic.getTextBeforeCursor(1, 0)?.toString() == " ") ic.deleteSurroundingText(1, 0)
+                    } else if (needsSpaceBefore(ic)) {
+                        out = " $t"
+                    }
+                    ic.commitText("$out ", 1)
+                    spaceAfter = true
+                }
+                "stop" -> stop = true
+            }
+        }
+        ic.endBatchEdit()
+        autoSpace = spaceAfter
+        return stop
     }
 
     private fun dictated(raw: String): String {
@@ -1028,8 +1125,7 @@ class KeyboardService : InputMethodService(), KeyboardView.Listener,
             }
             silentErrors = 0
             voicePrefs.edit().putInt("backend", backendIndex).apply() // tahle sluzba funguje
-            ic.commitText(dictated(text) + " ", 1) // nahradi prubezny prepis
-            autoSpace = true
+            if (commitDictation(ic, text)) voiceSession = false
             if (voiceSession) {
                 continueSession()
                 return
@@ -1045,8 +1141,7 @@ class KeyboardService : InputMethodService(), KeyboardView.Listener,
             val ic = currentInputConnection
             if (dictationText.isNotBlank() && ic != null) {
                 // Castecny prepis nezahazovat.
-                ic.commitText(dictated(dictationText) + " ", 1)
-                autoSpace = true
+                if (commitDictation(ic, dictationText)) voiceSession = false
                 if (voiceSession) {
                     continueSession()
                     return

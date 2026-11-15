@@ -166,4 +166,37 @@
     <string name="about_privacy">No internet, no ads, no telemetry. All data stays on the phone and is deleted on uninstall.</string>
 
     <string name="unit_off">off</string>
+    <string name="layout_open">Key layout</string>
+    <string name="layout_hint">Tap a key in the preview below and choose which character it should have, or swap it with another key.</string>
+    <string name="layout_mode_letters">Letters</string>
+    <string name="layout_mode_symbols">Symbols</string>
+    <string name="layout_mode_symbols2">More symbols</string>
+    <string name="layout_status_swap">Now tap the key to swap “%1$s” with</string>
+    <string name="layout_status_changed">Changed keys: %1$d</string>
+    <string name="layout_status_none">No key is changed</string>
+    <string name="layout_swap_cancel">Cancel swap</string>
+    <string name="layout_reset">Restore original layout</string>
+    <string name="layout_reset_confirm">Restore all keys to their original characters?</string>
+    <string name="layout_not_editable">This key cannot be changed</string>
+    <string name="layout_swap">Swap with…</string>
+    <string name="layout_original">Original</string>
+    <string name="layout_char_hint">Character on the key</string>
+    <string name="layout_char_invalid">Enter a single character (not a space)</string>
+    <string name="voice_open">Dictation</string>
+    <string name="voice_hint">Hold Enter and speak. ✕ ends dictation, the ⌫ button on the dictation screen deletes the last word (or discards the transcript in progress).</string>
+    <string name="sec_voice_commands">Voice commands</string>
+    <string name="voice_commands_hint">A word or short phrase that does something instead of being typed while you dictate. The command runs as soon as you finish speaking.</string>
+    <string name="voice_commands_empty">No commands yet.</string>
+    <string name="voice_command_new">New command</string>
+    <string name="voice_command_edit">Edit command</string>
+    <string name="voice_command_phrase">Word or phrase (e.g. delete that)</string>
+    <string name="voice_command_text">Text to insert</string>
+    <string name="voice_command_save_failed">Could not save the command (empty phrase, more than 4 words, empty text or too many commands)</string>
+    <string name="voice_action_delete_word">Delete last word</string>
+    <string name="voice_action_delete_last">Delete last dictated text</string>
+    <string name="voice_action_newline">New line</string>
+    <string name="voice_action_enter">Enter / send</string>
+    <string name="voice_action_stop">Stop dictation</string>
+    <string name="voice_action_text">Insert text</string>
+    <string name="key_glow">Neon glow on key tap</string>
 </resources>

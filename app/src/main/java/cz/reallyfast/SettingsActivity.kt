@@ -461,6 +461,8 @@ class SettingsActivity : BaseScreen() {
         box = cardBox(container).also { (it.layoutParams as LinearLayout.LayoutParams).topMargin = dp(26f) }
         navRow(box, getString(R.string.dictionary_open)) { startActivity(Intent(this, DictionaryActivity::class.java)) }
         navRow(box, getString(R.string.macros_open)) { startActivity(Intent(this, MacrosActivity::class.java)) }
+        navRow(box, getString(R.string.layout_open)) { startActivity(Intent(this, LayoutActivity::class.java)) }
+        navRow(box, getString(R.string.voice_open)) { startActivity(Intent(this, VoiceActivity::class.java)) }
 
         // Zaloha a ladeni
         box = section(container, getString(R.string.sec_backup))
@@ -514,7 +516,6 @@ class SettingsActivity : BaseScreen() {
         switchRow(box, R.string.double_space_to_period, "double_space_to_period")
         switchRow(box, R.string.learn_from_typing, "learn_from_typing")
         switchRow(box, R.string.show_number_row, "show_number_row")
-        switchRow(box, R.string.voice_input, "voice_input")
 
         // Swipe
         box = section(container, getString(R.string.sec_swipe))
@@ -549,6 +550,7 @@ class SettingsActivity : BaseScreen() {
         switchRow(box, R.string.key_hints, "key_hints")
         switchRow(box, R.string.key_shadow, "key_shadow")
         switchRow(box, R.string.animations, "animations")
+        switchRow(box, R.string.key_glow, "key_glow")
 
         // Odezva
         box = section(container, getString(R.string.sec_feedback))

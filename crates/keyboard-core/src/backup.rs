@@ -1,10 +1,11 @@
 //! Uplna zaloha do jednoho JSON souboru: nastaveni, osobni slovnik (slova, bigramy, trigramy),
-//! opravy, makra a prizpusobeni swipe. Schranka, nedavne emoji a zaznam tahu se zamerne
+//! opravy, makra, hlasove povely a prizpusobeni swipe. Schranka, nedavne emoji a zaznam tahu se zamerne
 //! nezalohuji (soukromi). Vsechna pole maji `#[serde(default)]`, takze starsi / castecne
 //! soubory se nactou.
 
 use crate::learning::Export;
 use crate::macros::Macro;
+use crate::voice::VoiceCommand;
 use serde::{Deserialize, Serialize};
 
 pub const APP_NAME: &str = "reallyFAST";
@@ -40,5 +41,6 @@ pub struct Backup {
     pub user: Export,
     pub corrections: Vec<BackupCorrection>,
     pub macros: Vec<Macro>,
+    pub voice: Vec<VoiceCommand>,
     pub calibration: Vec<BackupKey>,
 }
