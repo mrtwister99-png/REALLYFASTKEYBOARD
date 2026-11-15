@@ -157,22 +157,68 @@ fn char_row(chars: &str) -> Vec<Def> {
     chars.chars().map(|c| ch(c, "")).collect()
 }
 
-fn bottom_row(mode: u8, space_label: &str) -> Vec<Def> {
+/// Kde je ve spodni rade tlacitko emoji / maker.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum KeyPlace {
+    Left,
+    Right,
+    Hidden,
+}
+
+impl KeyPlace {
+    /// Neznama hodnota = vychozi (vlevo).
+    pub fn parse(s: &str) -> KeyPlace {
+        match s {
+            "right" => KeyPlace::Right,
+            "hidden" => KeyPlace::Hidden,
+            _ => KeyPlace::Left,
+        }
+    }
+}
+
+/// Volitelna tlacitka spodni rady.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct BottomKeys {
+    pub emoji: KeyPlace,
+    pub macros: KeyPlace,
+}
+
+impl Default for BottomKeys {
+    fn default() -> Self {
+        BottomKeys { emoji: KeyPlace::Left, macros: KeyPlace::Left }
+    }
+}
+
+fn bottom_row(mode: u8, space_label: &str, bottom: BottomKeys) -> Vec<Def> {
     let switch = if mode == MODE_LETTERS {
         special(1.4, CODE_SYMBOLS, KIND_MODE, "?123", "Symboly a čísla")
     } else {
         special(1.4, CODE_LETTERS, KIND_MODE, "ABC", "Písmena")
     };
-    vec![
-        switch,
-        special(1.0, CODE_EMOJI, KIND_EMOJI, "☺", "Emoji"),
-        ch(',', "'\"-_/@"),
-        // Jazyk se prepina podrzenim mezerniku; na miste globusu je tlacitko maker.
-        special(1.0, CODE_MACRO, KIND_MACRO, "✦", "Makra"),
-        special(3.2, CODE_SPACE, KIND_SPACE, space_label, "Mezerník"),
-        ch('.', "?!:;…"),
-        special(1.4, CODE_ENTER, KIND_ENTER, "⏎", "Enter"),
-    ]
+    let emoji = || special(1.0, CODE_EMOJI, KIND_EMOJI, "☺", "Emoji");
+    // Jazyk se prepina podrzenim mezerniku; na miste globusu je tlacitko maker.
+    let macros = || special(1.0, CODE_MACRO, KIND_MACRO, "✦", "Makra");
+    // Skryta tlacitka uvolni misto mezerniku, rada ma porad 10 jednotek.
+    let hidden = [bottom.emoji, bottom.macros].iter().filter(|p| **p == KeyPlace::Hidden).count();
+    let space = special(3.2 + hidden as f32, CODE_SPACE, KIND_SPACE, space_label, "Mezerník");
+    let mut row = vec![switch];
+    if bottom.emoji == KeyPlace::Left {
+        row.push(emoji());
+    }
+    row.push(ch(',', "'\"-_/@"));
+    if bottom.macros == KeyPlace::Left {
+        row.push(macros());
+    }
+    row.push(space);
+    if bottom.emoji == KeyPlace::Right {
+        row.push(emoji());
+    }
+    if bottom.macros == KeyPlace::Right {
+        row.push(macros());
+    }
+    row.push(ch('.', "?!:;…"));
+    row.push(special(1.4, CODE_ENTER, KIND_ENTER, "⏎", "Enter"));
+    row
 }
 
 fn wrap_specials(left: Def, mut middle: Vec<Def>, right: Def) -> Vec<Def> {
@@ -182,7 +228,7 @@ fn wrap_specials(left: Def, mut middle: Vec<Def>, right: Def) -> Vec<Def> {
     row
 }
 
-fn rows_for(qwertz: bool, mode: u8, number_row: bool, space_label: &str) -> Vec<Vec<Def>> {
+fn rows_for(qwertz: bool, mode: u8, number_row: bool, space_label: &str, bottom: BottomKeys) -> Vec<Vec<Def>> {
     let backspace = || special(1.5, CODE_BACKSPACE, KIND_BACKSPACE, "⌫", "Smazat");
     let mut rows = Vec::with_capacity(5);
     match mode {
@@ -219,7 +265,7 @@ fn rows_for(qwertz: bool, mode: u8, number_row: bool, space_label: &str) -> Vec<
             ));
         }
     }
-    rows.push(bottom_row(mode, space_label));
+    rows.push(bottom_row(mode, space_label, bottom));
     rows
 }
 
@@ -236,9 +282,21 @@ pub fn row_count(mode: u8, number_row: bool) -> usize {
 
 impl Layout {
     pub fn build(width: f32, height: f32, qwertz: bool, mode: u8, number_row: bool, space_label: &str) -> Layout {
+        Layout::build_with(width, height, qwertz, mode, number_row, space_label, BottomKeys::default())
+    }
+
+    pub fn build_with(
+        width: f32,
+        height: f32,
+        qwertz: bool,
+        mode: u8,
+        number_row: bool,
+        space_label: &str,
+        bottom: BottomKeys,
+    ) -> Layout {
         let width = if width.is_finite() && width > 1.0 { width } else { 1080.0 };
         let height = if height.is_finite() && height > 1.0 { height } else { 800.0 };
-        let rows = rows_for(qwertz, mode, number_row, space_label);
+        let rows = rows_for(qwertz, mode, number_row, space_label, bottom);
         let n_rows = rows.len();
         let unit_w = width / UNITS;
         let row_h = height / n_rows as f32;
@@ -444,6 +502,49 @@ mod tests {
         assert!(l.key_for_code(CODE_MACRO).is_some());
         assert!(l.key_for_code(CODE_GLOBE).is_none());
         assert_eq!(l.key_for_code(CODE_MACRO).unwrap().kind, KIND_MACRO);
+    }
+
+    fn bottom_layout(mode: u8, e: KeyPlace, m: KeyPlace) -> Layout {
+        Layout::build_with(1440.0, 1000.0, true, mode, true, "x", BottomKeys { emoji: e, macros: m })
+    }
+
+    fn bottom_keys_of(l: &Layout) -> Vec<&Key> {
+        let y = l.keys.iter().map(|k| k.y).fold(0.0f32, f32::max);
+        l.keys.iter().filter(|k| k.y == y).collect()
+    }
+
+    #[test]
+    fn bottom_keys_fill_full_width_in_every_combination() {
+        use KeyPlace::*;
+        let places = [Left, Right, Hidden];
+        for mode in [MODE_LETTERS, MODE_SYMBOLS, MODE_SYMBOLS2] {
+            for e in places {
+                for m in places {
+                    let l = bottom_layout(mode, e, m);
+                    let row = bottom_keys_of(&l);
+                    let sum: f32 = row.iter().map(|k| k.vw).sum();
+                    assert!((sum - 1440.0).abs() < 0.5, "{mode} {e:?} {m:?}: {sum}");
+                    assert!(row[0].vx.abs() < 0.5);
+                    let space = row.iter().find(|k| k.code == CODE_SPACE).unwrap();
+                    let hidden = [e, m].iter().filter(|p| **p == Hidden).count() as f32;
+                    assert!((space.vw - (3.2 + hidden) * 144.0).abs() < 0.5);
+                    assert_eq!(row.iter().any(|k| k.code == CODE_EMOJI), e != Hidden);
+                    assert_eq!(row.iter().any(|k| k.code == CODE_MACRO), m != Hidden);
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn bottom_keys_order() {
+        use KeyPlace::*;
+        let order = |e, m| -> Vec<i32> { bottom_keys_of(&bottom_layout(MODE_LETTERS, e, m)).iter().map(|k| k.code).collect() };
+        let (c, d) = (',' as i32, '.' as i32);
+        assert_eq!(order(Left, Left), vec![CODE_SYMBOLS, CODE_EMOJI, c, CODE_MACRO, CODE_SPACE, d, CODE_ENTER]);
+        assert_eq!(order(Right, Left), vec![CODE_SYMBOLS, c, CODE_MACRO, CODE_SPACE, CODE_EMOJI, d, CODE_ENTER]);
+        assert_eq!(order(Right, Right), vec![CODE_SYMBOLS, c, CODE_SPACE, CODE_EMOJI, CODE_MACRO, d, CODE_ENTER]);
+        assert_eq!(order(Hidden, Right), vec![CODE_SYMBOLS, c, CODE_SPACE, CODE_MACRO, d, CODE_ENTER]);
+        assert_eq!(order(Hidden, Hidden), vec![CODE_SYMBOLS, c, CODE_SPACE, d, CODE_ENTER]);
     }
 
     fn map_of(pairs: &[(&str, &str)]) -> BTreeMap<String, String> {

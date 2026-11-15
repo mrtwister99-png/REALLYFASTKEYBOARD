@@ -64,9 +64,15 @@
             android:windowSoftInputMode="adjustResize" />
 
         <activity
-            android:name=".LayoutActivity"
+            android:name=".AppearanceActivity"
             android:exported="false"
-            android:label="@string/layout_open"
+            android:label="@string/appearance_open"
+            android:windowSoftInputMode="adjustResize" />
+
+        <activity
+            android:name=".TypingActivity"
+            android:exported="false"
+            android:label="@string/typing_open"
             android:windowSoftInputMode="adjustResize" />
 
         <activity

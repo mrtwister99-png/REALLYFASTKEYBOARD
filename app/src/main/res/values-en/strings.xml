@@ -90,7 +90,6 @@
     <string name="swipe_enabled">Glide typing</string>
     <string name="swipe_sensitivity">Sensitivity (tolerance)</string>
 
-    <string name="sec_look">Appearance</string>
     <string name="theme">Theme</string>
     <string name="theme_dark">Dark</string>
     <string name="theme_light">Light</string>
@@ -147,7 +146,7 @@
     <string name="sec_backup">Backup and tuning</string>
     <string name="backup_export">Back up to file</string>
     <string name="backup_import">Restore from file</string>
-    <string name="backup_hint">The backup contains settings, personal dictionary, corrections, macros and swipe adaptation. Clipboard history is not included.</string>
+    <string name="backup_hint">The backup contains settings, personal dictionary, corrections, macros, swipe adaptation and the swipe log. Clipboard history is not included.</string>
     <string name="backup_exported">Backup saved</string>
     <string name="backup_export_failed">Could not save the backup</string>
     <string name="backup_restore_confirm">Restore from backup? Settings will be overwritten, dictionary and macros will be merged with what you already have.</string>
@@ -166,7 +165,6 @@
     <string name="about_privacy">No internet, no ads, no telemetry. All data stays on the phone and is deleted on uninstall.</string>
 
     <string name="unit_off">off</string>
-    <string name="layout_open">Key layout</string>
     <string name="layout_hint">Tap a key in the preview below and choose which character it should have, or swap it with another key.</string>
     <string name="layout_mode_letters">Letters</string>
     <string name="layout_mode_symbols">Symbols</string>
@@ -182,7 +180,7 @@
     <string name="layout_original">Original</string>
     <string name="layout_char_hint">Character on the key</string>
     <string name="layout_char_invalid">Enter a single character (not a space)</string>
-    <string name="voice_open">Dictation</string>
+    <string name="voice_open">Voice</string>
     <string name="voice_hint">Hold Enter and speak. ✕ ends dictation, the ⌫ button on the dictation screen deletes the last word (or discards the transcript in progress).</string>
     <string name="sec_voice_commands">Voice commands</string>
     <string name="voice_commands_hint">A word or short phrase that does something instead of being typed while you dictate. The command runs as soon as you finish speaking.</string>
@@ -210,4 +208,18 @@
     <string name="neon_color">Neon color on tap</string>
     <string name="glow_color">Letter color after a swipe</string>
     <string name="key_glow">Neon glow on key tap</string>
+    <string name="appearance_open">Appearance and layout</string>
+    <string name="typing_open">Typing</string>
+    <string name="tab_look">Appearance</string>
+    <string name="tab_layout">Language and layout</string>
+    <string name="sec_bottom_row">Bottom row</string>
+    <string name="sec_keys">Keys</string>
+    <string name="emoji_key_label">Emoji button (diamond)</string>
+    <string name="macro_key_label">Macro button (bolt)</string>
+    <string name="key_place_left">Left</string>
+    <string name="key_place_right">Right of space</string>
+    <string name="key_place_hidden">Hide</string>
+    <string name="bottom_row_hint">If you hide a button, the space bar gets longer. Emoji stay available by long-pressing ?123.</string>
+    <string name="clipboard_help">You can find the clipboard history by long-pressing the ?123 key and choosing Clipboard.</string>
+    <string name="clipboard_clear_confirm">Really delete the whole clipboard history?</string>
 </resources>

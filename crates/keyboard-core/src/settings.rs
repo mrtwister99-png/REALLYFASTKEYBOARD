@@ -6,6 +6,7 @@ use std::collections::BTreeMap;
 
 pub const LANGUAGES: [&str; 3] = ["cs", "en", "cs+en"];
 pub const LAYOUTS: [&str; 2] = ["qwertz", "qwerty"];
+pub const KEY_PLACES: [&str; 3] = ["left", "right", "hidden"];
 pub const THEMES: [&str; 4] = ["dark", "light", "oled_black", "custom"];
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -69,6 +70,10 @@ pub struct Settings {
     pub neon_color: String,
     /// Barva pismen po uspesnem tahu.
     pub glow_color: String,
+    /// Tlacitko emoji ve spodni rade: "left" (vlevo od mezerniku), "right" (vpravo), "hidden".
+    pub emoji_key: String,
+    /// Tlacitko maker ve spodni rade: stejne hodnoty jako `emoji_key`.
+    pub macro_key: String,
     // --- gesta (kazde lze vypnout) ---
     pub gesture_delete_word: bool,
     pub gesture_space_cursor: bool,
@@ -121,6 +126,8 @@ impl Default for Settings {
             key_hint_pos: "top_right".into(),
             neon_color: "#59ACFF".into(),
             glow_color: "#FFD60A".into(),
+            emoji_key: "left".into(),
+            macro_key: "left".into(),
             gesture_delete_word: true,
             gesture_space_cursor: true,
             gesture_swipe_up_caps: true,
@@ -209,6 +216,12 @@ impl Settings {
             .collect();
         if !HINT_POSITIONS.contains(&self.key_hint_pos.as_str()) {
             self.key_hint_pos = d.key_hint_pos.clone();
+        }
+        if !KEY_PLACES.contains(&self.emoji_key.as_str()) {
+            self.emoji_key = d.emoji_key.clone();
+        }
+        if !KEY_PLACES.contains(&self.macro_key.as_str()) {
+            self.macro_key = d.macro_key.clone();
         }
         fix_color(&mut self.neon_color, &d.neon_color);
         fix_color(&mut self.glow_color, &d.glow_color);
@@ -426,6 +439,19 @@ mod tests {
         assert_eq!(s.glow_color, "#FFD60A");
         let s = Settings::from_json(r#"{"key_hint_pos":"middle"}"#).unwrap();
         assert_eq!(s.key_hint_pos, "top_right");
+    }
+
+    #[test]
+    fn bottom_keys_validation() {
+        let s = Settings::default();
+        assert_eq!((s.emoji_key.as_str(), s.macro_key.as_str()), ("left", "left"));
+        let s = Settings::from_json(r#"{"emoji_key":"right","macro_key":"hidden"}"#).unwrap();
+        assert_eq!((s.emoji_key.as_str(), s.macro_key.as_str()), ("right", "hidden"));
+        let s = Settings::from_json(r#"{"emoji_key":"middle","macro_key":""}"#).unwrap();
+        assert_eq!((s.emoji_key.as_str(), s.macro_key.as_str()), ("left", "left"));
+        // stary soubor bez poli
+        let s = Settings::from_json(r#"{"theme":"light"}"#).unwrap();
+        assert_eq!((s.emoji_key.as_str(), s.macro_key.as_str()), ("left", "left"));
     }
 
     #[test]

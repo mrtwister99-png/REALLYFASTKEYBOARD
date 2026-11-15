@@ -468,6 +468,13 @@ impl Storage {
         );
     }
 
+    /// Prida hotovy zaznam (import ze zalohy); stejny zapis jako u zivych tahu.
+    pub fn swipe_log_add_trace(&self, t: &SwipeTrace) {
+        let Ok(geom) = serde_json::to_string(&t.geom) else { return };
+        let points = t.points.iter().map(|v| v.to_string()).collect::<Vec<_>>().join(",");
+        self.swipe_log_add(t.ts, &t.word, &t.first, t.outcome, &geom, &points);
+    }
+
     pub fn swipe_log_count(&self) -> i64 {
         let Some(conn) = &self.conn else { return 0 };
         conn.query_row("SELECT COUNT(*) FROM swipe_log", [], |r| r.get(0)).unwrap_or(0)

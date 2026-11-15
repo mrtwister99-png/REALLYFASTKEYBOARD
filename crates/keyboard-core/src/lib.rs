@@ -191,13 +191,17 @@ impl Engine {
     /// Spocita rozlozeni pro danou plochu. S `remember` si rozlozeni pismen zapamatuje
     /// pro swipe decoder (nahled v nastaveni vola s `remember = false`).
     pub fn layout(&mut self, width: f32, height: f32, mode: u8, remember: bool) -> Layout {
-        let mut l = Layout::build(
+        let mut l = Layout::build_with(
             width,
             height,
             self.settings.is_qwertz(),
             mode,
             self.settings.show_number_row,
             self.settings.language_label(),
+            layout::BottomKeys {
+                emoji: layout::KeyPlace::parse(&self.settings.emoji_key),
+                macros: layout::KeyPlace::parse(&self.settings.macro_key),
+            },
         );
         // Premapovani pred zapamatovanim geometrie, aby swipe sel podle noveho rozlozeni.
         l.apply_key_map(&self.settings.key_map);
@@ -348,9 +352,15 @@ impl Engine {
             Some(w) => (w, if w.to_lowercase() == p.first.to_lowercase() { 0 } else { 1 }),
             None => ("", 2),
         };
-        let Ok(geom) = serde_json::to_string(&p.geom) else { return };
-        let points = p.raw.iter().map(|v| v.to_string()).collect::<Vec<_>>().join(",");
-        self.storage.swipe_log_add(now_ms(), word, &p.first, outcome, &geom, &points);
+        let trace = storage::SwipeTrace {
+            ts: now_ms(),
+            word: word.to_string(),
+            first: p.first.clone(),
+            outcome,
+            geom: p.geom,
+            points: p.raw.clone(),
+        };
+        self.storage.swipe_log_add_trace(&trace);
     }
 
     pub fn swipe_log_count(&self) -> i64 {
@@ -457,7 +467,7 @@ impl Engine {
         }
     }
 
-    /// Uplna zaloha (nastaveni, slovnik, opravy, makra, hlasove povely, prizpusobeni swipe) jako JSON.
+    /// Uplna zaloha (nastaveni, slovnik, opravy, makra, hlasove povely, prizpusobeni swipe, zaznam tahu) jako JSON.
     pub fn export_backup(&self, now: i64) -> String {
         let calibration = (0..26)
             .filter(|&k| self.calibration.n[k] > 0)
@@ -483,12 +493,13 @@ impl Engine {
             macros: self.macros.clone(),
             voice: self.voice.clone(),
             calibration,
+            swipe_log: self.storage.swipe_log_list(),
         };
         serde_json::to_string_pretty(&data).unwrap_or_else(|_| "{}".to_string())
     }
 
     /// Obnova ze zalohy. Nastaveni se prepise (stejna validace jako `set_settings_json`),
-    /// slovnik, opravy a makra se slouci, prizpusobeni swipe se nahradi (kdyz je v souboru).
+    /// slovnik, opravy, makra a zaznam tahu se slouci, prizpusobeni swipe se nahradi (kdyz je v souboru).
     /// Vraci pocet prijatych slov slovniku, -1 pri neplatnem souboru.
     pub fn import_backup(&mut self, json: &str) -> i64 {
         let Ok(data) = serde_json::from_str::<backup::Backup>(json) else { return -1 };
@@ -531,6 +542,15 @@ impl Engine {
             }
         }
         self.voice = self.storage.voice_list();
+        // Zaznam tahu: pridaji se jen radky, ktere tam jeste nejsou (cely radek se porovnava).
+        let mut known_swipes = self.storage.swipe_log_list();
+        for t in &data.swipe_log {
+            let sane = (0..=2).contains(&t.outcome) && t.points.len() % 3 == 0 && t.points.iter().all(|v| v.is_finite());
+            if sane && !known_swipes.contains(t) {
+                self.storage.swipe_log_add_trace(t);
+                known_swipes.push(t.clone());
+            }
+        }
         let mut cal = swipe::Calibration::default();
         let mut any = false;
         for k in &data.calibration {
@@ -1016,9 +1036,21 @@ mod tests {
             a.calibration.add(0, 0.2, -0.1);
             a.calibration.add(3, -0.05, 0.1);
         }
+        let geom = a.layout(1440.0, 1000.0, MODE_LETTERS, true).geom();
+        for i in 0..2 {
+            let t = storage::SwipeTrace {
+                ts: 100 + i,
+                word: format!("slovo{i}"),
+                first: "prvni".into(),
+                outcome: i % 3,
+                geom,
+                points: vec![1.5, 2.5, 0.0, 3.0, 4.0, 16.0],
+            };
+            a.storage.swipe_log_add_trace(&t);
+        }
         let json = a.export_backup(NOW);
         assert!(json.contains("\"app\": \"reallyFAST\""));
-        assert!(!json.contains("\"clipboard\":") && !json.contains("emoji") && !json.contains("\"swipes\""));
+        assert!(!json.contains("\"clipboard\":") && !json.contains("\"emoji\""));
 
         let mut b = Engine::with_storage(Storage::in_memory(), NOW);
         assert_eq!(b.import_backup(&json), a.user().len() as i64);
@@ -1039,6 +1071,14 @@ mod tests {
         assert_eq!(b.storage.macro_list(), b.macros());
         assert_eq!(b.storage.voice_list(), b.voice_commands());
         assert_eq!(b.storage.load_calibration().n, a.calibration.n);
+        // zaznam tahu se obnovi a dalsi import ho nezdvoji
+        assert_eq!(b.storage.swipe_log_list(), a.storage.swipe_log_list());
+        assert_eq!(b.swipe_log_count(), 2);
+        b.import_backup(&json);
+        assert_eq!(b.swipe_log_count(), 2);
+        // starsi zaloha bez swipe_log se nacte a zaznam nechava byt
+        b.import_backup(r#"{"app":"reallyFAST"}"#);
+        assert_eq!(b.swipe_log_count(), 2);
     }
 
     #[test]

@@ -93,7 +93,6 @@
     <string name="swipe_enabled">Psaní tažením prstu</string>
     <string name="swipe_sensitivity">Citlivost (tolerance)</string>
 
-    <string name="sec_look">Vzhled</string>
     <string name="theme">Téma</string>
     <string name="theme_dark">Tmavé</string>
     <string name="theme_light">Světlé</string>
@@ -150,7 +149,7 @@
     <string name="sec_backup">Záloha a ladění</string>
     <string name="backup_export">Zálohovat do souboru</string>
     <string name="backup_import">Obnovit ze souboru</string>
-    <string name="backup_hint">Záloha obsahuje nastavení, osobní slovník, opravy, makra a přizpůsobení swipe. Historie schránky v ní není.</string>
+    <string name="backup_hint">Záloha obsahuje nastavení, osobní slovník, opravy, makra, přizpůsobení swipe a záznam tahů. Historie schránky v ní není.</string>
     <string name="backup_exported">Záloha uložena</string>
     <string name="backup_export_failed">Zálohu se nepodařilo uložit</string>
     <string name="backup_restore_confirm">Obnovit ze zálohy? Nastavení se přepíše, slovník a makra se sloučí s tím, co už máš.</string>
@@ -173,7 +172,6 @@
     <string name="unit_percent">%1$d %%</string>
     <string name="unit_minutes">%1$d min</string>
     <string name="unit_off">vypnuto</string>
-    <string name="layout_open">Rozložení kláves</string>
     <string name="layout_hint">Klepni na klávesu v náhledu dole a zvol, jaký znak na ní má být, nebo ji prohoď s jinou klávesou.</string>
     <string name="layout_mode_letters">Písmena</string>
     <string name="layout_mode_symbols">Symboly</string>
@@ -189,7 +187,7 @@
     <string name="layout_original">Původní znak</string>
     <string name="layout_char_hint">Znak na klávese</string>
     <string name="layout_char_invalid">Zadej jeden znak (ne mezeru)</string>
-    <string name="voice_open">Diktování</string>
+    <string name="voice_open">Hlas</string>
     <string name="voice_hint">Podrž Enter a diktuj. ✕ diktování ukončí, tlačítko ⌫ na obrazovce diktování smaže poslední slovo (nebo zahodí rozpracovaný přepis).</string>
     <string name="sec_voice_commands">Hlasové povely</string>
     <string name="voice_commands_hint">Slovo nebo krátká fráze, která při diktování místo zapsání něco udělá. Povel se provede, jakmile domluvíš.</string>
@@ -217,4 +215,18 @@
     <string name="neon_color">Barva neonu po klepnutí</string>
     <string name="glow_color">Barva písmen po úspěšném tahu</string>
     <string name="key_glow">Neonové rozsvícení klávesy při klepnutí</string>
+    <string name="appearance_open">Vzhled a rozložení</string>
+    <string name="typing_open">Psaní</string>
+    <string name="tab_look">Vzhled</string>
+    <string name="tab_layout">Jazyk a rozložení</string>
+    <string name="sec_bottom_row">Spodní řada</string>
+    <string name="sec_keys">Klávesy</string>
+    <string name="emoji_key_label">Tlačítko emoji (diamant)</string>
+    <string name="macro_key_label">Tlačítko maker (blesk)</string>
+    <string name="key_place_left">Vlevo</string>
+    <string name="key_place_right">Vpravo od mezerníku</string>
+    <string name="key_place_hidden">Skrýt</string>
+    <string name="bottom_row_hint">Když tlačítko skryješ, mezerník se prodlouží. Emoji zůstanou dostupné podržením ?123.</string>
+    <string name="clipboard_help">Historii schránky najdeš, když podržíš klávesu ?123 a zvolíš Schránka.</string>
+    <string name="clipboard_clear_confirm">Opravdu smazat celou historii schránky?</string>
 </resources>

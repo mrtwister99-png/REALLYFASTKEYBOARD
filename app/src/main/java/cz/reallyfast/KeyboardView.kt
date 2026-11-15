@@ -529,8 +529,10 @@ class KeyboardView(context: Context) : View(context) {
                     if (hinted) {
                         textPaint.color = theme.hint
                         textPaint.textSize = labelSize * 0.46f
-                        val hx = if (hintH == 0) cx else cx + hintH * (hw - labelSize * 0.34f)
-                        val hy = if (hintTop) cy - hh + labelSize * 0.52f else cy + hh - labelSize * 0.22f
+                        // Zaobleny roh ukroji d = r * (1 - 1/sqrt2); v rozich posuneme znak dovnitr.
+                        val d = if (hintH == 0) 0f else min(radius, min(hw, hh)) * 0.2929f
+                        val hx = if (hintH == 0) cx else cx + hintH * (hw - labelSize * 0.34f - d)
+                        val hy = if (hintTop) cy - hh + labelSize * 0.52f + d else cy + hh - labelSize * 0.22f - d
                         canvas.drawText(k.hint, hx, hy, textPaint)
                     }
                     textPaint.color = fg
