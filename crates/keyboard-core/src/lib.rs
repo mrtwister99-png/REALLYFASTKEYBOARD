@@ -201,6 +201,8 @@ impl Engine {
             layout::BottomKeys {
                 emoji: layout::KeyPlace::parse(&self.settings.emoji_key),
                 macros: layout::KeyPlace::parse(&self.settings.macro_key),
+                swap_mode_enter: self.settings.swap_mode_enter,
+                swap_shift_delete: self.settings.swap_shift_delete,
             },
         );
         // Premapovani pred zapamatovanim geometrie, aby swipe sel podle noveho rozlozeni.

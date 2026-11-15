@@ -36,8 +36,10 @@ class TypingActivity : SettingsScreen() {
         switchRow(box, R.string.swipe_glow, "swipe_glow", hintRes = R.string.swipe_glow_hint)
         switchRow(box, R.string.swipe_adapt, "swipe_adapt")
         buttonRow(box, getString(R.string.swipe_adapt_reset), danger) {
-            RustBridge.resetCalibration()
-            Toast.makeText(this, R.string.swipe_adapt_reset_done, Toast.LENGTH_SHORT).show()
+            confirmDanger(getString(R.string.swipe_adapt_reset_confirm), getString(R.string.swipe_adapt_reset_do)) {
+                RustBridge.resetCalibration()
+                Toast.makeText(this, R.string.swipe_adapt_reset_done, Toast.LENGTH_SHORT).show()
+            }
         }
 
         // Odezva

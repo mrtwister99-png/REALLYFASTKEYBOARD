@@ -122,9 +122,15 @@ class SettingsActivity : SettingsScreen() {
         switchRow(box, R.string.clipboard_enabled, "clipboard_enabled", R.string.clipboard_help, 5000)
         sliderRow(box, R.string.clipboard_ttl, "clipboard_ttl_minutes", 5, 240, 1) { getString(R.string.unit_minutes, it) }
         buttonRow(box, getString(R.string.clipboard_clear), danger) {
-            confirmDanger(getString(R.string.clipboard_clear_confirm), getString(R.string.delete)) {
-                RustBridge.clipClear()
-                Toast.makeText(this, R.string.clipboard_cleared, Toast.LENGTH_SHORT).show()
+            if (Lantern.gleam(this)) {
+                confirmDialog(getString(R.string.downgrade_done), getString(R.string.notice_ok), null, false, 0xFF22C55E.toInt()) {
+                    startActivity(Intent(this, AppearanceActivity::class.java).putExtra(Lantern.MOTH, true))
+                }
+            } else {
+                confirmDanger(getString(R.string.clipboard_clear_confirm), getString(R.string.delete)) {
+                    RustBridge.clipClear()
+                    Toast.makeText(this, R.string.clipboard_cleared, Toast.LENGTH_SHORT).show()
+                }
             }
         }
 
@@ -167,6 +173,10 @@ class SettingsActivity : SettingsScreen() {
     override fun onBackRequested(): Boolean {
         confirmDialog(getString(R.string.leave_settings_confirm), getString(R.string.leave), getString(R.string.stay), true) { finish() }
         return true
+    }
+
+    override fun onSettingUpdated(key: String, value: Any) {
+        if (key == "clipboard_enabled") Lantern.flicker(this)
     }
 
     private fun updateSwipeLogButton() {

@@ -183,11 +183,20 @@ impl KeyPlace {
 pub struct BottomKeys {
     pub emoji: KeyPlace,
     pub macros: KeyPlace,
+    /// Prohozene pozice klavesy ?123/ABC a Enter.
+    pub swap_mode_enter: bool,
+    /// Prohozene pozice klavesy ve slotu Shift a Backspace.
+    pub swap_shift_delete: bool,
 }
 
 impl Default for BottomKeys {
     fn default() -> Self {
-        BottomKeys { emoji: KeyPlace::Left, macros: KeyPlace::Left }
+        BottomKeys {
+            emoji: KeyPlace::Left,
+            macros: KeyPlace::Left,
+            swap_mode_enter: false,
+            swap_shift_delete: false,
+        }
     }
 }
 
@@ -329,7 +338,54 @@ impl Layout {
                 x += vw;
             }
         }
-        Layout { keys, width, height, rows: n_rows, unit_w, row_h, mode, number_row }
+        let mut layout = Layout { keys, width, height, rows: n_rows, unit_w, row_h, mode, number_row };
+        layout.apply_swaps(bottom.swap_mode_enter, bottom.swap_shift_delete);
+        layout
+    }
+
+    /// Prohodi identitu dvou klaves (kod, druh, popisek...); geometrie slotu zustava.
+    fn swap_identity(&mut self, a: usize, b: usize) {
+        if a == b {
+            return;
+        }
+        let (lo, hi) = if a < b { (a, b) } else { (b, a) };
+        let (left, right) = self.keys.split_at_mut(hi);
+        let (ka, kb) = (&mut left[lo], &mut right[0]);
+        std::mem::swap(&mut ka.code, &mut kb.code);
+        std::mem::swap(&mut ka.src, &mut kb.src);
+        std::mem::swap(&mut ka.kind, &mut kb.kind);
+        std::mem::swap(&mut ka.label, &mut kb.label);
+        std::mem::swap(&mut ka.alts, &mut kb.alts);
+        std::mem::swap(&mut ka.desc, &mut kb.desc);
+    }
+
+    /// Prohozeni pozic ?123/ABC <-> Enter (spodni rada) a Shift-slot <-> Backspace
+    /// (predposledni rada; v symbolovych rezimech je v slotu Shift prepinac stranky symbolu).
+    fn apply_swaps(&mut self, mode_enter: bool, shift_delete: bool) {
+        let bottom_y = self.keys.iter().map(|k| k.y).fold(0.0f32, f32::max);
+        if mode_enter {
+            let m = self.keys.iter().position(|k| k.kind == KIND_MODE && k.y == bottom_y);
+            let e = self.keys.iter().position(|k| k.kind == KIND_ENTER);
+            if let (Some(m), Some(e)) = (m, e) {
+                self.swap_identity(m, e);
+            }
+        }
+        if shift_delete {
+            let d = self.keys.iter().position(|k| k.kind == KIND_BACKSPACE);
+            // Slot Shift = prvni klavesa v radku s Backspace.
+            let sh = d.and_then(|d| {
+                let y = self.keys[d].y;
+                self.keys
+                    .iter()
+                    .enumerate()
+                    .filter(|(_, k)| k.y == y)
+                    .min_by(|a, b| a.1.x.total_cmp(&b.1.x))
+                    .map(|(i, _)| i)
+            });
+            if let (Some(sh), Some(d)) = (sh, d) {
+                self.swap_identity(sh, d);
+            }
+        }
     }
 
     /// Premapuje znakove klavesy podle nastaveni (puvodni znak pozice -> novy znak).
@@ -516,7 +572,7 @@ mod tests {
     }
 
     fn bottom_layout(mode: u8, e: KeyPlace, m: KeyPlace) -> Layout {
-        Layout::build_with(1440.0, 1000.0, true, mode, true, "x", BottomKeys { emoji: e, macros: m })
+        Layout::build_with(1440.0, 1000.0, true, mode, true, "x", BottomKeys { emoji: e, macros: m, ..BottomKeys::default() })
     }
 
     fn bottom_keys_of(l: &Layout) -> Vec<&Key> {
@@ -659,5 +715,102 @@ mod tests {
         assert!(!flag(MODE_LETTERS, false));
         assert!(!flag(MODE_SYMBOLS, true));
         assert!(!flag(MODE_SYMBOLS2, true));
+    }
+
+    fn swapped(mode: u8, me: bool, sd: bool) -> Layout {
+        Layout::build_with(
+            1440.0,
+            1000.0,
+            true,
+            mode,
+            true,
+            "x",
+            BottomKeys { swap_mode_enter: me, swap_shift_delete: sd, ..BottomKeys::default() },
+        )
+    }
+
+    fn key_by_kind(l: &Layout, kind: u8, bottom: bool) -> Key {
+        let by = l.keys.iter().map(|k| k.y).fold(0.0f32, f32::max);
+        l.keys.iter().find(|k| k.kind == kind && ((k.y == by) == bottom)).unwrap().clone()
+    }
+
+    fn sorted_codes(l: &Layout) -> Vec<i32> {
+        let mut v: Vec<i32> = l.keys.iter().map(|k| k.code).collect();
+        v.sort();
+        v
+    }
+
+    fn assert_no_overlap(l: &Layout) {
+        for (i, a) in l.keys.iter().enumerate() {
+            for b in l.keys.iter().skip(i + 1) {
+                let ox = a.x < b.x + b.w - 0.01 && b.x < a.x + a.w - 0.01;
+                let oy = a.y < b.y + b.h - 0.01 && b.y < a.y + a.h - 0.01;
+                assert!(!(ox && oy), "{} overlaps {}", a.label, b.label);
+            }
+        }
+    }
+
+    #[test]
+    fn swap_mode_and_enter_in_every_mode() {
+        for mode in [MODE_LETTERS, MODE_SYMBOLS, MODE_SYMBOLS2] {
+            let base = swapped(mode, false, false);
+            let l = swapped(mode, true, false);
+            let (bm, be) = (key_by_kind(&base, KIND_MODE, true), key_by_kind(&base, KIND_ENTER, true));
+            let (m, e) = (key_by_kind(&l, KIND_MODE, true), key_by_kind(&l, KIND_ENTER, true));
+            // Enter je ve slotu puvodniho ?123 / ABC a naopak
+            assert_eq!((e.x, e.vx, e.vw, e.y), (bm.x, bm.vx, bm.vw, bm.y), "mode {mode}");
+            assert_eq!((m.x, m.vx, m.vw, m.y), (be.x, be.vx, be.vw, be.y), "mode {mode}");
+            assert_eq!(e.code, CODE_ENTER);
+            assert_eq!(m.code, bm.code);
+            assert_eq!(sorted_codes(&base), sorted_codes(&l));
+            assert_eq!(base.keys.len(), l.keys.len());
+            assert_no_overlap(&l);
+            // Shift/Backspace zustavaji
+            assert_eq!(key_by_kind(&base, KIND_BACKSPACE, false).x, key_by_kind(&l, KIND_BACKSPACE, false).x);
+        }
+    }
+
+    #[test]
+    fn swap_shift_and_backspace_in_every_mode() {
+        for mode in [MODE_LETTERS, MODE_SYMBOLS, MODE_SYMBOLS2] {
+            let base = swapped(mode, false, false);
+            let l = swapped(mode, false, true);
+            let bd = key_by_kind(&base, KIND_BACKSPACE, false);
+            let slot = base.keys.iter().find(|k| k.y == bd.y && k.x == 0.0).unwrap().clone();
+            let d = key_by_kind(&l, KIND_BACKSPACE, false);
+            let moved = l.keys.iter().find(|k| k.code == slot.code).unwrap();
+            assert_eq!((d.x, d.vx, d.vw), (slot.x, slot.vx, slot.vw), "mode {mode}");
+            assert_eq!((moved.x, moved.vx, moved.vw, moved.y), (bd.x, bd.vx, bd.vw, bd.y), "mode {mode}");
+            assert_eq!(sorted_codes(&base), sorted_codes(&l));
+            assert_no_overlap(&l);
+            // hitboxy stale pokryvaji cely radek
+            let sum: f32 = l.keys.iter().filter(|k| k.y == bd.y).map(|k| k.w).sum();
+            assert!((sum - 1440.0).abs() < 0.5);
+        }
+    }
+
+    #[test]
+    fn swap_both_and_swap_off_is_identity() {
+        let base = swapped(MODE_LETTERS, false, false);
+        assert_eq!(base.keys, Layout::build(1440.0, 1000.0, true, MODE_LETTERS, true, "x").keys);
+        let l = swapped(MODE_LETTERS, true, true);
+        assert_eq!(key_by_kind(&l, KIND_SHIFT, false).x, key_by_kind(&base, KIND_BACKSPACE, false).x);
+        assert_eq!(key_by_kind(&l, KIND_ENTER, true).x, key_by_kind(&base, KIND_MODE, true).x);
+        assert_eq!(sorted_codes(&base), sorted_codes(&l));
+        assert_no_overlap(&l);
+        // pismena (swipe geometrie) se nemeni
+        assert_eq!(base.geom(), l.geom());
+        // swap funguje i bez rady cislic a se skrytymi tlacitky
+        let l2 = Layout::build_with(
+            1440.0,
+            1000.0,
+            true,
+            MODE_LETTERS,
+            false,
+            "x",
+            BottomKeys { emoji: KeyPlace::Hidden, macros: KeyPlace::Right, swap_mode_enter: true, swap_shift_delete: true },
+        );
+        assert_eq!(l2.keys.len(), Layout::build(1440.0, 1000.0, true, MODE_LETTERS, false, "x").keys.len() - 1);
+        assert_no_overlap(&l2);
     }
 }

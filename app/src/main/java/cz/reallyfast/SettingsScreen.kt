@@ -1,10 +1,12 @@
 package cz.reallyfast
 
 import android.annotation.SuppressLint
+import android.app.Dialog
 import android.content.Context
 import android.graphics.Canvas
 import android.graphics.Paint
 import android.graphics.RectF
+import android.graphics.drawable.ColorDrawable
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
@@ -12,14 +14,16 @@ import android.os.SystemClock
 import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
+import android.view.Window
+import android.view.WindowManager
 import android.widget.FrameLayout
 import android.widget.HorizontalScrollView
 import android.widget.LinearLayout
 import android.widget.SeekBar
 import android.widget.TextView
 
-/** Hotovy styl: tema + barvy, ktere se nastavi jednim klepnutim. */
-private class Preset(val name: String, val theme: String, val bg: String, val key: String, val text: String, val accent: String)
+/** Hotovy styl: barvy, ktere se nastavi jednim klepnutim (vzdy jako vlastni tema). */
+private class Preset(val name: String, val bg: String, val key: String, val text: String, val accent: String)
 
 /** Miniatura klavesnice v barvach stylu. */
 @SuppressLint("ViewConstructor")
@@ -75,22 +79,22 @@ abstract class SettingsScreen : BaseScreen() {
 
     private companion object {
         val PRESETS = listOf(
-            Preset("Graphite", "dark", "#101012", "#2A2A30", "#F5F5F7", "#0080FF"),
-            Preset("Amber", "dark", "#101012", "#2A2A30", "#F5F5F7", "#F59E0B"),
-            Preset("Paper", "light", "#E6E8EC", "#FFFFFF", "#15151A", "#2563EB"),
-            Preset("OLED", "oled_black", "#000000", "#17171A", "#F5F5F7", "#22D3EE"),
-            Preset("Midnight", "custom", "#0B1220", "#1B2740", "#E6EDF7", "#60A5FA"),
-            Preset("Forest", "custom", "#0F1A14", "#1E3328", "#E8F3EC", "#34D399"),
-            Preset("Sand", "custom", "#EFE7DA", "#FBF7F0", "#2B241B", "#C2410C"),
-            Preset("Rose", "custom", "#1A1114", "#33202A", "#F8E9EE", "#FB7185"),
-            Preset("Mono", "custom", "#18181B", "#2E2E33", "#FAFAFA", "#FAFAFA"),
+            Preset("Graphite", "#101012", "#2A2A30", "#F5F5F7", "#0080FF"),
+            Preset("Amber", "#101012", "#2A2A30", "#F5F5F7", "#F59E0B"),
+            Preset("Paper", "#E6E8EC", "#FFFFFF", "#15151A", "#2563EB"),
+            Preset("OLED", "#000000", "#17171A", "#F5F5F7", "#22D3EE"),
+            Preset("Midnight", "#0B1220", "#1B2740", "#E6EDF7", "#60A5FA"),
+            Preset("Forest", "#0F1A14", "#1E3328", "#E8F3EC", "#34D399"),
+            Preset("Sand", "#EFE7DA", "#FBF7F0", "#2B241B", "#C2410C"),
+            Preset("Rose", "#1A1114", "#33202A", "#F8E9EE", "#FB7185"),
+            Preset("Mono", "#18181B", "#2E2E33", "#FAFAFA", "#FAFAFA"),
         )
-        val PALETTE = listOf(
-            "#005DEB", "#B1CF4E", "#FF5100", "#960000", "#6A02E8", "#E8E8E8", "#171717", "#73DEFF", "#F2ECC4", "#2B27A8",
-        )
+        /** Klice tri barev motivu: pri zmene se motiv prepne na "custom" (viz writeColor). */
+        val THEME_COLOR_KEYS = listOf("custom_background", "custom_key", "custom_text")
     }
 
     private val refreshers = ArrayList<() -> Unit>()
+    private var colorDialog: Dialog? = null
     private val listener: () -> Unit = {
         onSettingsChanged()
         for (r in refreshers) r()
@@ -102,7 +106,13 @@ abstract class SettingsScreen : BaseScreen() {
         RustBridge.listeners.add(listener)
     }
 
+    override fun onPause() {
+        colorDialog?.dismiss()
+        super.onPause()
+    }
+
     override fun onDestroy() {
+        colorDialog?.dismiss()
         RustBridge.listeners.remove(listener)
         super.onDestroy()
     }
@@ -134,7 +144,10 @@ abstract class SettingsScreen : BaseScreen() {
      * Prepinac. S `helpRes` je mezi popiskem a prepinacem kulate "?"; klepnuti otevre nad nim
      * bublinu s napovedou, ktera se po `helpMs` (nebo klepnutim kamkoli) zase zasune.
      */
-    protected fun switchRow(box: LinearLayout, labelRes: Int, key: String, helpRes: Int = 0, helpMs: Long = 5000, hintRes: Int = 0) {
+    protected fun switchRow(
+        box: LinearLayout, labelRes: Int, key: String, helpRes: Int = 0, helpMs: Long = 5000, hintRes: Int = 0,
+        dependsOn: String = "",
+    ) {
         val row = LinearLayout(this)
         row.gravity = Gravity.CENTER_VERTICAL
         row.minimumHeight = dp(52f)
@@ -176,9 +189,20 @@ abstract class SettingsScreen : BaseScreen() {
         row.addView(sw)
         row.setOnClickListener { sw.toggle() }
         box.addView(row, rowParams())
-        if (hintRes != 0) hintText(box, getString(hintRes))
+        val hint = if (hintRes != 0) hintText(box, getString(hintRes)) else null
+        // Radek zavisly na jinem prepinaci je zasedly a nereaguje, dokud je ten vypnuty.
+        fun applyEnabled() {
+            val on = dependsOn.isEmpty() || RustBridge.settings.json.optBoolean(dependsOn)
+            row.isEnabled = on
+            sw.isEnabled = on
+            val a = if (on) 1f else 0.4f
+            row.alpha = a
+            hint?.alpha = a
+        }
+        applyEnabled()
         refreshers.add {
             sw.setChecked(RustBridge.settings.json.optBoolean(key), false)
+            applyEnabled()
         }
     }
 
@@ -259,39 +283,182 @@ abstract class SettingsScreen : BaseScreen() {
         refreshers.add { paint() }
     }
 
-    protected fun colorRow(box: LinearLayout, labelRes: Int, key: String) {
-        val col = LinearLayout(this)
-        col.orientation = LinearLayout.VERTICAL
-        col.setPadding(0, dp(10f), 0, dp(10f))
-        val head = LinearLayout(this)
-        head.gravity = Gravity.CENTER_VERTICAL
-        head.addView(label(getString(labelRes)), LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
-        col.addView(head, rowParams())
+    private fun hex(c: Int): String = String.format("#%06X", c and 0xFFFFFF)
+
+    /** Barva, kterou radek ukazuje: u barev motivu ta skutecna (z Theme), jinak ulozena hodnota ("" = automaticka). */
+    private fun shownColor(key: String): String {
+        val t = Theme.from(RustBridge.settings)
+        return when (key) {
+            "custom_background" -> hex(t.background)
+            "custom_key" -> hex(t.key)
+            "custom_text" -> hex(t.text)
+            else -> RustBridge.settings.json.optString(key)
+        }
+    }
+
+    /** Barva, ktera se ukaze v kole u automaticke hodnoty (to, co se pouzije misto ni). */
+    private fun autoColor(key: String): Int {
+        val t = Theme.from(RustBridge.settings)
+        return when (key) {
+            "popup_color", "alts_color" -> t.popup
+            "hint_color" -> t.hint
+            "digit_key_color", "key_color2" -> t.key
+            "background_color2" -> t.background
+            else -> t.text
+        }
+    }
+
+    /**
+     * Zapis barvy. U barev motivu (pozadi, klavesy, text) se pri jinem motivu nez "custom" zapise jednim
+     * volanim motiv "custom" se vsemi tremi aktualnimi (skutecnymi) barvami a upravenou barvou.
+     */
+    private fun writeColor(key: String, color: String) {
+        val s = RustBridge.settings
+        if (key in THEME_COLOR_KEYS && s.theme != "custom") {
+            val t = Theme.from(s)
+            val j = s.edit()
+            j.put("theme", "custom")
+            j.put("custom_background", hex(t.background))
+            j.put("custom_key", hex(t.key))
+            j.put("custom_text", hex(t.text))
+            j.put(key, color)
+            RustBridge.setSettings(j)
+            onSettingUpdated(key, color)
+        } else {
+            update(key, color)
+        }
+    }
+
+    /** Barevny radek: popisek a vpravo kulaty vzorek aktualni barvy; klepnuti otevre vyber barvy nahore. */
+    protected fun colorRow(box: LinearLayout, labelRes: Int, key: String, allowAuto: Boolean = false) {
         val row = LinearLayout(this)
-        val swatches = ArrayList<View>()
+        row.gravity = Gravity.CENTER_VERTICAL
+        row.minimumHeight = dp(52f)
+        row.addView(label(getString(labelRes)), LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+        val swatch = View(this)
+        row.addView(swatch, LinearLayout.LayoutParams(dp(30f), dp(30f)))
         fun paint() {
-            val cur = RustBridge.settings.json.optString(key)
-            for ((i, v) in swatches.withIndex()) {
-                val d = rounded(Theme.parse(PALETTE[i], 0), dp(10f).toFloat())
-                // Vybrana = zvyrazneny obrys; ostatni maji jemny svetly obrys, aby tmave barvy bylo videt na tmave karte.
-                if (PALETTE[i].equals(cur, ignoreCase = true)) d.setStroke(dp(2.5f), text) else d.setStroke(dp(1.5f), 0x66FFFFFF)
-                v.background = d
+            val cur = shownColor(key)
+            val d = GradientDrawable()
+            d.shape = GradientDrawable.OVAL
+            if (cur.isEmpty()) {
+                // Automaticka barva: prazdny kruh s carkovanym obrysem.
+                d.setColor(0)
+                d.setStroke(dp(1.5f), 0x99FFFFFF.toInt(), dp(3f).toFloat(), dp(3f).toFloat())
+            } else {
+                d.setColor(Theme.parse(cur, 0xFF000000.toInt()))
+                d.setStroke(dp(1.5f), 0x66FFFFFF)
             }
+            swatch.background = d
         }
-        for (i in PALETTE.indices) {
-            val v = View(this)
-            v.setOnClickListener { update(key, PALETTE[i]) }
-            swatches.add(v)
-            val lp = LinearLayout.LayoutParams(0, dp(30f), 1f)
-            if (i > 0) lp.leftMargin = dp(5f)
-            row.addView(v, lp)
+        row.setOnClickListener {
+            val cur = shownColor(key)
+            val initial = if (cur.isEmpty()) autoColor(key) else Theme.parse(cur, 0xFFFFFFFF.toInt())
+            showColorPicker(getString(labelRes), initial, allowAuto,
+                onCommit = { c -> if (!hex(c).equals(shownColor(key), ignoreCase = true)) writeColor(key, hex(c)) },
+                onAuto = { if (shownColor(key).isNotEmpty()) update(key, "") })
         }
-        val lp = rowParams()
-        lp.topMargin = dp(8f)
-        col.addView(row, lp)
-        box.addView(col, rowParams())
+        box.addView(row, rowParams())
         paint()
         refreshers.add { paint() }
+    }
+
+    /**
+     * Vyber barvy: dialog nahore na obrazovce bez ztmaveni (nahled klavesnice dole zustava videt),
+     * barevne kolo, posuvnik jasu, vzorek a tlacitka. Hodnota se zapisuje (`onCommit`) po zvednuti
+     * prstu z kola nebo posuvniku; "Vychozi" (jen s `allowAuto`) zavola `onAuto` a dialog zavre.
+     */
+    private fun showColorPicker(titleText: String, initial: Int, allowAuto: Boolean, onCommit: (Int) -> Unit, onAuto: () -> Unit) {
+        colorDialog?.dismiss()
+        val dialog = Dialog(this)
+        dialog.requestWindowFeature(Window.FEATURE_NO_TITLE)
+        val root = LinearLayout(this)
+        root.orientation = LinearLayout.VERTICAL
+        root.setPadding(dp(16f), dp(14f), dp(16f), dp(12f))
+        root.background = rounded(card, dp(16f).toFloat())
+        root.addView(label(titleText, 15f, dim), rowParams())
+
+        val wheel = ColorWheelView(this)
+        wheel.setColor(initial)
+        root.addView(wheel, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(210f)))
+
+        val seek = SeekBar(this)
+        seek.max = 100
+        seek.contentDescription = getString(R.string.color_brightness)
+        seek.progress = Math.round(wheel.value * 100f)
+        val slp = rowParams()
+        slp.topMargin = dp(4f)
+        root.addView(seek, slp)
+
+        val bottom = LinearLayout(this)
+        bottom.gravity = Gravity.CENTER_VERTICAL
+        val sample = View(this)
+        fun showSample(c: Int) {
+            sample.background = GradientDrawable().apply {
+                shape = GradientDrawable.OVAL
+                setColor(c)
+                setStroke(dp(1.5f), 0x66FFFFFF)
+            }
+        }
+        showSample(initial)
+        bottom.addView(sample, LinearLayout.LayoutParams(dp(36f), dp(36f)))
+        bottom.addView(View(this), LinearLayout.LayoutParams(0, 1, 1f))
+        fun dialogButton(t: CharSequence, color: Int, outlined: Boolean, action: () -> Unit) {
+            val b = label(t, 15f, color)
+            b.gravity = Gravity.CENTER
+            b.typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
+            b.minHeight = dp(44f)
+            b.minWidth = dp(88f)
+            b.setPadding(dp(16f), 0, dp(16f), 0)
+            b.background = GradientDrawable().apply {
+                cornerRadius = dp(12f).toFloat()
+                setColor(0)
+                if (outlined) setStroke(dp(1.5f), color)
+            }
+            b.setOnClickListener { action() }
+            val lp = LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT)
+            lp.leftMargin = dp(8f)
+            bottom.addView(b, lp)
+        }
+        if (allowAuto) dialogButton(getString(R.string.color_default), dim, false) {
+            dialog.dismiss()
+            onAuto()
+        }
+        dialogButton(getString(R.string.color_done), accent, true) { dialog.dismiss() }
+        val blp = rowParams()
+        blp.topMargin = dp(8f)
+        root.addView(bottom, blp)
+
+        wheel.onPicking = { c -> showSample(c) }
+        wheel.onCommit = { c ->
+            showSample(c)
+            onCommit(c)
+        }
+        seek.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+            override fun onProgressChanged(sb: SeekBar, progress: Int, fromUser: Boolean) {
+                if (!fromUser) return
+                wheel.value = progress / 100f
+                showSample(wheel.currentColor())
+            }
+
+            override fun onStartTrackingTouch(sb: SeekBar) {}
+            override fun onStopTrackingTouch(sb: SeekBar) = onCommit(wheel.currentColor())
+        })
+
+        dialog.setContentView(root)
+        dialog.setOnDismissListener { if (colorDialog === dialog) colorDialog = null }
+        dialog.window?.let { w ->
+            w.setBackgroundDrawable(ColorDrawable(0))
+            w.clearFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND)
+            w.setGravity(Gravity.TOP or Gravity.CENTER_HORIZONTAL)
+            val width = minOf(resources.displayMetrics.widthPixels - dp(32f), dp(380f))
+            w.setLayout(width, ViewGroup.LayoutParams.WRAP_CONTENT)
+            val lp = w.attributes
+            lp.y = dp(36f)
+            w.attributes = lp
+        }
+        colorDialog = dialog
+        dialog.show()
     }
 
     /** Vodorovny pruh hotovych stylu s miniaturami. */
@@ -301,11 +468,11 @@ abstract class SettingsScreen : BaseScreen() {
         scroll.isHorizontalScrollBarEnabled = false
         val row = LinearLayout(this)
         val tiles = ArrayList<PresetTile>()
+        // Styl je vybrany, kdyz se skutecne barvy (z Theme) shoduji s jeho barvami.
         fun isCurrent(p: Preset): Boolean {
-            val s = RustBridge.settings
-            if (s.theme != p.theme || !s.accentColor.equals(p.accent, true)) return false
-            return p.theme != "custom" || (s.customBackground.equals(p.bg, true) &&
-                s.customKey.equals(p.key, true) && s.customText.equals(p.text, true))
+            val t = Theme.from(RustBridge.settings)
+            return t.background == Theme.parse(p.bg, 0) && t.key == Theme.parse(p.key, 0) &&
+                t.text == Theme.parse(p.text, 0) && t.accent == Theme.parse(p.accent, 0)
         }
         for ((i, p) in PRESETS.withIndex()) {
             val col = LinearLayout(this)
@@ -322,13 +489,11 @@ abstract class SettingsScreen : BaseScreen() {
             })
             col.setOnClickListener {
                 val j = RustBridge.settings.edit()
-                j.put("theme", p.theme)
+                j.put("theme", "custom")
                 j.put("accent_color", p.accent)
-                if (p.theme == "custom") {
-                    j.put("custom_background", p.bg)
-                    j.put("custom_key", p.key)
-                    j.put("custom_text", p.text)
-                }
+                j.put("custom_background", p.bg)
+                j.put("custom_key", p.key)
+                j.put("custom_text", p.text)
                 RustBridge.setSettings(j)
             }
             val lp = LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT)

@@ -139,6 +139,16 @@ abstract class BaseScreen : Activity() {
      * (barva `danger`) = jen cerveny obrys. Vraci TextView, aby volajici mohl menit text.
      */
     protected fun buttonRow(box: LinearLayout, s: CharSequence, color: Int = text, onClick: () -> Unit): TextView {
+        val b = buttonView(s, color, onClick)
+        val lp = rowParams()
+        lp.topMargin = dp(5f)
+        lp.bottomMargin = dp(5f)
+        box.addView(b, lp)
+        return b
+    }
+
+    /** Samotne tlacitko (vzhled viz `buttonRow`), bez vlozeni do karty. */
+    protected fun buttonView(s: CharSequence, color: Int = text, onClick: () -> Unit): TextView {
         val b = label(s, 15f, color)
         b.gravity = Gravity.CENTER
         b.typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
@@ -160,18 +170,18 @@ abstract class BaseScreen : Activity() {
         }
         b.background = RippleDrawable(ColorStateList.valueOf(0x33FFFFFF), face, mask)
         b.setOnClickListener { onClick() }
-        val lp = rowParams()
-        lp.topMargin = dp(5f)
-        lp.bottomMargin = dp(5f)
-        box.addView(b, lp)
         return b
     }
 
     /**
-     * Potvrzovaci dialog s vlastnim vzhledem: zaoblena karta, volitelne cerveny obrys, zprava a dve
-     * tlacitka (zrusit bez obrysu, potvrdit s obrysem). Okno je mimo kartu pruhledne.
+     * Potvrzovaci dialog s vlastnim vzhledem: zaoblena karta, volitelne cerveny obrys (nebo obrys barvy
+     * `tint`), zprava a dve tlacitka (zrusit bez obrysu, potvrdit s obrysem). Bez `cancelLabel` je jen
+     * jedno tlacitko a dialog nejde zavrit jinak. Okno je mimo kartu pruhledne.
      */
-    protected fun confirmDialog(message: CharSequence, confirmLabel: CharSequence, cancelLabel: CharSequence, red: Boolean, onConfirm: () -> Unit) {
+    protected fun confirmDialog(
+        message: CharSequence, confirmLabel: CharSequence, cancelLabel: CharSequence?, red: Boolean, tint: Int = 0,
+        onConfirm: () -> Unit,
+    ) {
         val dialog = Dialog(this)
         dialog.requestWindowFeature(Window.FEATURE_NO_TITLE)
         val root = LinearLayout(this)
@@ -180,7 +190,7 @@ abstract class BaseScreen : Activity() {
         root.background = GradientDrawable().apply {
             setColor(card)
             cornerRadius = dp(16f).toFloat()
-            if (red) setStroke(dp(2f), danger)
+            if (red) setStroke(dp(2f), danger) else if (tint != 0) setStroke(dp(2f), tint)
         }
         root.addView(label(message, 16f), rowParams())
         val row = LinearLayout(this)
@@ -213,8 +223,8 @@ abstract class BaseScreen : Activity() {
             lp.leftMargin = dp(8f)
             row.addView(b, lp)
         }
-        dialogButton(cancelLabel, dim, false) {}
-        dialogButton(confirmLabel, if (red) danger else accent, true, onConfirm)
+        if (cancelLabel != null) dialogButton(cancelLabel, dim, false) {} else dialog.setCancelable(false)
+        dialogButton(confirmLabel, if (red) danger else if (tint != 0) tint else accent, true, onConfirm)
         dialog.setContentView(root)
         dialog.window?.let { w ->
             w.setBackgroundDrawable(ColorDrawable(0x00000000))
@@ -226,7 +236,7 @@ abstract class BaseScreen : Activity() {
 
     /** Potvrzeni mazani / odchodu: cerveny obrys. */
     protected fun confirmDanger(message: CharSequence, confirmLabel: CharSequence, onConfirm: () -> Unit) =
-        confirmDialog(message, confirmLabel, getString(R.string.cancel), true, onConfirm)
+        confirmDialog(message, confirmLabel, getString(R.string.cancel), true, onConfirm = onConfirm)
 
     /** Radek, ktery otevira dalsi obrazovku (text + sipka vpravo). */
     protected fun navRow(box: LinearLayout, s: CharSequence, onClick: () -> Unit) {

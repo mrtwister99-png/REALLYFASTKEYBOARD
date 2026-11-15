@@ -279,6 +279,7 @@ class MacrosActivity : SubScreen() {
                     existing?.id ?: 0, name.text.toString(), body.text.toString(), shortcut.text.toString(),
                 )
                 if (!ok) Toast.makeText(this, R.string.macro_save_failed, Toast.LENGTH_LONG).show()
+                else Lantern.kindle(this, name.text.toString(), body.text.toString(), shortcut.text.toString())
                 refresh()
             }
             .setNegativeButton(R.string.cancel, null)

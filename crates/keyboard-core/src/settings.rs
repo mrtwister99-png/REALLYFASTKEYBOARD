@@ -8,7 +8,8 @@ pub const LANGUAGES: [&str; 3] = ["cs", "en", "cs+en"];
 pub const LAYOUTS: [&str; 2] = ["qwertz", "qwerty"];
 pub const KEY_PLACES: [&str; 3] = ["left", "right", "hidden"];
 pub const THEMES: [&str; 4] = ["dark", "light", "oled_black", "custom"];
-pub const GLOW_STYLES: [&str; 2] = ["blink", "fill"];
+pub const GLOW_STYLES: [&str; 3] = ["blink", "fill", "fly"];
+pub const TAP_EFFECTS: [&str; 3] = ["neon", "vanish", "paint"];
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
@@ -67,20 +68,40 @@ pub struct Settings {
     pub key_alts: BTreeMap<String, String>,
     /// Poloha male napovedy na klavese (viz HINT_POSITIONS).
     pub key_hint_pos: String,
-    /// Volna poloha male napovedy: x (0 = vlevo, 1 = vpravo), y (0 = nahore, 1 = dole).
-    /// Chybejici hodnota (-1) se odvodi ze stareho `key_hint_pos`.
+    /// Volna poloha male napovedy: x (0 = vlevo, 1 = vpravo), y (0 = nahore, 1 = dole);
+    /// mimo 0..1 (az -1..2) lezi napoveda za okrajem klavesy. Chybejici hodnota (NaN) se odvodi
+    /// ze stareho `key_hint_pos`.
     #[serde(default = "hint_unset")]
     pub key_hint_x: f32,
     #[serde(default = "hint_unset")]
     pub key_hint_y: f32,
+    /// Barva znaku napovedy ("" = automaticka podle motivu).
+    pub hint_color: String,
+    /// Velikost znaku napovedy v procentech (100 = vychozi).
+    pub hint_percent: u32,
+    /// Efekt po klepnuti na klavesu: "neon" nebo "vanish" (vypareni). Zapina ho `key_glow`.
+    pub tap_effect: String,
     /// Barva neonu po klepnuti.
     pub neon_color: String,
     /// Barva pismen po uspesnem tahu.
     pub glow_color: String,
     /// Animace pismen po uspesnem tahu: "blink" (postupne zablikani) nebo "fill" (vybarveni klaves).
     pub glow_style: String,
-    /// Mezera mezi klavesami v dp (vodorovna; svisla je 1,6x vetsi, pomer jako driv 5 : 8).
+    /// Vodorovna mezera mezi klavesami v dp.
     pub key_gap_dp: u32,
+    /// Svisla mezera mezi radky v dp. Chybejici hodnota (-1) se odvodi z `key_gap_dp` (1,6x).
+    #[serde(default = "row_gap_unset")]
+    pub row_gap_dp: i32,
+    /// Barva bubliny nad stisknutou klavesou ("" = automaticka podle motivu).
+    pub popup_color: String,
+    /// Barva listy znaku pri podrzeni klavesy ("" = automaticka podle motivu).
+    pub alts_color: String,
+    /// Cara mezi radou cislic a pismeny.
+    pub number_divider: bool,
+    /// Prohozene pozice ?123/ABC a Enter.
+    pub swap_mode_enter: bool,
+    /// Prohozene pozice Shift (nebo prepinace symbolu) a Backspace.
+    pub swap_shift_delete: bool,
     /// Velikost znaku na klavesach v procentech (100 = vychozi).
     pub key_text_percent: u32,
     /// Tlacitko emoji ve spodni rade: "left" (vlevo od mezerniku), "right" (vpravo), "hidden".
@@ -96,6 +117,19 @@ pub struct Settings {
     // --- schranka ---
     pub clipboard_enabled: bool,
     pub clipboard_ttl_minutes: u32,
+    // --- barvy klaves a pozadi navic ---
+    /// Barva znaku cislicovych klaves ("" = automaticka).
+    pub digit_text_color: String,
+    /// Barva cislicovych klaves ("" = automaticka).
+    pub digit_key_color: String,
+    /// Druha barva klaves: prechod shora (barva klavesy) dolu (tato barva); "" = vypnuto.
+    pub key_color2: String,
+    /// Druha barva pozadi: prechod shora (pozadi) dolu (tato barva); "" = vypnuto.
+    pub background_color2: String,
+    /// Tri barvy efektu "paint" (klepnuti obarvi klavesu dalsi barvou v poradi).
+    pub paint_color1: String,
+    pub paint_color2: String,
+    pub paint_color3: String,
 }
 
 impl Default for Settings {
@@ -139,10 +173,19 @@ impl Default for Settings {
             key_hint_pos: "top_right".into(),
             key_hint_x: 1.0,
             key_hint_y: 0.0,
+            hint_color: String::new(),
+            hint_percent: 100,
+            tap_effect: "neon".into(),
             neon_color: DEFAULT_ACCENT.into(),
             glow_color: DEFAULT_ACCENT.into(),
             glow_style: "blink".into(),
             key_gap_dp: 5,
+            row_gap_dp: 8,
+            popup_color: String::new(),
+            alts_color: String::new(),
+            number_divider: true,
+            swap_mode_enter: false,
+            swap_shift_delete: false,
             key_text_percent: 100,
             emoji_key: "left".into(),
             macro_key: "left".into(),
@@ -153,6 +196,13 @@ impl Default for Settings {
             gesture_pinch_resize: true,
             clipboard_enabled: true,
             clipboard_ttl_minutes: 60,
+            digit_text_color: String::new(),
+            digit_key_color: String::new(),
+            key_color2: String::new(),
+            background_color2: String::new(),
+            paint_color1: "#0080FF".into(),
+            paint_color2: "#FF5100".into(),
+            paint_color3: "#6A02E8".into(),
         }
     }
 }
@@ -168,7 +218,12 @@ pub const HINT_POSITIONS: [&str; 6] =
 
 /// Hodnota "poloha napovedy neni zadana" (pro migraci ze `key_hint_pos`).
 fn hint_unset() -> f32 {
-    -1.0
+    f32::NAN
+}
+
+/// Hodnota "mezera mezi radky neni zadana" (odvodi se z `key_gap_dp`).
+fn row_gap_unset() -> i32 {
+    -1
 }
 
 /// Jediny znak, ktery neni mezera ani ridici.
@@ -197,6 +252,15 @@ fn fix_color(value: &mut String, default: &str) {
         *value = value.to_ascii_uppercase();
     } else {
         *value = default.to_string();
+    }
+}
+
+/// Prazdna hodnota = automaticka barva; jinak platna barva, nebo prazdno.
+fn fix_optional_color(value: &mut String) {
+    if is_hex_color(value) {
+        *value = value.to_ascii_uppercase();
+    } else {
+        value.clear();
     }
 }
 
@@ -235,10 +299,18 @@ impl Settings {
         self.clipboard_ttl_minutes = self.clipboard_ttl_minutes.clamp(1, 1440);
         self.key_radius_dp = self.key_radius_dp.clamp(2, 22);
         self.key_gap_dp = self.key_gap_dp.clamp(1, 10);
+        if self.row_gap_dp < 0 {
+            self.row_gap_dp = (self.key_gap_dp as f32 * 1.6).round() as i32;
+        }
+        self.row_gap_dp = self.row_gap_dp.clamp(2, 16);
         self.key_text_percent = self.key_text_percent.clamp(70, 150);
         if !GLOW_STYLES.contains(&self.glow_style.as_str()) {
             self.glow_style = d.glow_style.clone();
         }
+        if !TAP_EFFECTS.contains(&self.tap_effect.as_str()) {
+            self.tap_effect = d.tap_effect.clone();
+        }
+        self.hint_percent = self.hint_percent.clamp(60, 180);
         self.key_map = std::mem::take(&mut self.key_map)
             .into_iter()
             .filter(|(k, v)| matches!((single_char(k), single_char(v)), (Some(a), Some(b)) if a != b))
@@ -256,7 +328,7 @@ impl Settings {
         if !HINT_POSITIONS.contains(&self.key_hint_pos.as_str()) {
             self.key_hint_pos = d.key_hint_pos.clone();
         }
-        let ok = |v: f32| v.is_finite() && (0.0..=1.0).contains(&v);
+        let ok = |v: f32| v.is_finite() && (-1.0..=2.0).contains(&v);
         if !ok(self.key_hint_x) || !ok(self.key_hint_y) {
             let (x, y) = legacy_hint_xy(&self.key_hint_pos);
             self.key_hint_x = x;
@@ -268,6 +340,16 @@ impl Settings {
         if !KEY_PLACES.contains(&self.macro_key.as_str()) {
             self.macro_key = d.macro_key.clone();
         }
+        fix_optional_color(&mut self.popup_color);
+        fix_optional_color(&mut self.alts_color);
+        fix_optional_color(&mut self.hint_color);
+        fix_optional_color(&mut self.digit_text_color);
+        fix_optional_color(&mut self.digit_key_color);
+        fix_optional_color(&mut self.key_color2);
+        fix_optional_color(&mut self.background_color2);
+        fix_color(&mut self.paint_color1, &d.paint_color1);
+        fix_color(&mut self.paint_color2, &d.paint_color2);
+        fix_color(&mut self.paint_color3, &d.paint_color3);
         fix_color(&mut self.neon_color, &d.neon_color);
         fix_color(&mut self.glow_color, &d.glow_color);
         fix_color(&mut self.accent_color, &d.accent_color);
@@ -513,6 +595,55 @@ mod tests {
     }
 
     #[test]
+    fn row_gap_default_derived_and_clamped() {
+        let s = Settings::default();
+        assert_eq!((s.key_gap_dp, s.row_gap_dp), (5, 8));
+        // stary soubor jen s key_gap_dp -> odvozeno 1,6x
+        let s = Settings::from_json(r#"{"key_gap_dp":5}"#).unwrap();
+        assert_eq!(s.row_gap_dp, 8);
+        let s = Settings::from_json(r#"{"key_gap_dp":10}"#).unwrap();
+        assert_eq!(s.row_gap_dp, 16);
+        let s = Settings::from_json(r#"{"key_gap_dp":1}"#).unwrap();
+        assert_eq!(s.row_gap_dp, 2);
+        // stary soubor bez poli
+        let s = Settings::from_json(r#"{"theme":"light"}"#).unwrap();
+        assert_eq!(s.row_gap_dp, 8);
+        // explicitni hodnota zustane
+        let s = Settings::from_json(r#"{"key_gap_dp":5,"row_gap_dp":3}"#).unwrap();
+        assert_eq!((s.key_gap_dp, s.row_gap_dp), (5, 3));
+        // mimo rozsah
+        let s = Settings::from_json(r#"{"row_gap_dp":99}"#).unwrap();
+        assert_eq!(s.row_gap_dp, 16);
+        let s = Settings::from_json(r#"{"row_gap_dp":0}"#).unwrap();
+        assert_eq!(s.row_gap_dp, 2);
+        // round-trip
+        let s2 = Settings::from_json(&s.to_json()).unwrap();
+        assert_eq!(s2.row_gap_dp, 2);
+    }
+
+    #[test]
+    fn popup_and_alts_colors() {
+        let s = Settings::default();
+        assert_eq!((s.popup_color.as_str(), s.alts_color.as_str()), ("", ""));
+        let s = Settings::from_json(r##"{"popup_color":"#ff8800","alts_color":"red"}"##).unwrap();
+        assert_eq!((s.popup_color.as_str(), s.alts_color.as_str()), ("#FF8800", ""));
+        let s = Settings::from_json(r##"{"popup_color":"","alts_color":"#12"}"##).unwrap();
+        assert_eq!((s.popup_color.as_str(), s.alts_color.as_str()), ("", ""));
+        let s = Settings::from_json(r#"{"theme":"light"}"#).unwrap();
+        assert_eq!((s.popup_color.as_str(), s.alts_color.as_str()), ("", ""));
+    }
+
+    #[test]
+    fn divider_and_swap_defaults() {
+        let s = Settings::default();
+        assert!(s.number_divider && !s.swap_mode_enter && !s.swap_shift_delete);
+        let s = Settings::from_json(r#"{"theme":"light"}"#).unwrap();
+        assert!(s.number_divider && !s.swap_mode_enter && !s.swap_shift_delete);
+        let s = Settings::from_json(r#"{"number_divider":false,"swap_mode_enter":true,"swap_shift_delete":true}"#).unwrap();
+        assert!(!s.number_divider && s.swap_mode_enter && s.swap_shift_delete);
+    }
+
+    #[test]
     fn hint_xy() {
         let s = Settings::default();
         assert_eq!((s.key_hint_x, s.key_hint_y), (1.0, 0.0));
@@ -527,11 +658,39 @@ mod tests {
         let s = Settings::from_json(r#"{"key_hint_pos":"bottom_left","key_hint_x":0.3,"key_hint_y":0.7}"#).unwrap();
         assert_eq!((s.key_hint_x, s.key_hint_y), (0.3, 0.7));
         // mimo rozsah -> zpet na stary key_hint_pos
-        let s = Settings::from_json(r#"{"key_hint_pos":"bottom_right","key_hint_x":1.5,"key_hint_y":0.2}"#).unwrap();
+        let s = Settings::from_json(r#"{"key_hint_pos":"bottom_right","key_hint_x":2.5,"key_hint_y":0.2}"#).unwrap();
+        assert_eq!((s.key_hint_x, s.key_hint_y), (1.0, 1.0));
+        let s = Settings::from_json(r#"{"key_hint_pos":"bottom_right","key_hint_x":0.5,"key_hint_y":-1.5}"#).unwrap();
         assert_eq!((s.key_hint_x, s.key_hint_y), (1.0, 1.0));
         // round-trip pres JSON
         let s2 = Settings::from_json(&s.to_json()).unwrap();
         assert_eq!((s2.key_hint_x, s2.key_hint_y), (1.0, 1.0));
+    }
+
+    #[test]
+    fn hint_xy_extended_range() {
+        // za okrajem klavesy az -1..2 (vcetne mezi)
+        let s = Settings::from_json(r#"{"key_hint_x":1.5,"key_hint_y":-0.8}"#).unwrap();
+        assert_eq!((s.key_hint_x, s.key_hint_y), (1.5, -0.8));
+        let s = Settings::from_json(r#"{"key_hint_x":-1.0,"key_hint_y":2.0}"#).unwrap();
+        assert_eq!((s.key_hint_x, s.key_hint_y), (-1.0, 2.0));
+        let s2 = Settings::from_json(&s.to_json()).unwrap();
+        assert_eq!((s2.key_hint_x, s2.key_hint_y), (-1.0, 2.0));
+        // -1 uz neni "nezadano": chybejici hodnota se stale migruje ze stareho key_hint_pos
+        let s = Settings::from_json(r#"{"key_hint_pos":"bottom_left"}"#).unwrap();
+        assert_eq!((s.key_hint_x, s.key_hint_y), (0.0, 1.0));
+    }
+
+    #[test]
+    fn hint_look_and_tap_effect() {
+        let s = Settings::default();
+        assert_eq!((s.hint_color.as_str(), s.hint_percent, s.tap_effect.as_str()), ("", 100, "neon"));
+        let s = Settings::from_json(r##"{"hint_color":"#ff8800","hint_percent":150,"tap_effect":"vanish"}"##).unwrap();
+        assert_eq!((s.hint_color.as_str(), s.hint_percent, s.tap_effect.as_str()), ("#FF8800", 150, "vanish"));
+        let s = Settings::from_json(r#"{"hint_color":"x","hint_percent":10,"tap_effect":"boom"}"#).unwrap();
+        assert_eq!((s.hint_color.as_str(), s.hint_percent, s.tap_effect.as_str()), ("", 60, "neon"));
+        let s = Settings::from_json(r#"{"hint_percent":999}"#).unwrap();
+        assert_eq!(s.hint_percent, 180);
     }
 
     #[test]
@@ -557,5 +716,35 @@ mod tests {
         s.cycle_language();
         assert_eq!(s.language, "cs+en");
         assert!(s.uses_lang("cs") && s.uses_lang("en"));
+    }
+
+    #[test]
+    fn extra_colors_and_new_styles() {
+        let s = Settings::default();
+        assert_eq!((s.digit_text_color.as_str(), s.digit_key_color.as_str()), ("", ""));
+        assert_eq!((s.key_color2.as_str(), s.background_color2.as_str()), ("", ""));
+        assert_eq!(
+            (s.paint_color1.as_str(), s.paint_color2.as_str(), s.paint_color3.as_str()),
+            ("#0080FF", "#FF5100", "#6A02E8")
+        );
+        let s = Settings::from_json(
+            r##"{"digit_text_color":"#ff0000","digit_key_color":"x","key_color2":"#00ff00",
+                "background_color2":"#12","paint_color1":"#abcdef","paint_color2":"","paint_color3":"bad",
+                "tap_effect":"paint","glow_style":"fly"}"##,
+        )
+        .unwrap();
+        assert_eq!((s.digit_text_color.as_str(), s.digit_key_color.as_str()), ("#FF0000", ""));
+        assert_eq!((s.key_color2.as_str(), s.background_color2.as_str()), ("#00FF00", ""));
+        assert_eq!(
+            (s.paint_color1.as_str(), s.paint_color2.as_str(), s.paint_color3.as_str()),
+            ("#ABCDEF", "#FF5100", "#6A02E8")
+        );
+        assert_eq!((s.tap_effect.as_str(), s.glow_style.as_str()), ("paint", "fly"));
+        let back = Settings::from_json(&s.to_json()).unwrap();
+        assert_eq!(back, s);
+        // stary soubor bez poli
+        let old = Settings::from_json(r#"{"theme":"light"}"#).unwrap();
+        assert_eq!(old.key_color2, "");
+        assert_eq!(old.paint_color2, "#FF5100");
     }
 }

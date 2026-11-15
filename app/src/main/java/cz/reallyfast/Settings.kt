@@ -39,13 +39,36 @@ class Settings(val json: JSONObject) {
     val swipeTrail: Boolean get() = json.optBoolean("swipe_trail", true)
     val swipeGlow: Boolean get() = json.optBoolean("swipe_glow", true)
     val keyGlow: Boolean get() = json.optBoolean("key_glow", true)
-    val keyHintX: Float get() = json.optDouble("key_hint_x", 1.0).toFloat().coerceIn(0f, 1f)
-    val keyHintY: Float get() = json.optDouble("key_hint_y", 0.0).toFloat().coerceIn(0f, 1f)
+    // Poloha napovedy: 0..1 = uvnitr klavesy, -1..2 = az za okraj (viz KeyboardView.drawHint).
+    val keyHintX: Float get() = json.optDouble("key_hint_x", 1.0).toFloat().coerceIn(-1f, 2f)
+    val keyHintY: Float get() = json.optDouble("key_hint_y", 0.0).toFloat().coerceIn(-1f, 2f)
+    /** Prazdny retezec = automaticka barva napovedy podle motivu. */
+    val hintColor: String get() = json.optString("hint_color", "")
+    val hintPercent: Int get() = json.optInt("hint_percent", 100).coerceIn(60, 180)
+    /** Efekt po klepnuti: "neon", "vanish" nebo "paint". */
+    val tapEffect: String get() = json.optString("tap_effect", "neon")
     val neonColor: String get() = json.optString("neon_color", "#0080FF")
     val glowColor: String get() = json.optString("glow_color", "#0080FF")
     val glowStyle: String get() = json.optString("glow_style", "blink")
     val keyGapDp: Int get() = json.optInt("key_gap_dp", 5).coerceIn(1, 10)
+    val rowGapDp: Int
+        get() {
+            val v = json.optInt("row_gap_dp", -1)
+            return (if (v < 0) Math.round(keyGapDp * 1.6f) else v).coerceIn(2, 16)
+        }
+    /** Prazdny retezec = automaticka barva podle motivu. */
+    val popupColor: String get() = json.optString("popup_color", "")
+    val altsColor: String get() = json.optString("alts_color", "")
+    val numberDivider: Boolean get() = json.optBoolean("number_divider", true)
     val keyTextPercent: Int get() = json.optInt("key_text_percent", 100).coerceIn(70, 150)
+    /** Barvy cislic a druhe barvy klaves / pozadi: prazdny retezec = automaticky / vypnuto. */
+    val digitTextColor: String get() = json.optString("digit_text_color", "")
+    val digitKeyColor: String get() = json.optString("digit_key_color", "")
+    val keyColor2: String get() = json.optString("key_color2", "")
+    val backgroundColor2: String get() = json.optString("background_color2", "")
+    val paintColor1: String get() = json.optString("paint_color1", "#0080FF")
+    val paintColor2: String get() = json.optString("paint_color2", "#FF5100")
+    val paintColor3: String get() = json.optString("paint_color3", "#6A02E8")
 
     /** Kopie k uprave (SettingsActivity). */
     fun edit(): JSONObject = JSONObject(json.toString())
@@ -85,7 +108,12 @@ class Theme(
     val accent: Int,
     val onAccent: Int,
     val isLight: Boolean,
+    /** Druha barva pozadi (prechod dolu); 0 = vypnuto. */
+    val background2: Int = 0,
 ) {
+    /** Barva pozadi dole (u prechodu druha barva): pod klavesnici a v navigacni liste. */
+    val backgroundBottom: Int get() = if (background2 != 0) background2 else background
+
     companion object {
         fun parse(hex: String, fallback: Int): Int = try {
             Color.parseColor(hex)
@@ -107,7 +135,7 @@ class Theme(
             (0.299f * Color.red(c) + 0.587f * Color.green(c) + 0.114f * Color.blue(c)) / 255f
 
         /** Barvy z konkretnich hodnot (pouziva i nahled hotovych stylu v nastaveni). */
-        fun of(bg: Int, key: Int, text: Int, accent: Int, special: Int? = null): Theme {
+        fun of(bg: Int, key: Int, text: Int, accent: Int, special: Int? = null, bg2: Int = 0): Theme {
             val light = luminance(bg) > 0.5f
             val black = 0xFF000000.toInt()
             return Theme(
@@ -124,21 +152,32 @@ class Theme(
                 accent = accent,
                 onAccent = if (luminance(accent) > 0.55f) 0xFF111113.toInt() else 0xFFFFFFFF.toInt(),
                 isLight = light,
+                background2 = bg2,
             )
+        }
+
+        // Puvodni pojmenovana temata mela rucne ladenou barvu specialnich klaves; vlastni tema se
+        // stejnymi barvami ji dostane taky, aby se po prechodu na "vzdy vlastni barvy" nic nezmenilo.
+        private fun legacySpecial(bg: Int, key: Int, text: Int): Int? = when {
+            bg == 0xFFE6E8EC.toInt() && key == 0xFFFFFFFF.toInt() && text == 0xFF15151A.toInt() -> 0xFFCBCFD8.toInt()
+            bg == 0xFF000000.toInt() && key == 0xFF17171A.toInt() && text == 0xFFF5F5F7.toInt() -> 0xFF0D0D0F.toInt()
+            bg == 0xFF101012.toInt() && key == 0xFF2A2A30.toInt() && text == 0xFFF5F5F7.toInt() -> 0xFF1C1C21.toInt()
+            else -> null
         }
 
         fun from(s: Settings): Theme {
             val accent = parse(s.accentColor, 0xFF0080FF.toInt())
+            val bg2 = parse(s.backgroundColor2, 0)
             return when (s.theme) {
-                "light" -> of(0xFFE6E8EC.toInt(), 0xFFFFFFFF.toInt(), 0xFF15151A.toInt(), accent, 0xFFCBCFD8.toInt())
-                "oled_black" -> of(0xFF000000.toInt(), 0xFF17171A.toInt(), 0xFFF5F5F7.toInt(), accent, 0xFF0D0D0F.toInt())
-                "custom" -> of(
-                    parse(s.customBackground, 0xFF111113.toInt()),
-                    parse(s.customKey, 0xFF26262B.toInt()),
-                    parse(s.customText, 0xFFF4F4F5.toInt()),
-                    accent,
-                )
-                else -> of(0xFF101012.toInt(), 0xFF2A2A30.toInt(), 0xFFF5F5F7.toInt(), accent, 0xFF1C1C21.toInt())
+                "light" -> of(0xFFE6E8EC.toInt(), 0xFFFFFFFF.toInt(), 0xFF15151A.toInt(), accent, 0xFFCBCFD8.toInt(), bg2)
+                "oled_black" -> of(0xFF000000.toInt(), 0xFF17171A.toInt(), 0xFFF5F5F7.toInt(), accent, 0xFF0D0D0F.toInt(), bg2)
+                "custom" -> {
+                    val bg = parse(s.customBackground, 0xFF111113.toInt())
+                    val key = parse(s.customKey, 0xFF26262B.toInt())
+                    val text = parse(s.customText, 0xFFF4F4F5.toInt())
+                    of(bg, key, text, accent, legacySpecial(bg, key, text), bg2)
+                }
+                else -> of(0xFF101012.toInt(), 0xFF2A2A30.toInt(), 0xFFF5F5F7.toInt(), accent, 0xFF1C1C21.toInt(), bg2)
             }
         }
     }

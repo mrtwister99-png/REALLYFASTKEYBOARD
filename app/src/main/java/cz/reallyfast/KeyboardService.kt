@@ -130,7 +130,7 @@ class KeyboardService : InputMethodService(), KeyboardView.Listener,
         theme = Theme.from(settings)
         val root = LinearLayout(this)
         root.orientation = LinearLayout.VERTICAL
-        root.setBackgroundColor(theme.background)
+        root.setBackgroundColor(theme.backgroundBottom)
         // Bublina nad klavesou a nabidka variant smi presahnout z plochy klaves nad listu navrhu.
         root.clipChildren = false
         root.clipToPadding = false
@@ -174,7 +174,7 @@ class KeyboardService : InputMethodService(), KeyboardView.Listener,
     /** Okamzita zmena tematu / velikosti / jazyka bez restartu klavesnice. */
     private fun applySettings() {
         theme = Theme.from(settings)
-        root?.setBackgroundColor(theme.background)
+        root?.setBackgroundColor(theme.backgroundBottom)
         bar?.applyTheme(theme)
         keyboard?.let {
             it.theme = theme
@@ -204,7 +204,7 @@ class KeyboardService : InputMethodService(), KeyboardView.Listener,
         try {
             val w = window?.window ?: return
             @Suppress("DEPRECATION")
-            w.navigationBarColor = theme.background
+            w.navigationBarColor = theme.backgroundBottom
             // Svetle tema -> tmave ikony v navigacni liste (a naopak).
             if (Build.VERSION.SDK_INT >= 30) {
                 val flag = android.view.WindowInsetsController.APPEARANCE_LIGHT_NAVIGATION_BARS
@@ -520,6 +520,9 @@ class KeyboardService : InputMethodService(), KeyboardView.Listener,
         ic.deleteSurroundingText(token.length, 0)
         ic.commitText(fillPlaceholders(text) + " ", 1)
         ic.endBatchEdit()
+        RustBridge.macros().firstOrNull { it.shortcut.isNotEmpty() && it.shortcut.equals(token, ignoreCase = true) }?.let {
+            if (Lantern.breathe(this, it.name, it.text, it.shortcut)) RustBridge.deleteMacro(it.id)
+        }
         return true
     }
 
@@ -552,6 +555,7 @@ class KeyboardService : InputMethodService(), KeyboardView.Listener,
         commitComposing(ic)
         ic.commitText(fillPlaceholders(m.text), 1)
         ic.endBatchEdit()
+        if (Lantern.breathe(this, m.name, m.text, m.shortcut)) RustBridge.deleteMacro(m.id)
         autoSpace = false
         updateShift()
         scheduleSuggestions()
@@ -1273,7 +1277,10 @@ class KeyboardService : InputMethodService(), KeyboardView.Listener,
         when (index) {
             KeyboardView.MENU_EMOJI -> showEmoji()
             KeyboardView.MENU_CLIPBOARD -> if (clipPanel?.visibility != View.VISIBLE) onClipboardClicked()
-            KeyboardView.MENU_SETTINGS -> openScreen(SettingsActivity::class.java)
+            KeyboardView.MENU_SETTINGS -> {
+                Lantern.fan(this)
+                openScreen(SettingsActivity::class.java)
+            }
         }
     }
 
