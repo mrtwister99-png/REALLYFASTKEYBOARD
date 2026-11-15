@@ -13,6 +13,7 @@ import android.graphics.Rect
 import android.graphics.RectF
 import android.graphics.Shader
 import android.graphics.Typeface
+import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -52,6 +53,9 @@ class KeyboardView(context: Context) : View(context) {
 
         /** Prst pres klavesu prejel behem aktualniho swipe. */
         var passed = false
+
+        /** Zacatek doznivani barvy znaku po projeti (po skonceni tahu); 0 = nedoznivaji. */
+        var passedFadeAt = 0L
 
         /** Zacatek doznivani neonu po klepnuti; 0 = nesviti, -1 = klavesa je drzena (naplno). */
         var neonAt = 0L
@@ -187,6 +191,7 @@ class KeyboardView(context: Context) : View(context) {
         private const val PAINT_FADE_MS = 1500f
         private const val TAP_TEXT_MS = 2500L
         private const val TAP_TEXT_FADE_MS = 400f
+        private const val PASSED_FADE_MS = 500f
         // Styl "slovo": pismena vzletnou z klaves, slozi slovo, chvili drzi a vybledou.
         private const val FLY_MS = 450L
         private const val FLY_HOLD_MS = 500L
@@ -340,6 +345,8 @@ class KeyboardView(context: Context) : View(context) {
     // Barva znaku pri prejeti tahem a po klepnuti (0 = automaticky / vypnuto) a zpozdeny prekres po dobe drzeni.
     private var passedTextCol = 0
     private var tapTextCol = 0
+    private var hoverTextCol = 0
+    private var hoverKey: Key? = null
     private val wake = Runnable { invalidate() }
     // Barvy cislic, druha barva klaves a pozadi (0 = vypnuto / automaticky); shadery se stavi jen pri zmene.
     private var digitTextCol = 0
@@ -441,6 +448,10 @@ class KeyboardView(context: Context) : View(context) {
         if (hintFocus && !anyHint) hintSample = keys.firstOrNull { it.kind == KIND_CHAR }
     }
 
+    private fun weightFace(weight: Int): Typeface =
+        if (Build.VERSION.SDK_INT >= 28) Typeface.create(Typeface.DEFAULT, weight, false)
+        else Typeface.create("sans-serif", if (weight >= 600) Typeface.BOLD else Typeface.NORMAL)
+
     private fun applyAppearance() {
         val s = RustBridge.settings
         animate = s.animations
@@ -467,6 +478,10 @@ class KeyboardView(context: Context) : View(context) {
             paintUndoSlot = -1
         }
         passedTextCol = Theme.parse(s.passedTextColor, 0)
+        hoverTextCol = Theme.parse(s.hoverTextColor, 0)
+        // Dva fonty znaku (pismena / cislice) se staveji jednou tady; v onDraw se jen prepina.
+        labelFace = weightFace(s.labelWeight)
+        digitFace = weightFace(s.digitWeight)
         tapTextCol = Theme.parse(s.tapTextColor, 0)
         paintCols[0] = Theme.parse(s.paintColor1, 0xFF0080FF.toInt())
         paintCols[1] = Theme.parse(s.paintColor2, 0xFFFF5100.toInt())
@@ -676,9 +691,12 @@ class KeyboardView(context: Context) : View(context) {
 
     // --- kresleni (vse predalokovano)
     private val fill = Paint(Paint.ANTI_ALIAS_FLAG)
+    private val baseFace: Typeface = Typeface.create("sans-serif", Typeface.NORMAL)
+    private var labelFace: Typeface = baseFace
+    private var digitFace: Typeface = baseFace
     private val textPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         textAlign = Paint.Align.CENTER
-        typeface = Typeface.create("sans-serif", Typeface.NORMAL)
+        typeface = baseFace
     }
     private val stroke = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style = Paint.Style.STROKE
@@ -1047,7 +1065,20 @@ class KeyboardView(context: Context) : View(context) {
                 else -> theme.text
             }
             if (paintA > 0f && !accentKey) fg = Theme.blend(fg, textOn(paintCols[pIdx]), paintA)
-            if (k.passed) fg = if (passedTextCol != 0) passedTextCol else Theme.blend(fg, theme.onAccent, 0.55f)
+            if (k.passed) {
+                fg = if (passedTextCol != 0) passedTextCol else Theme.blend(fg, theme.onAccent, 0.55f)
+                // Klavesa pod prstem ma vlastni barvu (je-li zadana), projete klavesy drzi barvu "po projeti".
+                if (hoverTextCol != 0 && k === hoverKey) fg = hoverTextCol
+            } else if (k.passedFadeAt != 0L && passedTextCol != 0) {
+                // Po skonceni tahu barva znaku po projeti vybledne zpet.
+                val f = (now - k.passedFadeAt) / PASSED_FADE_MS
+                if (f >= 1f) {
+                    k.passedFadeAt = 0L
+                } else {
+                    fg = Theme.blend(fg, passedTextCol, 1f - f)
+                    animating = true
+                }
+            }
             if (glow > 0f) fg = Theme.blend(fg, glowText, glow)
             if (fillSide >= 0) fg = Theme.blend(fg, glowText, (fillProgress * fillAlpha).coerceIn(0f, 1f))
             if (neonA > 0f) fg = Theme.blend(fg, neonText, neonA)
@@ -1073,6 +1104,7 @@ class KeyboardView(context: Context) : View(context) {
                 } else {
                     val hinted = (drawHints || hintFocus) && hintText.isNotEmpty()
                     textPaint.color = fg
+                    textPaint.typeface = if (k.isDigit) digitFace else labelFace
                     if (flyCount > 0 && flyLabel < 1f && isFlying(ki)) {
                         textPaint.color = (fg and 0x00FFFFFF) or ((255f * flyLabel).toInt().coerceIn(0, 255) shl 24)
                     }
@@ -1083,6 +1115,7 @@ class KeyboardView(context: Context) : View(context) {
                     val offX = if (labelX == 0.5f) 0f else (labelX - 0.5f) * 2f * max(0f, hw - labelSize * 0.3f - 2f * density)
                     val offY = if (labelY == 0.5f) 0f else (labelY - 0.5f) * 2f * max(0f, hh - labelSize * 0.36f - 2f * density)
                     canvas.drawText(charBuf, 0, n, cx + offX, cy + offY + shift - (textPaint.ascent() + textPaint.descent()) / 2f, textPaint)
+                    textPaint.typeface = baseFace
                 }
                 KIND_SPACE -> {
                     textPaint.color = theme.textDim
@@ -2021,9 +2054,15 @@ class KeyboardView(context: Context) : View(context) {
         handler.removeCallbacks(repeat)
         stopVoiceDelete()
         endPreview()
-        for (k in keys) k.passed = false
+        val endAt = SystemClock.uptimeMillis()
+        for (k in keys) {
+            // Projete klavesy po konci tahu doznivaji (casova znacka je predalokovana v klavese).
+            if (k.passed && touchMode == T_SWIPE && passedTextCol != 0) k.passedFadeAt = endAt
+            k.passed = false
+        }
+        hoverKey = null
         if (touchMode == T_SWIPE) {
-            trailEndedAt = SystemClock.uptimeMillis()
+            trailEndedAt = endAt
             invalidate()
         }
         press(downKey, false)
@@ -2280,14 +2319,15 @@ class KeyboardView(context: Context) : View(context) {
                     endPreview()
                     if (glowEnabled) {
                         k.passed = true
-                        keyAt(x, y)?.let { if (it.isLetter) it.passed = true }
+                        hoverKey = k
+                        keyAt(x, y)?.let { if (it.isLetter) { it.passed = true; hoverKey = it } }
                     }
                     trailCount = sampleCount
                     invalidate()
                 }
             }
             T_SWIPE -> {
-                if (glowEnabled) keyAt(x, y)?.let { if (it.isLetter) it.passed = true }
+                if (glowEnabled) keyAt(x, y)?.let { if (it.isLetter) { it.passed = true; hoverKey = it } }
                 trailCount = sampleCount
                 invalidate()
             }

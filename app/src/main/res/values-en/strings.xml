@@ -278,7 +278,10 @@
     <string name="sec_extra_chars">Characters</string>
     <string name="label_pos">Position of the main character on the key</string>
     <string name="label_adjust">Adjust character position</string>
-    <string name="passed_text_color">Character color while swiping over</string>
+    <string name="hover_text_color">Character color under the finger while swiping</string>
+    <string name="passed_text_color">Character color after passing over</string>
+    <string name="label_weight">Character weight</string>
+    <string name="digit_weight">Digit weight</string>
     <string name="tap_text_color">Character color after tap</string>
     <string name="macro_short">Macro</string>
     <string name="key_macro_title">Macro on the key</string>

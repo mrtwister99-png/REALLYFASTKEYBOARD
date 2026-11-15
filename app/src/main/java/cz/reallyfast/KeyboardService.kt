@@ -175,6 +175,8 @@ class KeyboardService : InputMethodService(), KeyboardView.Listener,
         emojiPanel = null
         clipPanel = null
         updateBarVisibility()
+        // Novy pohled listy: kdyz bezi hledani / oprava, musi se v nem znovu ukazat pole, jinak by se psalo naslepo.
+        syncBarToMode()
         return root
     }
 
@@ -288,6 +290,11 @@ class KeyboardService : InputMethodService(), KeyboardView.Listener,
     override fun onWindowShown() {
         super.onWindowShown()
         keyboard?.reloadLayout()
+    }
+
+    override fun onWindowHidden() {
+        closeSearch(false)
+        super.onWindowHidden()
     }
 
     override fun onFinishInputView(finishingInput: Boolean) {
@@ -702,7 +709,17 @@ class KeyboardService : InputMethodService(), KeyboardView.Listener,
     // ------------------------------------------------------------------ swipe
 
     override fun onSwipeWords(words: List<String>) {
-        if (words.isEmpty() || searchMode) return
+        if (words.isEmpty()) return
+        if (searchMode) {
+            // Pri oprave / pridani slova swipe nahradi napsane slovo (do vyhledavani emoji se nic nevklada).
+            if (addWordMode) {
+                searchQuery.setLength(0)
+                searchQuery.append(words[0])
+                if (shift == KeyboardView.SHIFT_ONCE) setShift(KeyboardView.SHIFT_OFF)
+                updateSearch()
+            }
+            return
+        }
         val ic = currentInputConnection ?: return
         flushSwipeLearning()
         ic.beginBatchEdit()
@@ -731,7 +748,11 @@ class KeyboardService : InputMethodService(), KeyboardView.Listener,
 
     private fun refreshSuggestions() {
         val bar = bar ?: return
-        if (searchMode || dictating) return
+        if (searchMode) {
+            syncBarToMode() // invariant: v rezimu hledani / opravy je v liste vzdy pole, nikdy navrhy
+            return
+        }
+        if (dictating) return
         if (lastSwipe != null) {
             // Po docasne hlasce (napr. "pridano do slovniku") vratit alternativy posledniho swipe.
             if (voiceStatus) {
@@ -754,6 +775,7 @@ class KeyboardService : InputMethodService(), KeyboardView.Listener,
     }
 
     override fun onSuggestionPicked(index: Int, word: String) {
+        if (searchMode) return // v liste je pole hledani / opravy, ne navrhy
         if (dictating || voiceStatus) return // v liste je stav diktovani, ne navrh
         val ic = currentInputConnection ?: return
         onPressFeedback(keyboardSpaceKey)
@@ -848,6 +870,14 @@ class KeyboardService : InputMethodService(), KeyboardView.Listener,
     // ------------------------------------------------------------------ gesta
 
     override fun onGestureAction(action: Int) {
+        if (searchMode) {
+            // Gesta se v poli hledani / opravy tykaji dotazu, ne textu v aplikaci.
+            if (action == RustBridge.ACTION_DELETE_WORD) {
+                searchQuery.setLength(0)
+                updateSearch()
+            }
+            return
+        }
         val ic = currentInputConnection ?: return
         when (action) {
             RustBridge.ACTION_DELETE_WORD -> {
@@ -883,6 +913,7 @@ class KeyboardService : InputMethodService(), KeyboardView.Listener,
 
     /** Pomaly tah po mezerniku: posun kurzoru po znacich. */
     override fun onCursorSteps(steps: Int) {
+        if (searchMode) return
         val ic = currentInputConnection ?: return
         flushSwipeLearning()
         commitComposing(ic)
@@ -958,6 +989,7 @@ class KeyboardService : InputMethodService(), KeyboardView.Listener,
     }
 
     private fun showVoiceStatus(text: String, holdMs: Long = 0) {
+        if (searchMode) return // pole hledani / opravy ma prednost, stav by se ukazal jen v neviditelne radce
         voiceStatus = true
         handler.removeCallbacks(suggestionUpdate)
         bar?.setStatus(text)
@@ -1005,7 +1037,7 @@ class KeyboardService : InputMethodService(), KeyboardView.Listener,
      * Aplikace sama nema pristup k internetu; zvuk zpracovava zvolena sluzba systemu.
      */
     override fun onVoiceStart() {
-        if (dictating || passwordField || !settings.voiceInput) return
+        if (dictating || searchMode || passwordField || !settings.voiceInput) return
         if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
             // Sluzba klavesnice o opravneni pozadat nemuze - otevre nastaveni, ktere se zepta.
             try {
@@ -1435,16 +1467,41 @@ class KeyboardService : InputMethodService(), KeyboardView.Listener,
     // ------------------------------------------------------------------ hledani emoji
 
     override fun onEmojiSearch() {
+        beginSearch(add = false, edit = false, target = null, initial = "")
+        setShift(KeyboardView.SHIFT_OFF)
+    }
+
+    /** Vstup do hledani / pridani / opravy: zrusi cekajici obnovu navrhu a vzdy ukaze pole v liste. */
+    private fun beginSearch(add: Boolean, edit: Boolean, target: SwipeCommit?, initial: String) {
+        handler.removeCallbacks(suggestionUpdate)
+        if (!dictating) {
+            voiceStatus = false
+            keyboard?.voiceLabel = ""
+        }
         searchMode = true
-        addWordMode = false
-        editWordMode = false
-        editTarget = null
+        addWordMode = add
+        editWordMode = edit
+        editTarget = target
+        lastWordTapAt = 0L
         searchQuery.setLength(0)
+        searchQuery.append(initial)
         showKeyboard()
         keyboard?.setMode(KeyboardView.MODE_LETTERS)
-        setShift(KeyboardView.SHIFT_OFF)
+        syncBarToMode()
+    }
+
+    /**
+     * Invariant: searchMode == v liste je videt pole (s krizkem). Vola se po zmene rezimu, z obnovy navrhu
+     * a po vytvoreni noveho pohledu; kdyz se rozejdou, pole se ukaze (rezim trva) nebo schova (rezim skoncil).
+     */
+    private fun syncBarToMode() {
+        val b = bar ?: return
         updateBarVisibility()
-        updateSearch()
+        if (searchMode) {
+            updateSearch()
+        } else if (b.searchShown) {
+            b.hideSearch()
+        }
     }
 
     private fun updateSearch() {
@@ -1462,16 +1519,7 @@ class KeyboardService : InputMethodService(), KeyboardView.Listener,
     /** Otevre v liste pole pro opravu slova vlozeneho swipem (predvyplnene tim slovem). */
     private fun startEditWord(ls: SwipeCommit) {
         onPressFeedback(keyboardSpaceKey)
-        searchMode = true
-        addWordMode = true
-        editWordMode = true
-        editTarget = ls
-        searchQuery.setLength(0)
-        searchQuery.append(ls.word)
-        showKeyboard()
-        keyboard?.setMode(KeyboardView.MODE_LETTERS)
-        updateBarVisibility()
-        updateSearch()
+        beginSearch(add = true, edit = true, target = ls, initial = ls.word)
     }
 
     /** Enter v rezimu opravy: zmenene slovo prepise to ze swipe, nezmenene / prazdne nic nedela. */
@@ -1516,15 +1564,7 @@ class KeyboardService : InputMethodService(), KeyboardView.Listener,
         if (word.isNotBlank()) {
             showAddWordResult(RustBridge.addUserWord(word), word)
         } else {
-            searchMode = true
-            addWordMode = true
-            editWordMode = false
-            editTarget = null
-            searchQuery.setLength(0)
-            showKeyboard()
-            keyboard?.setMode(KeyboardView.MODE_LETTERS)
-            updateBarVisibility()
-            updateSearch()
+            beginSearch(add = true, edit = false, target = null, initial = "")
         }
     }
 
@@ -1533,14 +1573,20 @@ class KeyboardService : InputMethodService(), KeyboardView.Listener,
     override fun onSearchClosed() = closeSearch(true)
 
     private fun closeSearch(refresh: Boolean) {
-        if (!searchMode) return
+        if (!searchMode) {
+            syncBarToMode() // pojistka: pole nesmi zustat videt bez rezimu
+            return
+        }
         searchMode = false
         addWordMode = false
         editWordMode = false
         editTarget = null
+        lastWordTapAt = 0L
         searchQuery.setLength(0)
-        bar?.hideSearch()
-        updateBarVisibility()
+        syncBarToMode()
+        // Alternativy posledniho swipe se vraci hned (zvyrazni se vlozene slovo), ostatni dopocita obnova navrhu.
+        val ls = lastSwipe
+        if (ls != null && swipeWords.isNotEmpty()) bar?.setSuggestions(swipeWords, swipeWords.indexOf(ls.word))
         if (refresh) {
             updateShift()
             scheduleSuggestions()

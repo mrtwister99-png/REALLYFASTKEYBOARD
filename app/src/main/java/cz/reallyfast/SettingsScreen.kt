@@ -232,7 +232,7 @@ abstract class SettingsScreen : BaseScreen() {
      * Posuvnik. `scale` = delitel (100 pro float hodnoty typu 0.5-1.5).
      * Hodnota se zapisuje uz behem tazeni, aby nahled reagoval okamzite.
      */
-    protected fun sliderRow(box: LinearLayout, labelRes: Int, key: String, min: Int, max: Int, scale: Int, format: (Int) -> String) {
+    protected fun sliderRow(box: LinearLayout, labelRes: Int, key: String, min: Int, max: Int, scale: Int, step: Int = 1, format: (Int) -> String) {
         val col = LinearLayout(this)
         col.orientation = LinearLayout.VERTICAL
         col.setPadding(0, dp(10f), 0, dp(6f))
@@ -242,16 +242,16 @@ abstract class SettingsScreen : BaseScreen() {
         head.addView(value)
         col.addView(head, rowParams())
         val seek = SeekBar(this)
-        seek.max = max - min
+        seek.max = (max - min) / step
         fun current(): Int {
             val j = RustBridge.settings.json
             return if (scale == 1) j.optInt(key, min) else Math.round(j.optDouble(key, min.toDouble() / scale) * scale).toInt()
         }
-        seek.progress = current() - min
+        seek.progress = (current() - min) / step
         value.text = format(current())
         seek.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
             override fun onProgressChanged(sb: SeekBar, progress: Int, fromUser: Boolean) {
-                val v = progress + min
+                val v = progress * step + min
                 value.text = format(v)
                 if (fromUser && v != current()) {
                     if (scale == 1) update(key, v) else update(key, v.toDouble() / scale)
@@ -265,7 +265,7 @@ abstract class SettingsScreen : BaseScreen() {
         box.addView(col, rowParams())
         refreshers.add {
             val v = current()
-            if (seek.progress != v - min) seek.progress = v - min
+            if (seek.progress != (v - min) / step) seek.progress = (v - min) / step
             value.text = format(v)
         }
     }

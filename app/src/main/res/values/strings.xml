@@ -285,7 +285,10 @@
     <string name="sec_extra_chars">Znaky</string>
     <string name="label_pos">Pozice hlavního znaku na klávese</string>
     <string name="label_adjust">Nastavit pozici znaku</string>
-    <string name="passed_text_color">Barva znaku při přejetí</string>
+    <string name="hover_text_color">Barva znaku pod prstem při tahu</string>
+    <string name="passed_text_color">Barva znaku po projetí</string>
+    <string name="label_weight">Tloušťka znaků</string>
+    <string name="digit_weight">Tloušťka číslic</string>
     <string name="tap_text_color">Barva znaku po klepnutí</string>
     <string name="macro_short">Makro</string>
     <string name="key_macro_title">Makro na klávese</string>

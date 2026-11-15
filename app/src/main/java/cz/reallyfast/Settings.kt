@@ -76,6 +76,10 @@ class Settings(val json: JSONObject) {
     /** Prazdny retezec = automaticka barva znaku pri prejeti tahem / vypnuta barva znaku po klepnuti. */
     val passedTextColor: String get() = json.optString("passed_text_color", "")
     val tapTextColor: String get() = json.optString("tap_text_color", "")
+    val hoverTextColor: String get() = json.optString("hover_text_color", "")
+    /** Tloustka pisma znaku a cislic na klavesach: 100..900 po 100 (400 = normalni). */
+    val labelWeight: Int get() = (json.optInt("label_weight", 400) / 100 * 100).coerceIn(100, 900)
+    val digitWeight: Int get() = (json.optInt("digit_weight", 400) / 100 * 100).coerceIn(100, 900)
 
     /** Makra prirazena klavesam: puvodni kod pozice (`Key.src`) -> id makra. Sestavi se jednou pro kazde nastaveni. */
     val keyMacros: SparseIntArray by lazy {

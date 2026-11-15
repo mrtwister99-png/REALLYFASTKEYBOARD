@@ -137,6 +137,11 @@ pub struct Settings {
     pub passed_text_color: String,
     /// Barva znaku po klepnuti ("" = vypnuto).
     pub tap_text_color: String,
+    /// Barva znaku klavesy primo pod prstem pri tahu ("" = automaticka).
+    pub hover_text_color: String,
+    /// Tloustka pisma znaku (pismena) a cislic: 100..900 po 100 (400 = normalni).
+    pub label_weight: u32,
+    pub digit_weight: u32,
     /// Makro prirazene primo klavese: puvodni znak pozice -> id makra.
     pub key_macros: BTreeMap<String, u32>,
 }
@@ -216,9 +221,17 @@ impl Default for Settings {
             key_label_y: 0.5,
             passed_text_color: String::new(),
             tap_text_color: String::new(),
+            hover_text_color: String::new(),
+            label_weight: 400,
+            digit_weight: 400,
             key_macros: BTreeMap::new(),
         }
     }
+}
+
+/// Zaokrouhli tloustku pisma na nejblizsi stovku a omezi na 100..900.
+fn round_weight(w: u32) -> u32 {
+    (w.saturating_add(50) / 100 * 100).clamp(100, 900)
 }
 
 /// Nejvyse tolik premapovanych klaves se drzi v nastaveni.
@@ -372,6 +385,9 @@ impl Settings {
         fix_optional_color(&mut self.hint_color);
         fix_optional_color(&mut self.passed_text_color);
         fix_optional_color(&mut self.tap_text_color);
+        fix_optional_color(&mut self.hover_text_color);
+        self.label_weight = round_weight(self.label_weight);
+        self.digit_weight = round_weight(self.digit_weight);
         fix_optional_color(&mut self.digit_text_color);
         fix_optional_color(&mut self.digit_key_color);
         fix_optional_color(&mut self.key_color2);
@@ -775,6 +791,20 @@ mod tests {
         let old = Settings::from_json(r#"{"theme":"light"}"#).unwrap();
         assert_eq!(old.key_color2, "");
         assert_eq!(old.paint_color2, "#FF5100");
+    }
+
+    #[test]
+    fn font_weights_and_hover_color() {
+        let s = Settings::default();
+        assert_eq!((s.label_weight, s.digit_weight, s.hover_text_color.as_str()), (400, 400, ""));
+        let s = Settings::from_json(r##"{"label_weight":640,"digit_weight":349,"hover_text_color":"#00ff00"}"##).unwrap();
+        assert_eq!((s.label_weight, s.digit_weight, s.hover_text_color.as_str()), (600, 300, "#00FF00"));
+        let s = Settings::from_json(r##"{"label_weight":0,"digit_weight":4000000000,"hover_text_color":"bad"}"##).unwrap();
+        assert_eq!((s.label_weight, s.digit_weight, s.hover_text_color.as_str()), (100, 900, ""));
+        let s = Settings::from_json(r#"{"theme":"light"}"#).unwrap();
+        assert_eq!((s.label_weight, s.digit_weight), (400, 400));
+        let back = Settings::from_json(&s.to_json()).unwrap();
+        assert_eq!(back, s);
     }
 
     #[test]

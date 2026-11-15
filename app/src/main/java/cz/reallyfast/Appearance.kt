@@ -554,8 +554,11 @@ class AppearanceActivity : SettingsScreen() {
         labelRow.addView(labelAdjust, llp)
         labelAdjustButton = labelAdjust
         box.addView(labelRow, rowParams())
+        colorRow(box, R.string.hover_text_color, "hover_text_color", allowAuto = true)
         colorRow(box, R.string.passed_text_color, "passed_text_color", allowAuto = true)
         colorRow(box, R.string.tap_text_color, "tap_text_color", allowAuto = true)
+        sliderRow(box, R.string.label_weight, "label_weight", 100, 900, 1, 100) { it.toString() }
+        sliderRow(box, R.string.digit_weight, "digit_weight", 100, 900, 1, 100) { it.toString() }
     }
 
     private fun buildMain(tabBox: LinearLayout) {

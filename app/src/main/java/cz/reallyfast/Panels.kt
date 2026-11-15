@@ -308,6 +308,9 @@ class SuggestionBar(context: Context, private var theme: Theme, private val call
         }
     }
 
+    /** Je v liste videt pole hledani / opravy (s krizkem)? */
+    val searchShown: Boolean get() = searchRow.visibility == VISIBLE
+
     fun hideSearch() {
         searchRow.visibility = GONE
         normalRow.visibility = VISIBLE
