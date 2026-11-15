@@ -40,7 +40,8 @@ class Settings(val json: JSONObject) {
     val swipeTrail: Boolean get() = json.optBoolean("swipe_trail", true)
     val swipeGlow: Boolean get() = json.optBoolean("swipe_glow", true)
     val keyGlow: Boolean get() = json.optBoolean("key_glow", true)
-    val keyHintPos: String get() = json.optString("key_hint_pos", "top_right")
+    val keyHintX: Float get() = json.optDouble("key_hint_x", 1.0).toFloat().coerceIn(0f, 1f)
+    val keyHintY: Float get() = json.optDouble("key_hint_y", 0.0).toFloat().coerceIn(0f, 1f)
     val neonColor: String get() = json.optString("neon_color", "#59ACFF")
     val glowColor: String get() = json.optString("glow_color", "#FFD60A")
 

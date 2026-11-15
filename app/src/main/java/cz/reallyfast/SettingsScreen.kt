@@ -9,6 +9,7 @@ import android.graphics.RectF
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
+import android.os.SystemClock
 import android.text.InputType
 import android.view.Gravity
 import android.view.View
@@ -18,7 +19,6 @@ import android.widget.FrameLayout
 import android.widget.HorizontalScrollView
 import android.widget.LinearLayout
 import android.widget.SeekBar
-import android.widget.Switch
 import android.widget.TextView
 
 /** Hotovy styl: tema + barvy, ktere se nastavi jednim klepnutim. */
@@ -133,13 +133,16 @@ abstract class SettingsScreen : BaseScreen() {
 
     // ------------------------------------------------------------------ stavebni prvky
 
-    /** Prepinac; s `onHelp` je mezi popiskem a prepinacem kulate "?" s vlastnim cilem klepnuti. */
-    protected fun switchRow(box: LinearLayout, labelRes: Int, key: String, onHelp: (() -> Unit)? = null) {
+    /**
+     * Prepinac. S `helpRes` je mezi popiskem a prepinacem kulate "?"; klepnuti otevre nad nim
+     * bublinu s napovedou, ktera se po `helpMs` (nebo klepnutim kamkoli) zase zasune.
+     */
+    protected fun switchRow(box: LinearLayout, labelRes: Int, key: String, helpRes: Int = 0, helpMs: Long = 5000) {
         val row = LinearLayout(this)
         row.gravity = Gravity.CENTER_VERTICAL
         row.minimumHeight = dp(52f)
         row.addView(label(getString(labelRes)), LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
-        if (onHelp != null) {
+        if (helpRes != 0) {
             val circle = TextView(this)
             circle.text = "?"
             circle.gravity = Gravity.CENTER
@@ -152,20 +155,35 @@ abstract class SettingsScreen : BaseScreen() {
                 setStroke(dp(1.5f), dim)
             }
             val hit = FrameLayout(this)
-            hit.contentDescription = getString(R.string.clipboard_help)
+            hit.contentDescription = getString(helpRes)
             hit.addView(circle, FrameLayout.LayoutParams(dp(24f), dp(24f), Gravity.CENTER))
-            hit.setOnClickListener { onHelp() }
+            var help: Bubble? = null
+            hit.setOnClickListener {
+                val old = help
+                // Klepnuti na "?" pri otevrene bubline ji jen zavre (zavrela se uz pri dotyku).
+                if (old != null && (old.isShowing || SystemClock.uptimeMillis() - old.hideStartedAt < 500)) return@setOnClickListener
+                val tv = label(getString(helpRes), 13.5f)
+                tv.setPadding(dp(12f), dp(12f), dp(12f), dp(12f))
+                val bubble = Bubble(this, tv, passThrough = true, autoHideMs = helpMs)
+                help = bubble
+                bubble.show(bubble.anchorOf(circle))
+            }
             row.addView(hit, LinearLayout.LayoutParams(dp(44f), dp(44f)))
         }
-        val sw = Switch(this)
-        sw.isChecked = RustBridge.settings.json.optBoolean(key)
-        sw.setOnCheckedChangeListener { _, checked ->
+        val sw = ToggleView(this)
+        sw.accentColor = accent
+        sw.contentDescription = getString(labelRes)
+        sw.setChecked(RustBridge.settings.json.optBoolean(key), false)
+        sw.onChange = { checked ->
             if (RustBridge.settings.json.optBoolean(key) != checked) update(key, checked)
         }
         row.addView(sw)
         row.setOnClickListener { sw.toggle() }
         box.addView(row, rowParams())
-        refreshers.add { sw.isChecked = RustBridge.settings.json.optBoolean(key) }
+        refreshers.add {
+            sw.accentColor = accent
+            sw.setChecked(RustBridge.settings.json.optBoolean(key), false)
+        }
     }
 
     /**

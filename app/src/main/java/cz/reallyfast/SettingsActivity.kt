@@ -124,12 +124,7 @@ class SettingsActivity : SettingsScreen() {
 
         // Schranka
         box = section(container, getString(R.string.sec_clipboard))
-        switchRow(box, R.string.clipboard_enabled, "clipboard_enabled", onHelp = {
-            AlertDialog.Builder(this)
-                .setMessage(R.string.clipboard_help)
-                .setPositiveButton(R.string.ok, null)
-                .show()
-        })
+        switchRow(box, R.string.clipboard_enabled, "clipboard_enabled", R.string.clipboard_help, 5000)
         sliderRow(box, R.string.clipboard_ttl, "clipboard_ttl_minutes", 5, 240, 1) { getString(R.string.unit_minutes, it) }
         buttonRow(box, getString(R.string.clipboard_clear), danger) {
             AlertDialog.Builder(this)
@@ -158,8 +153,7 @@ class SettingsActivity : SettingsScreen() {
             @Suppress("DEPRECATION") startActivityForResult(i, REQ_BACKUP_IMPORT)
         }
         hintText(box, getString(R.string.backup_hint))
-        switchRow(box, R.string.swipe_log, "swipe_log")
-        hintText(box, getString(R.string.swipe_log_hint))
+        switchRow(box, R.string.swipe_log, "swipe_log", R.string.swipe_log_hint, 10000)
         swipeLogButton = buttonRow(box, getString(R.string.swipe_log_export, RustBridge.swipeLogCount()), accent) {
             val i = Intent(Intent.ACTION_CREATE_DOCUMENT)
             i.addCategory(Intent.CATEGORY_OPENABLE)
@@ -188,6 +182,16 @@ class SettingsActivity : SettingsScreen() {
         }
 
         updateStatus()
+    }
+
+    /** Systemove zpet na hlavni obrazovce se nejdriv zepta (bublina se zavira driv, v BaseScreen). */
+    override fun onBackRequested(): Boolean {
+        AlertDialog.Builder(this)
+            .setMessage(R.string.leave_settings_confirm)
+            .setPositiveButton(R.string.leave) { _, _ -> finish() }
+            .setNegativeButton(R.string.stay, null)
+            .show()
+        return true
     }
 
     private fun updateSwipeLogButton() {

@@ -1,44 +1,74 @@
 package cz.reallyfast
 
+import android.annotation.SuppressLint
 import android.app.AlertDialog
-import android.graphics.Color
+import android.content.Context
+import android.graphics.Canvas
+import android.graphics.Paint
+import android.graphics.Rect
+import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.os.Build
 import android.os.Bundle
+import android.text.InputFilter
 import android.text.InputType
 import android.view.Gravity
+import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
+import android.view.ViewTreeObserver
 import android.view.WindowInsets
-import android.widget.Button
+import android.view.inputmethod.InputMethodManager
 import android.widget.EditText
+import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
 import android.widget.Toast
 import org.json.JSONObject
+import kotlin.math.hypot
+import kotlin.math.max
 
 /**
  * Vzhled a rozlozeni. Dole je pripnuty zivy nahled klavesnice ve skutecne velikosti.
  * Zalozka "Vzhled": barvy, tvar a efekty (nahled neni interaktivni).
  * Zalozka "Jazyk a rozlozeni": jazyk, spodni rada a znaky na klavesach; klepnuti na klavesu
- * v nahledu otevre volbu znaku. Zmena se ulozi do nastaveni (`key_map`, `key_alts`)
- * a Rust ji pouzije v rozlozeni i v swipe decoderu.
+ * v nahledu otevre nad ni bublinu s editorem znaku. Zmena se ulozi do nastaveni (`key_map`,
+ * `key_alts`) a Rust ji pouzije v rozlozeni i v swipe decoderu.
+ * Tlacitko TEST zapne zkusebni rezim nahledu (klavesy reaguji, nic se nepise).
+ * "Nastavit" u male napovedy zapne nad klavesnici ovladac polohy napovedy.
  */
 class AppearanceActivity : SettingsScreen() {
 
     private lateinit var preview: KeyboardView
     private lateinit var previewBox: LinearLayout
+    private lateinit var rootView: View
+    private lateinit var testButton: TextView
+    private lateinit var hintPanel: FrameLayout
+    private lateinit var hintPad: HintPad
+    private lateinit var hintSave: TextView
     private lateinit var lookTab: LinearLayout
     private lateinit var layoutTab: LinearLayout
+    private var hintAdjustButton: TextView? = null
     private var customColors: LinearLayout? = null
     private var statusView: TextView? = null
     private var cancelSwapView: TextView? = null
     private val tabPills = ArrayList<TextView>()
     private val pills = ArrayList<TextView>()
-    private val hintPills = ArrayList<TextView>()
     private var shownMode = KeyboardView.MODE_LETTERS
     private var tab = 0
+
+    private var testMode = false
+    private var adjusting = false
+    private var saving = false
+    private var adjX = 1f
+    private var adjY = 0f
+
+    /** Editor znaku (bublina nad klavesou) a kotva klavesy v okne - nahled se muze schovat za klavesnici. */
+    private var editor: Bubble? = null
+    private var editorKey: KeyboardView.Key? = null
+    private val editorKeyRect = Rect()
+    private val editorLayoutListener = ViewTreeObserver.OnGlobalLayoutListener { repositionEditor() }
 
     /** Cekajici prohozeni: puvodni kod pozice prvni klavesy a znak, ktery na ni ted je. */
     private var pendingSrc = -1
@@ -59,16 +89,54 @@ class AppearanceActivity : SettingsScreen() {
         // Zivy nahled: pripnuty dole, ve skutecne velikosti klavesnice.
         val box = LinearLayout(this)
         box.orientation = LinearLayout.VERTICAL
+        val captionRow = LinearLayout(this)
+        captionRow.gravity = Gravity.CENTER_VERTICAL
+        captionRow.setPadding(dp(22f), dp(8f), dp(16f), dp(6f))
         val caption = label(getString(R.string.preview).uppercase(), 11f, dim)
         caption.letterSpacing = 0.08f
-        caption.setPadding(dp(22f), dp(8f), 0, dp(6f))
-        box.addView(caption)
+        captionRow.addView(caption, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+        val test = label(getString(R.string.preview_test), 11f)
+        test.typeface = Typeface.DEFAULT_BOLD
+        test.letterSpacing = 0.08f
+        test.gravity = Gravity.CENTER
+        test.setPadding(dp(14f), dp(5f), dp(14f), dp(5f))
+        test.setOnClickListener { if (testMode) stopTest() else startTest() }
+        captionRow.addView(test)
+        testButton = test
+        box.addView(captionRow, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+
+        // Ovladac polohy male napovedy (jen v rezimu nastavovani): kruh s kulickou + tlacitko Ulozit.
+        val panel = FrameLayout(this)
+        panel.visibility = View.GONE
+        val pad = HintPad(this) { x, y ->
+            adjX = x
+            adjY = y
+            preview.setHintOverride(x, y)
+        }
+        panel.addView(pad, FrameLayout.LayoutParams(dp(156f), dp(156f), Gravity.CENTER))
+        val save = label(getString(R.string.save), 15f, GREEN)
+        save.typeface = Typeface.DEFAULT_BOLD
+        save.gravity = Gravity.CENTER
+        save.setPadding(dp(22f), dp(11f), dp(22f), dp(11f))
+        save.background = outline(GREEN)
+        save.setOnClickListener { saveHint() }
+        val slp = FrameLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.END or Gravity.CENTER_VERTICAL)
+        slp.rightMargin = dp(22f)
+        panel.addView(save, slp)
+        box.addView(panel, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(170f)))
+        hintPanel = panel
+        hintPad = pad
+        hintSave = save
+
         val kv = KeyboardView(this)
         kv.preview = true
+        kv.swipeAllowed = false
+        kv.voiceAllowed = false
         box.addView(kv, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
         root.addView(box, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
         preview = kv
         previewBox = box
+        rootView = root
         updatePreview()
 
         // Kdyz je otevrena skutecna klavesnice, nahled se schova - je videt ta prava.
@@ -82,6 +150,18 @@ class AppearanceActivity : SettingsScreen() {
         setContentView(root)
         build(container)
         showTab(0)
+    }
+
+    override fun onPause() {
+        // Odejiti z obrazovky ukonci nastavovani napovedy (bez ulozeni) i zkusebni rezim.
+        if (adjusting) finishAdjust()
+        if (testMode) stopTest()
+        super.onPause()
+    }
+
+    override fun onDestroy() {
+        removeEditorListener()
+        super.onDestroy()
     }
 
     // ------------------------------------------------------------------ nahled a zalozky
@@ -111,6 +191,9 @@ class AppearanceActivity : SettingsScreen() {
     }
 
     private fun showTab(i: Int) {
+        if (adjusting) finishAdjust()
+        if (testMode) stopTest()
+        currentBubble?.hide(immediate = true)
         if (i == 0 && tab == 1) {
             cancelSwap()
             shownMode = KeyboardView.MODE_LETTERS
@@ -119,8 +202,93 @@ class AppearanceActivity : SettingsScreen() {
         tab = i
         lookTab.visibility = if (i == 0) View.VISIBLE else View.GONE
         layoutTab.visibility = if (i == 1) View.VISIBLE else View.GONE
-        preview.onKeyPick = if (i == 1) { key -> onPick(key) } else null
+        applyPickMode()
         paintPills()
+    }
+
+    /** Vyber klavesy v nahledu funguje jen na zalozce rozlozeni, mimo zkusebni rezim a nastavovani napovedy. */
+    private fun applyPickMode() {
+        preview.onKeyPick = if (tab == 1 && !testMode && !adjusting) { key -> onPick(key) } else null
+    }
+
+    // ------------------------------------------------------------------ zkusebni rezim nahledu
+
+    private fun startTest() {
+        if (adjusting) return
+        currentBubble?.hide(immediate = true)
+        testMode = true
+        preview.listener = null
+        preview.previewTouch = true
+        applyPickMode()
+        testButton.text = getString(R.string.preview_back)
+        paintPills()
+    }
+
+    private fun stopTest() {
+        testMode = false
+        preview.previewTouch = false
+        applyPickMode()
+        testButton.text = getString(R.string.preview_test)
+        paintPills()
+    }
+
+    // ------------------------------------------------------------------ poloha male napovedy
+
+    private fun startAdjust() {
+        if (adjusting) return
+        if (testMode) stopTest()
+        currentBubble?.hide(immediate = true)
+        cancelSwap()
+        adjusting = true
+        saving = false
+        applyPickMode()
+        if (shownMode != KeyboardView.MODE_LETTERS) {
+            shownMode = KeyboardView.MODE_LETTERS
+            preview.setMode(KeyboardView.MODE_LETTERS)
+        }
+        val s = RustBridge.settings
+        adjX = s.keyHintX
+        adjY = s.keyHintY
+        hintPad.setHint(adjX, adjY)
+        preview.setHintOverride(adjX, adjY)
+        preview.hintFocus = true
+        testButton.visibility = View.GONE
+        hintAdjustButton?.text = getString(R.string.cancel)
+        hintPanel.visibility = View.VISIBLE
+        // Tlacitko Ulozit pritece zprava zpoza okraje obrazovky.
+        hintSave.animate().cancel()
+        hintSave.translationX = resources.displayMetrics.widthPixels.toFloat()
+        hintSave.animate().translationX(0f).setDuration(250).start()
+        paintPills()
+    }
+
+    /** Ukonci rezim nastavovani (pri ulozeni jsou hodnoty zapsane uz predtim). */
+    private fun finishAdjust() {
+        if (!adjusting) return
+        adjusting = false
+        saving = false
+        hintSave.animate().cancel()
+        hintSave.translationX = 0f
+        hintPanel.visibility = View.GONE
+        preview.hintFocus = false
+        preview.clearHintOverride()
+        testButton.visibility = View.VISIBLE
+        hintAdjustButton?.text = getString(R.string.hint_adjust)
+        applyPickMode()
+        paintPills()
+    }
+
+    private fun saveHint() {
+        if (!adjusting || saving) return
+        saving = true
+        val j = RustBridge.settings.edit()
+        j.put("key_hint_x", Math.round(adjX * 1000f) / 1000.0)
+        j.put("key_hint_y", Math.round(adjY * 1000f) / 1000.0)
+        RustBridge.setSettings(j)
+        // Tlacitko nejdriv odjede doprava za okraj, az pak se obrazovka vrati do normalu.
+        hintSave.animate().cancel()
+        hintSave.animate().translationX(resources.displayMetrics.widthPixels.toFloat()).setDuration(250)
+            .withEndAction { finishAdjust() }.start()
     }
 
     // ------------------------------------------------------------------ obsah
@@ -215,6 +383,8 @@ class AppearanceActivity : SettingsScreen() {
             p.gravity = Gravity.CENTER
             p.setPadding(dp(4f), dp(10f), dp(4f), dp(10f))
             p.setOnClickListener {
+                if (adjusting) return@setOnClickListener // pri nastavovani napovedy zustavaji pismena
+                currentBubble?.hide(immediate = true)
                 shownMode = m.first
                 preview.setMode(m.first)
                 paintPills()
@@ -229,28 +399,18 @@ class AppearanceActivity : SettingsScreen() {
         rlp.bottomMargin = dp(6f)
         box.addView(row, rlp)
 
-        // Poloha male napovedy: dva radky po trech.
-        box.addView(
-            label(getString(R.string.layout_hint_pos), 14f, dim).also { it.setPadding(0, dp(8f), 0, dp(2f)) },
-            rowParams(),
-        )
-        for (r in 0 until 2) {
-            val hr = LinearLayout(this)
-            for (c in 0 until 3) {
-                val idx = r * 3 + c
-                val p = label(getString(HINT_LABELS[idx]), 14f)
-                p.gravity = Gravity.CENTER
-                p.setPadding(dp(4f), dp(10f), dp(4f), dp(10f))
-                p.setOnClickListener { update("key_hint_pos", HINT_POS[idx]) }
-                hintPills.add(p)
-                val lp = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
-                if (c > 0) lp.leftMargin = dp(6f)
-                hr.addView(p, lp)
-            }
-            val hlp = rowParams()
-            hlp.topMargin = dp(6f)
-            box.addView(hr, hlp)
-        }
+        // Poloha male napovedy: popisek + tlacitko, ktere zapne nastavovani nad klavesnici.
+        val hintRow = LinearLayout(this)
+        hintRow.gravity = Gravity.CENTER_VERTICAL
+        hintRow.minimumHeight = dp(48f)
+        hintRow.addView(label(getString(R.string.layout_hint_pos), 14f, dim), LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+        val adjust = label(getString(R.string.hint_adjust), 15f, accent)
+        adjust.typeface = Typeface.DEFAULT_BOLD
+        adjust.setPadding(dp(14f), dp(10f), 0, dp(10f))
+        adjust.setOnClickListener { if (adjusting) finishAdjust() else startAdjust() }
+        hintRow.addView(adjust)
+        hintAdjustButton = adjust
+        box.addView(hintRow, rowParams())
 
         statusView = label("", 14f, dim).also {
             it.setPadding(0, dp(10f), 0, dp(6f))
@@ -281,8 +441,10 @@ class AppearanceActivity : SettingsScreen() {
         for ((i, p) in tabPills.withIndex()) paint(p, i == tab)
         val order = listOf(KeyboardView.MODE_LETTERS, KeyboardView.MODE_SYMBOLS, KeyboardView.MODE_SYMBOLS2)
         for ((i, p) in pills.withIndex()) paint(p, order[i] == shownMode)
-        val cur = RustBridge.settings.keyHintPos
-        for ((i, p) in hintPills.withIndex()) paint(p, HINT_POS[i] == cur)
+        // Tlacitko TEST je maly "pill" (plne zaobleny).
+        testButton.background = rounded(if (testMode) a else field, dp(50f).toFloat())
+        testButton.setTextColor(if (testMode) onA else text)
+        hintAdjustButton?.setTextColor(a)
     }
 
     private fun updateStatus() {
@@ -355,75 +517,178 @@ class AppearanceActivity : SettingsScreen() {
         askChar(key)
     }
 
+    // ------------------------------------------------------------------ editor klavesy (bublina)
+
+    private fun outline(color: Int) = GradientDrawable().apply {
+        setColor(0)
+        setStroke(dp(1.5f), color)
+        cornerRadius = dp(10f).toFloat()
+    }
+
+    /** Tlacitko editoru: pruhledne s barevnym obrysem a barevnym textem. */
+    private fun outlinedButton(textRes: Int, color: Int, onClick: () -> Unit): TextView {
+        val b = label(getString(textRes), 14f, color)
+        b.typeface = Typeface.DEFAULT_BOLD
+        b.gravity = Gravity.CENTER
+        b.setPadding(dp(4f), dp(10f), dp(4f), dp(10f))
+        b.background = outline(color)
+        b.setOnClickListener { onClick() }
+        return b
+    }
+
+    private fun keyRectInWindow(key: KeyboardView.Key): Rect {
+        val loc = IntArray(2)
+        preview.getLocationInWindow(loc)
+        return Rect(
+            loc[0] + key.vx.toInt(), loc[1] + key.y.toInt(),
+            loc[0] + (key.vx + key.vw).toInt(), loc[1] + (key.y + key.h).toInt(),
+        )
+    }
+
     private fun askChar(key: KeyboardView.Key) {
-        val et = EditText(this)
-        et.setTextColor(text)
-        et.setHintTextColor(dim)
-        et.hint = getString(R.string.layout_char_hint)
-        et.inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS
-        et.setSingleLine(true)
-        et.setText(key.label)
-        et.selectAll()
-        val alts = EditText(this)
-        alts.setTextColor(text)
-        alts.setHintTextColor(dim)
-        alts.hint = getString(R.string.layout_alts_hint)
-        alts.inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS
-        alts.setSingleLine(true)
-        alts.setText(key.alts)
+        val theme = preview.theme
+        val preAlts = key.alts.take(MAX_ALTS_EDIT)
+
+        // Levy sloupec: "Klik" + pole vypadajici jako klavesa.
+        val keyW = max(dp(44f), (key.vw - dp(5f)).toInt())
+        val keyH = max(dp(44f), (key.h - dp(8f)).toInt())
+        val charEdit = EditText(this)
+        charEdit.background = rounded(theme.key, RustBridge.settings.keyRadiusDp * resources.displayMetrics.density)
+        charEdit.setTextColor(theme.text)
+        charEdit.setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, 20f)
+        charEdit.typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
+        charEdit.gravity = Gravity.CENTER
+        charEdit.setPadding(0, 0, 0, 0)
+        charEdit.setSingleLine(true)
+        charEdit.inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS
+        charEdit.filters = arrayOf(InputFilter.LengthFilter(1))
+        charEdit.setSelectAllOnFocus(true)
+        charEdit.setText(key.label)
+        val left = LinearLayout(this)
+        left.orientation = LinearLayout.VERTICAL
+        left.addView(label(getString(R.string.key_editor_click), 12f, dim).also { it.setPadding(0, 0, 0, dp(4f)) })
+        left.addView(charEdit, LinearLayout.LayoutParams(keyW, keyH))
+
+        // Pravy sloupec: "Podrz" + pole pro znaky pri podrzeni.
+        val altsEdit = EditText(this)
+        altsEdit.background = rounded(field, dp(10f).toFloat())
+        altsEdit.setTextColor(text)
+        altsEdit.setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, 16f)
+        altsEdit.setPadding(dp(10f), dp(10f), dp(10f), dp(10f))
+        altsEdit.setSingleLine(true)
+        altsEdit.inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS
+        altsEdit.filters = arrayOf(InputFilter.LengthFilter(MAX_ALTS_EDIT))
+        altsEdit.setText(preAlts)
+        val right = LinearLayout(this)
+        right.orientation = LinearLayout.VERTICAL
+        right.addView(label(getString(R.string.key_editor_hold), 12f, dim).also { it.setPadding(0, 0, 0, dp(4f)) })
+        right.addView(altsEdit, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, keyH))
+
+        val top = LinearLayout(this)
+        top.addView(left, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+        val rlp = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
+        rlp.leftMargin = dp(12f)
+        top.addView(right, rlp)
+
+        // Tlacitka: Prohodit / Puvodni / Ulozit.
+        val buttons = LinearLayout(this)
+        fun add(b: TextView, first: Boolean) {
+            val lp = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
+            if (!first) lp.leftMargin = dp(8f)
+            buttons.addView(b, lp)
+        }
+        add(outlinedButton(R.string.swap_short, BLUE) {
+            closeEditor()
+            pendingSrc = key.src
+            pendingChar = key.label
+            preview.markedSrc = key.src
+            updateStatus()
+        }, true)
+        add(outlinedButton(R.string.original_short, ORANGE) {
+            closeEditor()
+            val map = readMap()
+            val altsMap = readAlts()
+            map.remove(srcString(key))
+            altsMap.remove(srcString(key))
+            writeMaps(map, altsMap)
+        }, false)
+        add(outlinedButton(R.string.save, GREEN) {
+            val typedAlts = altsEdit.text.toString()
+            // Nezmenene pole zustane beze zmeny (vychozi varianty delsi nez 5 se tak neorezou).
+            val outAlts = if (typedAlts == preAlts) key.alts else typedAlts
+            if (saveChar(key, charEdit.text.toString().trim(), outAlts, key.alts)) closeEditor()
+        }, false)
+
         val form = LinearLayout(this)
         form.orientation = LinearLayout.VERTICAL
-        form.setPadding(dp(20f), dp(12f), dp(20f), 0)
-        form.addView(et, rowParams())
-        form.addView(
-            label(getString(R.string.layout_alts_label), 13f, dim).also { it.setPadding(0, dp(12f), 0, 0) },
-            rowParams(),
-        )
-        form.addView(alts, rowParams())
-        val dialog = AlertDialog.Builder(this)
-            .setTitle(key.label)
-            .setView(form)
-            .setPositiveButton(R.string.save) { _, _ -> saveChar(key, et.text.toString().trim(), alts.text.toString(), key.alts) }
-            .setNeutralButton(R.string.layout_swap) { _, _ ->
-                pendingSrc = key.src
-                pendingChar = key.label
-                preview.markedSrc = key.src
-                updateStatus()
-            }
-            .setNegativeButton(R.string.layout_original) { _, _ ->
-                val map = readMap()
-                val altsMap = readAlts()
-                map.remove(srcString(key))
-                altsMap.remove(srcString(key))
-                writeMaps(map, altsMap)
-            }
-            .create()
-        dialog.show()
-        styleDialogButton(dialog.getButton(AlertDialog.BUTTON_NEUTRAL), Color.parseColor("#3B82F6"))
-        styleDialogButton(dialog.getButton(AlertDialog.BUTTON_NEGATIVE), Color.parseColor("#F59E0B"))
-        styleDialogButton(dialog.getButton(AlertDialog.BUTTON_POSITIVE), Color.parseColor("#22C55E"))
-    }
+        form.setPadding(dp(12f), dp(12f), dp(12f), dp(12f))
+        form.addView(top, rowParams())
+        val blp = rowParams()
+        blp.topMargin = dp(12f)
+        form.addView(buttons, blp)
+        // Fokus drzi nepsaci pohled, aby se skutecna klavesnice neotevrela sama.
+        form.isFocusableInTouchMode = true
 
-    /** Tlacitko dialogu s barevnym zaobleny obrysem (bez vyplne). */
-    private fun styleDialogButton(b: Button?, color: Int) {
-        if (b == null) return
-        b.background = GradientDrawable().apply {
-            setColor(Color.TRANSPARENT)
-            setStroke(dp(1.5f), color)
-            cornerRadius = dp(10f).toFloat()
+        val bubble = Bubble(this, form, passThrough = false, widthDp = 300)
+        editor = bubble
+        editorKey = key
+        editorKeyRect.set(keyRectInWindow(key))
+        bubble.onHidden = {
+            removeEditorListener()
+            editor = null
+            editorKey = null
         }
-        b.setTextColor(color)
-        val lp = (b.layoutParams as? ViewGroup.MarginLayoutParams) ?: return
-        lp.setMargins(dp(4f), 0, dp(4f), 0)
-        b.layoutParams = lp
+        bubble.show(Rect(editorKeyRect))
+        form.requestFocus()
+        rootView.viewTreeObserver.addOnGlobalLayoutListener(editorLayoutListener)
     }
 
-    private fun saveChar(key: KeyboardView.Key, typed: String, typedAlts: String, oldAlts: String) {
+    private fun removeEditorListener() {
+        val vto = rootView.viewTreeObserver
+        if (vto.isAlive) vto.removeOnGlobalLayoutListener(editorLayoutListener)
+    }
+
+    private fun closeEditor() {
+        hideIme()
+        editor?.hide()
+    }
+
+    private fun hideIme() {
+        val imm = getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager
+        imm.hideSoftInputFromWindow(rootView.windowToken, 0)
+    }
+
+    /**
+     * Pri otevrene skutecne klavesnici (nahled je schovany) drzi editor tesne nad ni,
+     * jinak je nad klavesou. Vzdy v ramci viditelne oblasti okna.
+     */
+    private fun repositionEditor() {
+        val b = editor ?: return
+        val key = editorKey ?: return
+        val r = Rect()
+        rootView.getWindowVisibleDisplayFrame(r)
+        val l0 = IntArray(2)
+        val l1 = IntArray(2)
+        rootView.getLocationInWindow(l0)
+        rootView.getLocationOnScreen(l1)
+        val visibleBottom = r.bottom - (l1[1] - l0[1])
+        val previewShown = previewBox.visibility == View.VISIBLE && preview.width > 0
+        if (previewShown) editorKeyRect.set(keyRectInWindow(key))
+        val a = if (!previewShown || editorKeyRect.bottom > visibleBottom) {
+            Rect(editorKeyRect.left, visibleBottom, editorKeyRect.right, visibleBottom)
+        } else {
+            Rect(editorKeyRect)
+        }
+        b.moveTo(a, animate = false)
+    }
+
+    /** Ulozi znak a znaky pri podrzeni; false = neplatny znak (editor zustane otevreny). */
+    private fun saveChar(key: KeyboardView.Key, typed: String, typedAlts: String, oldAlts: String): Boolean {
         // Podporuje se jen jeden znak z zakladni roviny (jedna Rust `char` = jeden UTF-16 znak).
         val cp = if (typed.isEmpty()) -1 else typed.codePointAt(0)
         if (cp < 0 || cp > 0xFFFF || Character.isWhitespace(cp) || Character.isISOControl(cp)) {
             Toast.makeText(this, R.string.layout_char_invalid, Toast.LENGTH_SHORT).show()
-            return
+            return false
         }
         val map = readMap()
         map[srcString(key)] = String(Character.toChars(cp))
@@ -431,13 +696,92 @@ class AppearanceActivity : SettingsScreen() {
         val cleanAlts = typedAlts.filter { !it.isWhitespace() && !Character.isISOControl(it) }
         if (cleanAlts != oldAlts) altsMap[srcString(key)] = cleanAlts
         writeMaps(map, altsMap)
+        return true
     }
 
     private companion object {
-        val HINT_POS = listOf("top_left", "top_center", "top_right", "bottom_left", "bottom_center", "bottom_right")
-        val HINT_LABELS = listOf(
-            R.string.hint_top_left, R.string.hint_top_center, R.string.hint_top_right,
-            R.string.hint_bottom_left, R.string.hint_bottom_center, R.string.hint_bottom_right,
-        )
+        const val MAX_ALTS_EDIT = 5
+        val BLUE = 0xFF3B82F6.toInt()
+        val ORANGE = 0xFFF59E0B.toInt()
+        val GREEN = 0xFF22C55E.toInt()
+    }
+}
+
+/**
+ * Ovladac polohy male napovedy: velky velmi tmavy modry kruh a v nem mensi modra kulicka.
+ * Poloha kulicky = poloha napovedy na klavese (x: 0 vlevo .. 1 vpravo, y: 0 nahore .. 1 dole).
+ * Kulicka se tahne prstem (dotyk kdekoli v kruhu ji presune tam) a zustane v kruhu.
+ * Vsechny rozmery se pocitaji mimo onDraw, onDraw nealokuje.
+ */
+@SuppressLint("ViewConstructor")
+private class HintPad(context: Context, private val onChange: (Float, Float) -> Unit) : View(context) {
+    private val d = resources.displayMetrics.density
+    private val bigR = 75f * d
+    private val knobR = 16f * d
+    private val reach = bigR - knobR
+    private val paint = Paint(Paint.ANTI_ALIAS_FLAG)
+    private var kx = 0f
+    private var ky = 0f
+
+    /** Nastavi kulicku podle polohy napovedy (bez volani onChange). */
+    fun setHint(x: Float, y: Float) {
+        kx = (x - 0.5f) * reach * SQRT2
+        ky = (y - 0.5f) * reach * SQRT2
+        clampKnob()
+        invalidate()
+    }
+
+    private fun clampKnob() {
+        val dist = hypot(kx, ky)
+        if (dist > reach) {
+            kx *= reach / dist
+            ky *= reach / dist
+        }
+    }
+
+    override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
+        setMeasuredDimension(MeasureSpec.getSize(widthMeasureSpec), MeasureSpec.getSize(heightMeasureSpec))
+    }
+
+    override fun onDraw(canvas: Canvas) {
+        val cx = width / 2f
+        val cy = height / 2f
+        paint.style = Paint.Style.FILL
+        paint.color = 0xFF0A1730.toInt()
+        canvas.drawCircle(cx, cy, bigR, paint)
+        paint.style = Paint.Style.STROKE
+        paint.strokeWidth = d
+        paint.color = 0x553B82F6
+        canvas.drawCircle(cx, cy, bigR - d / 2f, paint)
+        paint.style = Paint.Style.FILL
+        paint.color = 0xFF3B82F6.toInt()
+        canvas.drawCircle(cx + kx, cy + ky, knobR, paint)
+    }
+
+    @SuppressLint("ClickableViewAccessibility") // ovladani prstem, pro TalkBack je tlacitko Ulozit
+    override fun onTouchEvent(e: MotionEvent): Boolean {
+        val cx = width / 2f
+        val cy = height / 2f
+        when (e.actionMasked) {
+            MotionEvent.ACTION_DOWN -> {
+                if (hypot(e.x - cx, e.y - cy) > bigR) return false
+                parent?.requestDisallowInterceptTouchEvent(true)
+            }
+            MotionEvent.ACTION_MOVE -> {}
+            else -> {
+                parent?.requestDisallowInterceptTouchEvent(false)
+                return true
+            }
+        }
+        kx = e.x - cx
+        ky = e.y - cy
+        clampKnob()
+        invalidate()
+        onChange((0.5f + kx / (reach * SQRT2)).coerceIn(0f, 1f), (0.5f + ky / (reach * SQRT2)).coerceIn(0f, 1f))
+        return true
+    }
+
+    private companion object {
+        const val SQRT2 = 1.41421f
     }
 }

@@ -153,6 +153,20 @@ class KeyboardView(context: Context) : View(context) {
     /** Nahled v nastaveni: nereaguje na dotyk a neovlivni swipe decoder. */
     var preview = false
 
+    /**
+     * Zkusebni rezim nahledu: klavesy reaguji vizualne jako na pravde (stisk, neon, bublina,
+     * nabidka variant), ale nic se nepise - listener je null, swipe a diktovani jsou vypnute.
+     * Rust se vola jen jako u nahledu (`preview` zustava zapnuty).
+     */
+    var previewTouch = false
+        set(value) {
+            if (field != value) {
+                cancelTouch()
+                field = value
+                invalidate()
+            }
+        }
+
     /** Nahled s vyberem klavesy (obrazovka rozlozeni): klepnuti vola tuto funkci. */
     var onKeyPick: ((Key) -> Unit)? = null
 
@@ -235,9 +249,44 @@ class KeyboardView(context: Context) : View(context) {
     private var keyRadius = 10f * density
     private val shadowOffset = 1.5f * density
     private var fontScale = 1f
-    // Poloha male napovedy: vodorovne -1 vlevo / 0 uprostred / 1 vpravo, svisle true = nahore.
-    private var hintH = 1
-    private var hintTop = true
+    // Poloha male napovedy: x 0 = vlevo .. 1 = vpravo, y 0 = nahore .. 1 = dole.
+    private var hintX = 1f
+    private var hintY = 0f
+    private var hintOverride = false
+
+    // Rezim nastavovani napovedy: ukazuje napovedy i kdyz jsou vypnute, klavesy bez napovedy ztlumi.
+    private var anyHint = false
+    private var hintSample: Key? = null
+    var hintFocus = false
+        set(value) {
+            if (field != value) {
+                field = value
+                updateHintInfo()
+                invalidate()
+            }
+        }
+
+    /** Ziva poloha napovedy bez ukladani (tazeni v nastaveni). */
+    fun setHintOverride(x: Float, y: Float) {
+        hintOverride = true
+        hintX = x.coerceIn(0f, 1f)
+        hintY = y.coerceIn(0f, 1f)
+        invalidate()
+    }
+
+    fun clearHintOverride() {
+        hintOverride = false
+        applyAppearance()
+        invalidate()
+    }
+
+    /** Pocita se pri zmene klaves / rezimu, ne v onDraw. */
+    private fun updateHintInfo() {
+        anyHint = false
+        hintSample = null
+        for (k in keys) if (k.hint.isNotEmpty()) anyHint = true
+        if (hintFocus && !anyHint) hintSample = keys.firstOrNull { it.kind == KIND_CHAR }
+    }
 
     private fun applyAppearance() {
         val s = RustBridge.settings
@@ -250,9 +299,10 @@ class KeyboardView(context: Context) : View(context) {
         showPreview = s.keyPopup
         keyRadius = s.keyRadiusDp * density
         fontScale = resources.configuration.fontScale
-        val pos = s.keyHintPos
-        hintH = if (pos.endsWith("left")) -1 else if (pos.endsWith("center")) 0 else 1
-        hintTop = !pos.startsWith("bottom")
+        if (!hintOverride) {
+            hintX = s.keyHintX
+            hintY = s.keyHintY
+        }
         neon = Theme.parse(s.neonColor, 0xFF59ACFF.toInt())
         neonText = textOn(neon)
         glowColor = Theme.parse(s.glowColor, 0xFFFFD60A.toInt())
@@ -415,6 +465,7 @@ class KeyboardView(context: Context) : View(context) {
             // Jadro neni k dispozici: klavesnice zustane prazdna, ale nespadne.
         }
         keys = parsed
+        updateHintInfo()
         invalidate()
     }
 
@@ -482,6 +533,8 @@ class KeyboardView(context: Context) : View(context) {
             val p = if (k.changedAt == 0L) 0f else pressAmount(k, now)
             if (animate && k.changedAt != 0L && now - k.changedAt < RELEASE_ANIM_MS) animating = true
 
+            val hintText = if (k === hintSample) "1" else k.hint
+            val dimKey = hintFocus && !(k.kind == KIND_CHAR && hintText.isNotEmpty())
             val marked = k.kind == KIND_CHAR && k.src == markedSrc
             val accentKey = marked || k.kind == KIND_ENTER || (k.kind == KIND_SHIFT && shiftState == SHIFT_CAPS)
             val base = when {
@@ -515,6 +568,7 @@ class KeyboardView(context: Context) : View(context) {
                 rect.set(cx - hw - g, cy - hh - g, cx + hw + g, cy + hh + g)
                 canvas.drawRoundRect(rect, radius + g, radius + g, fill)
             }
+            if (dimKey) keyColor = Theme.blend(keyColor, theme.background, 0.7f)
             fill.color = keyColor
             rect.set(cx - hw, cy - hh, cx + hw, cy + hh)
             canvas.drawRoundRect(rect, radius, radius, fill)
@@ -523,22 +577,25 @@ class KeyboardView(context: Context) : View(context) {
             if (k.passed) fg = Theme.blend(fg, theme.onAccent, 0.55f)
             if (glow > 0f) fg = Theme.blend(fg, glowText, glow)
             if (neonA > 0f) fg = Theme.blend(fg, neonText, neonA)
+            if (dimKey) fg = Theme.blend(fg, theme.background, 0.7f)
             when (k.kind) {
                 KIND_CHAR -> {
-                    val hinted = drawHints && k.hint.isNotEmpty()
+                    val hinted = (drawHints || hintFocus) && hintText.isNotEmpty()
                     if (hinted) {
                         textPaint.color = theme.hint
                         textPaint.textSize = labelSize * 0.46f
-                        // Zaobleny roh ukroji d = r * (1 - 1/sqrt2); v rozich posuneme znak dovnitr.
-                        val d = if (hintH == 0) 0f else min(radius, min(hw, hh)) * 0.2929f
-                        val hx = if (hintH == 0) cx else cx + hintH * (hw - labelSize * 0.34f - d)
-                        val hy = if (hintTop) cy - hh + labelSize * 0.52f + d else cy + hh - labelSize * 0.22f - d
-                        canvas.drawText(k.hint, hx, hy, textPaint)
+                        // Zaobleny roh ukroji d = r * (1 - 1/sqrt2); posun dovnitr jen blizko rohu.
+                        val d = min(radius, min(hw, hh)) * 0.2929f * abs(2f * hintX - 1f) * abs(2f * hintY - 1f)
+                        val xL = cx - (hw - labelSize * 0.34f - d)
+                        val xR = cx + (hw - labelSize * 0.34f - d)
+                        val yT = cy - hh + labelSize * 0.52f + d
+                        val yB = cy + hh - labelSize * 0.22f - d
+                        canvas.drawText(hintText, xL + (xR - xL) * hintX, yT + (yB - yT) * hintY, textPaint)
                     }
                     textPaint.color = fg
                     textPaint.textSize = labelSize
                     val n = labelChars(k.label, upper)
-                    val shift = if (!hinted) 0f else if (hintTop) labelSize * 0.06f else -labelSize * 0.06f
+                    val shift = if (!hinted) 0f else labelSize * 0.06f * (1f - 2f * hintY)
                     canvas.drawText(charBuf, 0, n, cx, cy + shift - (textPaint.ascent() + textPaint.descent()) / 2f, textPaint)
                 }
                 KIND_SPACE -> {
@@ -1125,7 +1182,7 @@ class KeyboardView(context: Context) : View(context) {
 
     @SuppressLint("ClickableViewAccessibility") // klavesnice ma vlastni virtualni uzly pro TalkBack
     override fun onTouchEvent(e: MotionEvent): Boolean {
-        if (preview) {
+        if (preview && !previewTouch) {
             val pick = onKeyPick ?: return false
             if (e.actionMasked == MotionEvent.ACTION_UP) keyAt(e.x, e.y)?.let(pick)
             return true

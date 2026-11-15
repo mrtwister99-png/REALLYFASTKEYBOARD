@@ -8,7 +8,6 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.LinearLayout
 import android.widget.ScrollView
-import android.widget.Switch
 import android.widget.TextView
 import android.widget.Toast
 
@@ -42,9 +41,11 @@ class VoiceActivity : SubScreen() {
         row.gravity = Gravity.CENTER_VERTICAL
         row.minimumHeight = dp(52f)
         row.addView(label(getString(R.string.voice_input)), LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
-        val sw = Switch(this)
-        sw.isChecked = RustBridge.settings.voiceInput
-        sw.setOnCheckedChangeListener { _, checked ->
+        val sw = ToggleView(this)
+        sw.accentColor = accent
+        sw.contentDescription = getString(R.string.voice_input)
+        sw.setChecked(RustBridge.settings.voiceInput, false)
+        sw.onChange = { checked ->
             if (RustBridge.settings.voiceInput != checked) {
                 val j = RustBridge.settings.edit()
                 j.put("voice_input", checked)

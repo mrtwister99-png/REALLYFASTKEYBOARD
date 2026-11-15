@@ -176,9 +176,6 @@
     <string name="layout_reset">Restore original layout</string>
     <string name="layout_reset_confirm">Restore all keys to their original characters?</string>
     <string name="layout_not_editable">This key cannot be changed</string>
-    <string name="layout_swap">Swap with…</string>
-    <string name="layout_original">Original</string>
-    <string name="layout_char_hint">Character on the key</string>
     <string name="layout_char_invalid">Enter a single character (not a space)</string>
     <string name="voice_open">Voice</string>
     <string name="voice_hint">Hold Enter and speak. ✕ ends dictation, the ⌫ button on the dictation screen deletes the last word (or discards the transcript in progress).</string>
@@ -196,15 +193,7 @@
     <string name="voice_action_enter">Enter / send</string>
     <string name="voice_action_stop">Stop dictation</string>
     <string name="voice_action_text">Insert text</string>
-    <string name="layout_alts_label">Characters on long press</string>
-    <string name="layout_alts_hint">e.g. áä – the first one is shown as the hint</string>
     <string name="layout_hint_pos">Position of the small hint on the key</string>
-    <string name="hint_top_left">Top left</string>
-    <string name="hint_top_center">Top</string>
-    <string name="hint_top_right">Top right</string>
-    <string name="hint_bottom_left">Bottom left</string>
-    <string name="hint_bottom_center">Bottom</string>
-    <string name="hint_bottom_right">Bottom right</string>
     <string name="neon_color">Neon color on tap</string>
     <string name="glow_color">Letter color after a swipe</string>
     <string name="key_glow">Neon glow on key tap</string>
@@ -222,4 +211,16 @@
     <string name="bottom_row_hint">If you hide a button, the space bar gets longer. Emoji stay available by long-pressing ?123.</string>
     <string name="clipboard_help">You can find the clipboard history by long-pressing the ?123 key and choosing Clipboard.</string>
     <string name="clipboard_clear_confirm">Really delete the whole clipboard history?</string>
+    <string name="fix_word_hint">Fix the word</string>
+    <string name="word_corrected">Fixed: %1$s</string>
+    <string name="leave_settings_confirm">Leave settings?</string>
+    <string name="leave">Leave</string>
+    <string name="stay">Stay</string>
+    <string name="preview_test">TEST</string>
+    <string name="preview_back">BACK</string>
+    <string name="hint_adjust">Adjust</string>
+    <string name="key_editor_click">Tap</string>
+    <string name="key_editor_hold">Hold</string>
+    <string name="swap_short">Swap</string>
+    <string name="original_short">Original</string>
 </resources>

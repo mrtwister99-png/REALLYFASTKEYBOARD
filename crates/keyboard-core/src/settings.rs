@@ -66,6 +66,12 @@ pub struct Settings {
     pub key_alts: BTreeMap<String, String>,
     /// Poloha male napovedy na klavese (viz HINT_POSITIONS).
     pub key_hint_pos: String,
+    /// Volna poloha male napovedy: x (0 = vlevo, 1 = vpravo), y (0 = nahore, 1 = dole).
+    /// Chybejici hodnota (-1) se odvodi ze stareho `key_hint_pos`.
+    #[serde(default = "hint_unset")]
+    pub key_hint_x: f32,
+    #[serde(default = "hint_unset")]
+    pub key_hint_y: f32,
     /// Barva neonu po klepnuti.
     pub neon_color: String,
     /// Barva pismen po uspesnem tahu.
@@ -124,6 +130,8 @@ impl Default for Settings {
             key_map: BTreeMap::new(),
             key_alts: BTreeMap::new(),
             key_hint_pos: "top_right".into(),
+            key_hint_x: 1.0,
+            key_hint_y: 0.0,
             neon_color: "#59ACFF".into(),
             glow_color: "#FFD60A".into(),
             emoji_key: "left".into(),
@@ -147,6 +155,11 @@ pub const MAX_KEY_ALTS: usize = 64;
 pub const MAX_ALTS_LEN: usize = 12;
 pub const HINT_POSITIONS: [&str; 6] =
     ["top_right", "top_left", "top_center", "bottom_right", "bottom_left", "bottom_center"];
+
+/// Hodnota "poloha napovedy neni zadana" (pro migraci ze `key_hint_pos`).
+fn hint_unset() -> f32 {
+    -1.0
+}
 
 /// Jediny znak, ktery neni mezera ani ridici.
 fn single_char(s: &str) -> Option<char> {
@@ -175,6 +188,17 @@ fn fix_color(value: &mut String, default: &str) {
     } else {
         *value = default.to_string();
     }
+}
+
+/// Stara pojmenovana poloha napovedy -> (x, y).
+fn legacy_hint_xy(pos: &str) -> (f32, f32) {
+    let x = match pos {
+        "top_left" | "bottom_left" => 0.0,
+        "top_center" | "bottom_center" => 0.5,
+        _ => 1.0,
+    };
+    let y = if pos.starts_with("bottom") { 1.0 } else { 0.0 };
+    (x, y)
 }
 
 impl Settings {
@@ -216,6 +240,12 @@ impl Settings {
             .collect();
         if !HINT_POSITIONS.contains(&self.key_hint_pos.as_str()) {
             self.key_hint_pos = d.key_hint_pos.clone();
+        }
+        let ok = |v: f32| v.is_finite() && (0.0..=1.0).contains(&v);
+        if !ok(self.key_hint_x) || !ok(self.key_hint_y) {
+            let (x, y) = legacy_hint_xy(&self.key_hint_pos);
+            self.key_hint_x = x;
+            self.key_hint_y = y;
         }
         if !KEY_PLACES.contains(&self.emoji_key.as_str()) {
             self.emoji_key = d.emoji_key.clone();
@@ -439,6 +469,28 @@ mod tests {
         assert_eq!(s.glow_color, "#FFD60A");
         let s = Settings::from_json(r#"{"key_hint_pos":"middle"}"#).unwrap();
         assert_eq!(s.key_hint_pos, "top_right");
+    }
+
+    #[test]
+    fn hint_xy() {
+        let s = Settings::default();
+        assert_eq!((s.key_hint_x, s.key_hint_y), (1.0, 0.0));
+        // jen stary key_hint_pos -> migrace
+        let s = Settings::from_json(r#"{"key_hint_pos":"bottom_center"}"#).unwrap();
+        assert_eq!((s.key_hint_x, s.key_hint_y), (0.5, 1.0));
+        let s = Settings::from_json(r#"{"key_hint_pos":"top_left"}"#).unwrap();
+        assert_eq!((s.key_hint_x, s.key_hint_y), (0.0, 0.0));
+        let s = Settings::from_json(r#"{"theme":"light"}"#).unwrap();
+        assert_eq!((s.key_hint_x, s.key_hint_y), (1.0, 0.0));
+        // explicitni hodnoty zustanou
+        let s = Settings::from_json(r#"{"key_hint_pos":"bottom_left","key_hint_x":0.3,"key_hint_y":0.7}"#).unwrap();
+        assert_eq!((s.key_hint_x, s.key_hint_y), (0.3, 0.7));
+        // mimo rozsah -> zpet na stary key_hint_pos
+        let s = Settings::from_json(r#"{"key_hint_pos":"bottom_right","key_hint_x":1.5,"key_hint_y":0.2}"#).unwrap();
+        assert_eq!((s.key_hint_x, s.key_hint_y), (1.0, 1.0));
+        // round-trip pres JSON
+        let s2 = Settings::from_json(&s.to_json()).unwrap();
+        assert_eq!((s2.key_hint_x, s2.key_hint_y), (1.0, 1.0));
     }
 
     #[test]

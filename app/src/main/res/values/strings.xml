@@ -183,9 +183,6 @@
     <string name="layout_reset">Obnovit původní rozložení</string>
     <string name="layout_reset_confirm">Vrátit všechny klávesy na původní znaky?</string>
     <string name="layout_not_editable">Tuhle klávesu změnit nejde</string>
-    <string name="layout_swap">Prohodit s…</string>
-    <string name="layout_original">Původní znak</string>
-    <string name="layout_char_hint">Znak na klávese</string>
     <string name="layout_char_invalid">Zadej jeden znak (ne mezeru)</string>
     <string name="voice_open">Hlas</string>
     <string name="voice_hint">Podrž Enter a diktuj. ✕ diktování ukončí, tlačítko ⌫ na obrazovce diktování smaže poslední slovo (nebo zahodí rozpracovaný přepis).</string>
@@ -203,15 +200,7 @@
     <string name="voice_action_enter">Enter / odeslat</string>
     <string name="voice_action_stop">Ukončit diktování</string>
     <string name="voice_action_text">Vložit text</string>
-    <string name="layout_alts_label">Znaky při podržení</string>
-    <string name="layout_alts_hint">např. áä – první se ukáže jako nápověda</string>
     <string name="layout_hint_pos">Pozice malé nápovědy na klávese</string>
-    <string name="hint_top_left">Vlevo nahoře</string>
-    <string name="hint_top_center">Nahoře</string>
-    <string name="hint_top_right">Vpravo nahoře</string>
-    <string name="hint_bottom_left">Vlevo dole</string>
-    <string name="hint_bottom_center">Dole</string>
-    <string name="hint_bottom_right">Vpravo dole</string>
     <string name="neon_color">Barva neonu po klepnutí</string>
     <string name="glow_color">Barva písmen po úspěšném tahu</string>
     <string name="key_glow">Neonové rozsvícení klávesy při klepnutí</string>
@@ -229,4 +218,16 @@
     <string name="bottom_row_hint">Když tlačítko skryješ, mezerník se prodlouží. Emoji zůstanou dostupné podržením ?123.</string>
     <string name="clipboard_help">Historii schránky najdeš, když podržíš klávesu ?123 a zvolíš Schránka.</string>
     <string name="clipboard_clear_confirm">Opravdu smazat celou historii schránky?</string>
+    <string name="fix_word_hint">Oprav slovo</string>
+    <string name="word_corrected">Opraveno: %1$s</string>
+    <string name="leave_settings_confirm">Opravdu chceš odejít z nastavení?</string>
+    <string name="leave">Odejít</string>
+    <string name="stay">Zůstat</string>
+    <string name="preview_test">TEST</string>
+    <string name="preview_back">ZPĚT</string>
+    <string name="hint_adjust">Nastavit</string>
+    <string name="key_editor_click">Klik</string>
+    <string name="key_editor_hold">Podrž</string>
+    <string name="swap_short">Prohodit</string>
+    <string name="original_short">Původní</string>
 </resources>

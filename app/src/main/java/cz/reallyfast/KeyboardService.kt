@@ -73,6 +73,12 @@ class KeyboardService : InputMethodService(), KeyboardView.Listener,
     private var useComposing = true
     private var searchMode = false
     private var addWordMode = false
+
+    /** Oprava slova ze swipe (dvojklep na slovo v liste): puvodni vlozeni, ktere se prepise. */
+    private var editWordMode = false
+    private var editTarget: SwipeCommit? = null
+    private var lastWordTapAt = 0L
+    private var lastWordTapIndex = -1
     private val searchQuery = StringBuilder()
 
     private val handler = Handler(Looper.getMainLooper())
@@ -332,6 +338,21 @@ class KeyboardService : InputMethodService(), KeyboardView.Listener,
         }
     }
 
+    /** Potvrzeni ulozeni slova: dve kratke vibrace (i kdyz je vibrace klaves vypnuta). */
+    private fun vibrateSaved() {
+        val v = vibrator ?: return
+        try {
+            val pattern = longArrayOf(0, 25, 70, 25)
+            if (Build.VERSION.SDK_INT >= 26) {
+                v.vibrate(VibrationEffect.createWaveform(pattern, -1))
+            } else {
+                @Suppress("DEPRECATION") v.vibrate(pattern, -1)
+            }
+        } catch (_: Throwable) {
+            // bez vibrace
+        }
+    }
+
     // ------------------------------------------------------------------ klavesy
 
     override fun onKeyTap(key: KeyboardView.Key) {
@@ -428,6 +449,7 @@ class KeyboardService : InputMethodService(), KeyboardView.Listener,
     }
 
     private fun flushSwipeLearning() {
+        if (editWordMode) return // slovo se prave opravuje, nebylo to potvrzene
         val ls = lastSwipe ?: return
         lastSwipe = null
         if (!noLearning) RustBridge.learn(ls.word, ls.before, true)
@@ -566,7 +588,10 @@ class KeyboardService : InputMethodService(), KeyboardView.Listener,
     private fun enter() {
         if (searchMode) {
             val query = searchQuery.toString().trim()
-            if (addWordMode && query.isNotEmpty()) {
+            val target = editTarget
+            if (editWordMode && target != null) {
+                finishEditWord(target, query)
+            } else if (addWordMode && query.isNotEmpty()) {
                 val ok = RustBridge.addUserWord(query)
                 closeSearch(true)
                 showAddWordResult(ok, query)
@@ -661,6 +686,19 @@ class KeyboardService : InputMethodService(), KeyboardView.Listener,
         onPressFeedback(keyboardSpaceKey)
         val ls = lastSwipe
         if (ls != null) {
+            if (word == ls.word) {
+                // Dvojklep na vlozene slovo = oprava slova.
+                val now = SystemClock.uptimeMillis()
+                if (lastWordTapIndex == index && now - lastWordTapAt <= 350) {
+                    lastWordTapAt = 0L
+                    startEditWord(ls)
+                    return
+                }
+                lastWordTapAt = now
+                lastWordTapIndex = index
+            } else {
+                lastWordTapAt = 0L
+            }
             // Nahrada slova ze swipe jinou alternativou.
             if (word != ls.word && ic.getTextBeforeCursor(ls.text.length, 0)?.toString() == ls.text) {
                 val newText = (if (ls.text.startsWith(" ")) " " else "") + word + " "
@@ -1294,6 +1332,8 @@ class KeyboardService : InputMethodService(), KeyboardView.Listener,
     override fun onEmojiSearch() {
         searchMode = true
         addWordMode = false
+        editWordMode = false
+        editTarget = null
         searchQuery.setLength(0)
         showKeyboard()
         keyboard?.setMode(KeyboardView.MODE_LETTERS)
@@ -1304,12 +1344,63 @@ class KeyboardService : InputMethodService(), KeyboardView.Listener,
 
     private fun updateSearch() {
         val q = searchQuery.toString()
-        if (addWordMode) bar?.showSearch(q, emptyList(), getString(R.string.add_word_hint))
+        if (editWordMode) bar?.showSearch(q, emptyList(), getString(R.string.fix_word_hint))
+        else if (addWordMode) bar?.showSearch(q, emptyList(), getString(R.string.add_word_hint))
         else bar?.showSearch(q, RustBridge.emojiSearch(q))
     }
 
     private fun showAddWordResult(ok: Boolean, word: String) {
+        if (ok) vibrateSaved()
         showVoiceStatus(if (ok) getString(R.string.word_added, word) else getString(R.string.dictionary_add_failed), 1800)
+    }
+
+    /** Otevre v liste pole pro opravu slova vlozeneho swipem (predvyplnene tim slovem). */
+    private fun startEditWord(ls: SwipeCommit) {
+        onPressFeedback(keyboardSpaceKey)
+        searchMode = true
+        addWordMode = true
+        editWordMode = true
+        editTarget = ls
+        searchQuery.setLength(0)
+        searchQuery.append(ls.word)
+        showKeyboard()
+        keyboard?.setMode(KeyboardView.MODE_LETTERS)
+        updateBarVisibility()
+        updateSearch()
+    }
+
+    /** Enter v rezimu opravy: zmenene slovo prepise to ze swipe, nezmenene / prazdne nic nedela. */
+    private fun finishEditWord(target: SwipeCommit, query: String) {
+        if (query.isEmpty() || query == target.word) {
+            closeSearch(true)
+            return
+        }
+        val ic = currentInputConnection ?: return closeSearch(true)
+        val replace = ic.getTextBeforeCursor(target.text.length, 0)?.toString() == target.text
+        closeSearch(false)
+        if (replace) {
+            val newText = (if (target.text.startsWith(" ")) " " else "") + query + " "
+            ic.beginBatchEdit()
+            ic.deleteSurroundingText(target.text.length, 0)
+            ic.commitText(newText, 1)
+            ic.endBatchEdit()
+            if (!noLearning) RustBridge.correction(target.word, query)
+            val ok = RustBridge.addUserWord(query)
+            lastSwipe = null
+            autoSpace = true
+            updateShift()
+            scheduleSuggestions()
+            if (ok) {
+                vibrateSaved()
+                showVoiceStatus(getString(R.string.word_corrected, query), 1800)
+            } else {
+                showVoiceStatus(getString(R.string.dictionary_add_failed), 1800)
+            }
+        } else {
+            updateShift()
+            scheduleSuggestions()
+            showAddWordResult(RustBridge.addUserWord(query), query)
+        }
     }
 
     /** Tlacitko "+" v liste: prida slovo u kurzoru (nebo rozepsane) do osobniho slovniku, jinak necha slovo napsat. */
@@ -1322,6 +1413,8 @@ class KeyboardService : InputMethodService(), KeyboardView.Listener,
         } else {
             searchMode = true
             addWordMode = true
+            editWordMode = false
+            editTarget = null
             searchQuery.setLength(0)
             showKeyboard()
             keyboard?.setMode(KeyboardView.MODE_LETTERS)
@@ -1338,6 +1431,8 @@ class KeyboardService : InputMethodService(), KeyboardView.Listener,
         if (!searchMode) return
         searchMode = false
         addWordMode = false
+        editWordMode = false
+        editTarget = null
         searchQuery.setLength(0)
         bar?.hideSearch()
         updateBarVisibility()

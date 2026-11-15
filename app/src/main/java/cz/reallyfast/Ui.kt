@@ -1,6 +1,10 @@
 package cz.reallyfast
 
 import android.app.Activity
+import android.os.Build
+import android.os.Bundle
+import android.window.OnBackInvokedCallback
+import android.window.OnBackInvokedDispatcher
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.util.TypedValue
@@ -18,6 +22,51 @@ abstract class BaseScreen : Activity() {
     protected val dim = 0xFF9A9AA3.toInt()
     protected val danger = 0xFFEF4444.toInt()
     protected val accent: Int get() = Theme.parse(RustBridge.settings.accentColor, 0xFF0080FF.toInt())
+
+    /** Prave otevrena bublina (napoveda, editor klavesy); nejvyse jedna. */
+    var currentBubble: Bubble? = null
+
+    private var backCallback: Any? = null
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        if (Build.VERSION.SDK_INT >= 33) {
+            val cb = OnBackInvokedCallback { handleBack() }
+            onBackInvokedDispatcher.registerOnBackInvokedCallback(OnBackInvokedDispatcher.PRIORITY_DEFAULT, cb)
+            backCallback = cb
+        }
+    }
+
+    override fun onPause() {
+        currentBubble?.hide(immediate = true)
+        super.onPause()
+    }
+
+    override fun onDestroy() {
+        currentBubble?.hide(immediate = true)
+        if (Build.VERSION.SDK_INT >= 33) {
+            (backCallback as? OnBackInvokedCallback)?.let { onBackInvokedDispatcher.unregisterOnBackInvokedCallback(it) }
+        }
+        backCallback = null
+        super.onDestroy()
+    }
+
+    @Suppress("DEPRECATION")
+    @Deprecated("Deprecated in Java")
+    override fun onBackPressed() = handleBack()
+
+    /** Zpet: nejdriv zavre otevrenou bublinu, pak necha obrazovku rozhodnout, jinak se zavre. */
+    private fun handleBack() {
+        val b = currentBubble
+        if (b != null && b.isShowing) {
+            b.hide()
+            return
+        }
+        if (!onBackRequested()) finish()
+    }
+
+    /** Obrazovka muze zpet zachytit (true = zpracovano, napr. potvrzovaci dialog). */
+    protected open fun onBackRequested(): Boolean = false
 
     protected fun dp(v: Float): Int = (v * resources.displayMetrics.density + 0.5f).toInt()
 
