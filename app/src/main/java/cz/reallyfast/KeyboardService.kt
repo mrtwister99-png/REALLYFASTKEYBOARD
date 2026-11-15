@@ -72,6 +72,7 @@ class KeyboardService : InputMethodService(), KeyboardView.Listener,
     private var noLearning = false
     private var useComposing = true
     private var searchMode = false
+    private var addWordMode = false
     private val searchQuery = StringBuilder()
 
     private val handler = Handler(Looper.getMainLooper())
@@ -381,7 +382,8 @@ class KeyboardService : InputMethodService(), KeyboardView.Listener,
 
     private fun typeText(text: String, alreadyCased: Boolean = false) {
         if (searchMode) {
-            searchQuery.append(text)
+            searchQuery.append(if (!alreadyCased && shift != KeyboardView.SHIFT_OFF) text.uppercase() else text)
+            if (shift == KeyboardView.SHIFT_ONCE) setShift(KeyboardView.SHIFT_OFF)
             updateSearch()
             return
         }
@@ -563,7 +565,14 @@ class KeyboardService : InputMethodService(), KeyboardView.Listener,
 
     private fun enter() {
         if (searchMode) {
-            closeSearch(true)
+            val query = searchQuery.toString().trim()
+            if (addWordMode && query.isNotEmpty()) {
+                val ok = RustBridge.addUserWord(query)
+                closeSearch(true)
+                showAddWordResult(ok, query)
+            } else {
+                closeSearch(true)
+            }
             return
         }
         val ic = currentInputConnection ?: return
@@ -624,7 +633,15 @@ class KeyboardService : InputMethodService(), KeyboardView.Listener,
 
     private fun refreshSuggestions() {
         val bar = bar ?: return
-        if (searchMode || lastSwipe != null || dictating) return
+        if (searchMode || dictating) return
+        if (lastSwipe != null) {
+            // Po docasne hlasce (napr. "pridano do slovniku") vratit alternativy posledniho swipe.
+            if (voiceStatus) {
+                voiceStatus = false
+                bar.setSuggestions(swipeWords, 0)
+            }
+            return
+        }
         voiceStatus = false
         if (!settings.showSuggestions || passwordField || !useComposing) {
             bar.setSuggestions(emptyList())
@@ -770,11 +787,13 @@ class KeyboardService : InputMethodService(), KeyboardView.Listener,
     private var recognizer: SpeechRecognizer? = null
     private var recognizerBackend = -1
     private var dictating = false
-    /** Enter je stale drzeny. */
-    private var voiceHeld = false
+    /** Relace diktovani bezi (od podrzeni Enteru, dokud uzivatel nezavre panel krizkem nebo se diktovani nezrusi). */
+    private var voiceSession = false
     /** V liste navrhu je zobrazena hlaska diktovani (ne slova k vyberu). */
     private var voiceStatus = false
     private var dictationText = ""
+    private var silentErrors = 0
+    private var busyRetried = false
     private var dictationPrefix = ""
     private var dictationCapitalize = false
     /** Ktera sluzba rozpoznavani se pouzije (index do voiceBackends()); pamatuje se ta, ktera fungovala. */
@@ -883,7 +902,9 @@ class KeyboardService : InputMethodService(), KeyboardView.Listener,
         dictationCapitalize = settings.autoCapitalize && RustBridge.shouldCapitalize(before)
         dictationText = ""
         backendAttempts = 0
-        voiceHeld = true
+        silentErrors = 0
+        busyRetried = false
+        voiceSession = true
         dictating = true
         keyboard?.voiceLevel = 0f
         keyboard?.dictating = true
@@ -895,7 +916,7 @@ class KeyboardService : InputMethodService(), KeyboardView.Listener,
     }
 
     override fun onVoiceStop() {
-        voiceHeld = false
+        voiceSession = false
         if (!dictating) return
         try {
             recognizer?.stopListening()
@@ -907,6 +928,24 @@ class KeyboardService : InputMethodService(), KeyboardView.Listener,
         // Kdyby sluzba neodpovedela, nenechat klavesnici viset v rezimu diktovani.
         handler.removeCallbacks(voiceTimeout)
         handler.postDelayed(voiceTimeout, 7000)
+    }
+
+    /** Po zpracovani promluvy pri bezici relaci: znovu spusti poslech (panel zustava). */
+    private fun continueSession() {
+        val ic = currentInputConnection
+        dictationText = ""
+        if (ic != null) {
+            val before = ic.getTextBeforeCursor(48, 0)?.toString() ?: ""
+            dictationPrefix = if (needsSpaceBefore(ic)) " " else ""
+            dictationCapitalize = settings.autoCapitalize && RustBridge.shouldCapitalize(before)
+        }
+        keyboard?.voiceLevel = 0f
+        showVoiceStatus(getString(R.string.voice_preparing))
+        if (!startListening()) {
+            voiceSession = false
+            endDictation()
+            showVoiceStatus(getString(R.string.voice_unavailable), 3000)
+        }
     }
 
     private fun dictated(raw: String): String {
@@ -926,6 +965,7 @@ class KeyboardService : InputMethodService(), KeyboardView.Listener,
     /** Okamzite ukonceni bez vysledku (psani, schovani klavesnice). Rozepsany prepis zustane v textu. */
     private fun cancelDictation() {
         if (!dictating) return
+        voiceSession = false
         try {
             recognizer?.cancel()
         } catch (t: Throwable) {
@@ -947,7 +987,7 @@ class KeyboardService : InputMethodService(), KeyboardView.Listener,
 
     private val recognitionListener = object : RecognitionListener {
         override fun onReadyForSpeech(params: Bundle?) {
-            if (dictating && voiceHeld) showVoiceStatus(getString(R.string.voice_listening))
+            if (dictating) showVoiceStatus(getString(R.string.voice_listening))
         }
 
         override fun onBeginningOfSpeech() {}
@@ -965,6 +1005,7 @@ class KeyboardService : InputMethodService(), KeyboardView.Listener,
             if (!dictating) return
             val text = partialResults?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)?.firstOrNull() ?: return
             if (text.isBlank()) return
+            silentErrors = 0
             dictationText = text
             currentInputConnection?.setComposingText(dictated(text), 1)
         }
@@ -974,15 +1015,27 @@ class KeyboardService : InputMethodService(), KeyboardView.Listener,
             val text = results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)?.firstOrNull()
                 ?.takeIf { it.isNotBlank() } ?: dictationText
             val ic = currentInputConnection
-            endDictation()
+            busyRetried = false
             if (text.isBlank() || ic == null) {
                 ic?.finishComposingText()
+                if (voiceSession && ic != null) {
+                    continueSession()
+                    return
+                }
+                voiceSession = false
+                endDictation()
                 showVoiceStatus(getString(R.string.voice_nothing), 1500)
                 return
             }
+            silentErrors = 0
             voicePrefs.edit().putInt("backend", backendIndex).apply() // tahle sluzba funguje
             ic.commitText(dictated(text) + " ", 1) // nahradi prubezny prepis
             autoSpace = true
+            if (voiceSession) {
+                continueSession()
+                return
+            }
+            endDictation()
             voiceStatus = false
             updateShift()
             scheduleSuggestions()
@@ -993,22 +1046,44 @@ class KeyboardService : InputMethodService(), KeyboardView.Listener,
             val ic = currentInputConnection
             if (dictationText.isNotBlank() && ic != null) {
                 // Castecny prepis nezahazovat.
-                endDictation()
                 ic.commitText(dictated(dictationText) + " ", 1)
                 autoSpace = true
+                if (voiceSession) {
+                    continueSession()
+                    return
+                }
+                endDictation()
                 voiceStatus = false
                 updateShift()
                 scheduleSuggestions()
                 return
             }
             val quiet = error == SpeechRecognizer.ERROR_NO_MATCH || error == SpeechRecognizer.ERROR_SPEECH_TIMEOUT
+            if (quiet && voiceSession) {
+                silentErrors++
+                if (silentErrors < 4) {
+                    ic?.finishComposingText()
+                    continueSession()
+                    return
+                }
+                voiceSession = false
+                ic?.finishComposingText()
+                endDictation()
+                showVoiceStatus(getString(R.string.voice_nothing), 1500)
+                return
+            }
+            if (error == SpeechRecognizer.ERROR_RECOGNIZER_BUSY && voiceSession && !busyRetried) {
+                busyRetried = true
+                handler.postDelayed({ if (dictating && voiceSession) continueSession() }, 300)
+                return
+            }
             val permission = error == SpeechRecognizer.ERROR_INSUFFICIENT_PERMISSIONS
             val backends = voiceBackends().size
             backendAttempts++
             if (!quiet && !permission && backendAttempts < backends) {
                 // Tahle sluzba nefunguje (napr. nema cestinu): zkusit dalsi.
                 backendIndex = (backendIndex + 1) % backends
-                if (voiceHeld) {
+                if (voiceSession) {
                     showVoiceStatus(getString(R.string.voice_preparing))
                     if (startListening()) return
                 } else {
@@ -1018,6 +1093,7 @@ class KeyboardService : InputMethodService(), KeyboardView.Listener,
                     return
                 }
             }
+            voiceSession = false
             ic?.finishComposingText()
             endDictation()
             showVoiceStatus(voiceErrorText(error), 3500)
@@ -1123,6 +1199,7 @@ class KeyboardService : InputMethodService(), KeyboardView.Listener,
 
     override fun onEmojiSearch() {
         searchMode = true
+        addWordMode = false
         searchQuery.setLength(0)
         showKeyboard()
         keyboard?.setMode(KeyboardView.MODE_LETTERS)
@@ -1133,7 +1210,30 @@ class KeyboardService : InputMethodService(), KeyboardView.Listener,
 
     private fun updateSearch() {
         val q = searchQuery.toString()
-        bar?.showSearch(q, RustBridge.emojiSearch(q))
+        if (addWordMode) bar?.showSearch(q, emptyList(), getString(R.string.add_word_hint))
+        else bar?.showSearch(q, RustBridge.emojiSearch(q))
+    }
+
+    private fun showAddWordResult(ok: Boolean, word: String) {
+        showVoiceStatus(if (ok) getString(R.string.word_added, word) else getString(R.string.dictionary_add_failed), 1800)
+    }
+
+    /** Tlacitko "+" v liste: prida slovo u kurzoru (nebo rozepsane) do osobniho slovniku, jinak necha slovo napsat. */
+    override fun onAddWordClicked() {
+        onPressFeedback(keyboardSpaceKey)
+        val word = if (composing.isNotEmpty()) composing.toString()
+        else RustBridge.lastWord(currentInputConnection?.getTextBeforeCursor(48, 0)?.toString() ?: "")
+        if (word.isNotBlank()) {
+            showAddWordResult(RustBridge.addUserWord(word), word)
+        } else {
+            searchMode = true
+            addWordMode = true
+            searchQuery.setLength(0)
+            showKeyboard()
+            keyboard?.setMode(KeyboardView.MODE_LETTERS)
+            updateBarVisibility()
+            updateSearch()
+        }
     }
 
     override fun onSearchResultPicked(emoji: String) = onEmojiPicked(emoji)
@@ -1143,6 +1243,7 @@ class KeyboardService : InputMethodService(), KeyboardView.Listener,
     private fun closeSearch(refresh: Boolean) {
         if (!searchMode) return
         searchMode = false
+        addWordMode = false
         searchQuery.setLength(0)
         bar?.hideSearch()
         updateBarVisibility()

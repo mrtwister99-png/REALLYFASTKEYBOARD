@@ -898,6 +898,16 @@ class KeyboardView(context: Context) : View(context) {
             textPaint.textSize = min(rowH * 0.3f, 16f * density * fontScale)
             canvas.drawText(voiceLabel, cx, cy + base * 2.75f, textPaint)
         }
+        // Tlacitko zavreni (X) vpravo nahore.
+        val bx = width - 32f * density
+        val by = 32f * density
+        fill.color = theme.key
+        canvas.drawCircle(bx, by, 20f * density, fill)
+        stroke.color = theme.text
+        stroke.strokeWidth = 2f * density
+        val d = 7f * density
+        canvas.drawLine(bx - d, by - d, bx + d, by + d, stroke)
+        canvas.drawLine(bx + d, by - d, bx - d, by + d, stroke)
         return true
     }
 
@@ -939,11 +949,12 @@ class KeyboardView(context: Context) : View(context) {
         invalidate()
     }
 
+    private var voiceTouch = false
+
     private fun cancelTouch() {
         handler.removeCallbacks(longPress)
         handler.removeCallbacks(repeat)
         endPreview()
-        if (touchMode == T_VOICE) listener?.onVoiceStop()
         for (k in keys) k.passed = false
         if (touchMode == T_SWIPE) {
             trailEndedAt = SystemClock.uptimeMillis()
@@ -972,6 +983,22 @@ class KeyboardView(context: Context) : View(context) {
 
     override fun onTouchEvent(e: MotionEvent): Boolean {
         if (preview) return false
+        if (dictating) {
+            when (e.actionMasked) {
+                MotionEvent.ACTION_DOWN -> voiceTouch = true
+                MotionEvent.ACTION_UP -> {
+                    // prst, ktery diktovani spustil dlouhym stiskem, muze byt stale dole: jen dokoncit gesto
+                    if (touchMode != T_NONE) cancelTouch()
+                    if (voiceTouch && hypot(e.x - (width - 32 * density), e.y - 32 * density) <= 34 * density) listener?.onVoiceStop()
+                    voiceTouch = false
+                }
+                MotionEvent.ACTION_CANCEL -> {
+                    cancelTouch()
+                    voiceTouch = false
+                }
+            }
+            return true
+        }
         if (menuKey != null && menuSticky) {
             // Otevrena nabidka: klepnuti na polozku ji spusti, klepnuti mimo nabidku zavre.
             when (e.actionMasked) {

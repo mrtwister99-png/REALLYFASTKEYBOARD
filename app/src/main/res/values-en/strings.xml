@@ -3,7 +3,7 @@
     <string name="ime_name">reallyFAST! – private swipe keyboard</string>
 
     <string name="voice_input">Dictation by holding Enter</string>
-    <string name="voice_listening">● Listening… release Enter</string>
+    <string name="voice_listening">● Listening… ✕ to stop</string>
     <string name="voice_processing">Transcribing…</string>
     <string name="voice_nothing">Nothing heard</string>
     <string name="voice_failed">Dictation failed (error %1$d)</string>
@@ -29,6 +29,9 @@
     <string name="dictionary_add_hint">New word</string>
     <string name="dictionary_add">Add</string>
     <string name="dictionary_add_failed">A word may contain letters only</string>
+    <string name="add_word">Add word to dictionary</string>
+    <string name="add_word_hint">New word… (Enter saves)</string>
+    <string name="word_added">“%1$s” added to dictionary</string>
     <string name="dictionary_search">Search the dictionary</string>
     <string name="swipe_glow">Light up keys after a swipe</string>
     <string name="swipe_adapt">Adapt swipe to my typing</string>

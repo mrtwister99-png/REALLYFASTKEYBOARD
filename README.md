@@ -51,13 +51,14 @@ takže nic odeslat nemůže.
 | Učení | osobní slovník v SQLite (počet + čas použití), osobní bigramy a trigramy, zapomínání, vypínač; samostatná obrazovka Osobní slovník: ruční přidání slova, hledání, mazání, export/import JSON |
 | Gesta | tah vlevo z ⌫ = smazat slovo, tah po mezerníku = kurzor (rychlý švih = o slovo), švih nahoru = Caps, švih dolů = schovat, pinch = výška; vše vypínatelné |
 | Jazyk | dlouhý stisk mezerníku: Čeština → English → Čeština · English |
+| Rychlé přidání slova | tlačítko + vlevo v liště návrhů přidá rozepsané nebo poslední slovo do osobního slovníku; když žádné není, nechá ho napsat |
 | Makra a zkratky | tlačítko s bleskem otevře seznam vlastních maker (textových bloků); makro se zkratkou se vloží i napsáním zkratky a mezery (`mfg` → „S pozdravem“); v textu lze použít `{datum}` a `{cas}`; správa v Nastavení → Makra a zkratky |
 | Učení z oprav | když po swipe vybereš jinou alternativu nebo slovo hned smažeš, klávesnice si to zapamatuje a chybné slovo příště nabídne níž |
 | Přizpůsobení swipe | z potvrzených tahů se učí, kudy prstem skutečně jezdíš, a posouvá si středy kláves (lze vypnout a smazat) |
 | Predikce z kontextu dvou slov | trigramy z korpusu (cs 47 749, en 113 443) + osobní trigramy |
 | Rozsvícení kláves | během swipe se podbarví projeté klávesy; písmena výsledného slova se rozsvítí žlutě (1 s náběh, 0,5 s drží, zhasne) |
 | Živý náhled | v nastavení je dole připnutá klávesnice ve skutečné velikosti, každá změna je hned vidět |
-| Diktování | podržení Enteru = přepis řeči do textu (průběžně se zobrazuje, po puštění se potvrdí); mikrofon na klávesnici se zvětšuje podle hlasitosti; postupně zkouší rozpoznávání v zařízení, službu aplikace Google a výchozí službu systému; lze vypnout |
+| Diktování | podržení Enteru spustí diktování, které běží dál i po puštění (každá věta se vloží a poslech pokračuje), křížek vpravo nahoře ho ukončí; mikrofon na klávesnici se zvětšuje podle hlasitosti; postupně zkouší rozpoznávání v zařízení, službu aplikace Google a výchozí službu systému; lze vypnout |
 | Rychlá nabídka | podržení `?123`: emoji, schránka, nastavení klávesnice |
 | Schránka | historie 30 položek, automatické mazání (výchozí 60 min), připnutí, smazání všeho, hesla a kódy se neukládají |
 | Emoji | nedávné, smajlíci, zvířata, jídlo, aktivity, symboly + hledání podle názvu (česky i anglicky) |

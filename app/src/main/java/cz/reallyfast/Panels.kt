@@ -58,6 +58,7 @@ class IconView(context: Context, private val icon: Int) : View(context) {
         const val TRASH = 3
         const val PIN = 4
         const val BACKSPACE = 5
+        const val PLUS = 6
     }
 
     var color: Int = 0xFFFFFFFF.toInt()
@@ -104,6 +105,10 @@ class IconView(context: Context, private val icon: Int) : View(context) {
                 canvas.drawLine(cx - s * 0.7f, cy - s * 0.7f, cx + s * 0.7f, cy + s * 0.7f, paint)
                 canvas.drawLine(cx + s * 0.7f, cy - s * 0.7f, cx - s * 0.7f, cy + s * 0.7f, paint)
             }
+            PLUS -> {
+                canvas.drawLine(cx - s * 0.8f, cy, cx + s * 0.8f, cy, paint)
+                canvas.drawLine(cx, cy - s * 0.8f, cx, cy + s * 0.8f, paint)
+            }
             TRASH -> {
                 canvas.drawLine(cx - s, cy - s * 0.7f, cx + s, cy - s * 0.7f, paint)
                 canvas.drawLine(cx - s * 0.35f, cy - s * 1.05f, cx + s * 0.35f, cy - s * 1.05f, paint)
@@ -148,6 +153,7 @@ class SuggestionBar(context: Context, private var theme: Theme, private val call
     interface Callbacks {
         fun onSuggestionPicked(index: Int, word: String)
         fun onClipboardClicked()
+        fun onAddWordClicked()
         fun onSearchResultPicked(emoji: String)
         fun onSearchClosed()
     }
@@ -157,6 +163,7 @@ class SuggestionBar(context: Context, private var theme: Theme, private val call
     private val slots = ArrayList<TextView>(3)
     private val dividers = ArrayList<View>(2)
     private val clipButton = IconView(context, IconView.CLIPBOARD)
+    private val addButton = IconView(context, IconView.PLUS)
     private val queryView = TextView(context)
     private val resultsRow = LinearLayout(context)
     private val closeButton = IconView(context, IconView.CLOSE)
@@ -166,6 +173,9 @@ class SuggestionBar(context: Context, private var theme: Theme, private val call
     init {
         normalRow.orientation = LinearLayout.HORIZONTAL
         normalRow.gravity = Gravity.CENTER_VERTICAL
+        addButton.contentDescription = context.getString(R.string.add_word)
+        addButton.setOnClickListener { callbacks.onAddWordClicked() }
+        normalRow.addView(addButton, LinearLayout.LayoutParams(dp(44f), ViewGroup.LayoutParams.MATCH_PARENT))
         for (i in 0 until 3) {
             val tv = TextView(context).apply {
                 gravity = Gravity.CENTER
@@ -218,8 +228,10 @@ class SuggestionBar(context: Context, private var theme: Theme, private val call
         for (d in dividers) d.setBackgroundColor(t.divider)
         for (tv in slots) tv.background = pressable(t.keyPressed, dp(10f).toFloat())
         clipButton.background = pressable(t.keyPressed, dp(10f).toFloat())
+        addButton.background = pressable(t.keyPressed, dp(10f).toFloat())
         closeButton.background = pressable(t.keyPressed, dp(10f).toFloat())
         clipButton.color = t.textDim
+        addButton.color = t.textDim
         closeButton.color = t.textDim
         queryView.setTextColor(t.text)
         setSuggestions(words, highlighted)
@@ -251,10 +263,10 @@ class SuggestionBar(context: Context, private var theme: Theme, private val call
         clipButton.visibility = if (visible) VISIBLE else GONE
     }
 
-    fun showSearch(query: String, results: List<String>) {
+    fun showSearch(query: String, results: List<String>, hint: String = context.getString(R.string.emoji_search_hint)) {
         normalRow.visibility = GONE
         searchRow.visibility = VISIBLE
-        queryView.text = if (query.isEmpty()) context.getString(R.string.emoji_search_hint) else "$query▏"
+        queryView.text = if (query.isEmpty()) hint else "$query▏"
         queryView.setTextColor(if (query.isEmpty()) theme.textDim else theme.text)
         resultsRow.removeAllViews()
         for (e in results) {

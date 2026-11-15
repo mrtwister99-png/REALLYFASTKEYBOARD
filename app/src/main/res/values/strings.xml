@@ -6,7 +6,7 @@
     <string name="subtype_en">English (QWERTY)</string>
 
     <string name="voice_input">Diktování podržením Enteru</string>
-    <string name="voice_listening">● Poslouchám… pusť Enter</string>
+    <string name="voice_listening">● Poslouchám… ✕ ukončí</string>
     <string name="voice_processing">Přepisuji…</string>
     <string name="voice_nothing">Nic jsem neslyšel</string>
     <string name="voice_failed">Diktování se nepovedlo (chyba %1$d)</string>
@@ -32,6 +32,9 @@
     <string name="dictionary_add_hint">Nové slovo</string>
     <string name="dictionary_add">Přidat</string>
     <string name="dictionary_add_failed">Slovo může obsahovat jen písmena</string>
+    <string name="add_word">Přidat slovo do slovníku</string>
+    <string name="add_word_hint">Nové slovo… (Enter uloží)</string>
+    <string name="word_added">„%1$s“ přidáno do slovníku</string>
     <string name="dictionary_search">Hledat ve slovníku</string>
     <string name="swipe_glow">Rozsvítit klávesy po swipe</string>
     <string name="swipe_adapt">Přizpůsobit swipe mému psaní</string>
