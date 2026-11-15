@@ -1,6 +1,11 @@
 package cz.reallyfast
 
 import android.app.Activity
+import android.app.Dialog
+import android.content.res.ColorStateList
+import android.graphics.drawable.ColorDrawable
+import android.graphics.drawable.RippleDrawable
+import android.view.Window
 import android.os.Build
 import android.os.Bundle
 import android.window.OnBackInvokedCallback
@@ -129,14 +134,99 @@ abstract class BaseScreen : Activity() {
         return box
     }
 
+    /**
+     * Tlacitko pres celou sirku karty: normalni = vypln `field` s barevnym textem, nebezpecne
+     * (barva `danger`) = jen cerveny obrys. Vraci TextView, aby volajici mohl menit text.
+     */
     protected fun buttonRow(box: LinearLayout, s: CharSequence, color: Int = text, onClick: () -> Unit): TextView {
         val b = label(s, 15f, color)
-        b.gravity = Gravity.CENTER_VERTICAL
-        b.minimumHeight = dp(52f)
+        b.gravity = Gravity.CENTER
+        b.typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
+        b.minHeight = dp(46f)
+        b.setPadding(dp(14f), 0, dp(14f), 0)
+        val radius = dp(12f).toFloat()
+        val face = GradientDrawable().apply {
+            cornerRadius = radius
+            if (color == danger) {
+                setColor(0x00000000)
+                setStroke(dp(1.5f), danger)
+            } else {
+                setColor(field)
+            }
+        }
+        val mask = GradientDrawable().apply {
+            setColor(0xFFFFFFFF.toInt())
+            cornerRadius = radius
+        }
+        b.background = RippleDrawable(ColorStateList.valueOf(0x33FFFFFF), face, mask)
         b.setOnClickListener { onClick() }
-        box.addView(b, rowParams())
+        val lp = rowParams()
+        lp.topMargin = dp(5f)
+        lp.bottomMargin = dp(5f)
+        box.addView(b, lp)
         return b
     }
+
+    /**
+     * Potvrzovaci dialog s vlastnim vzhledem: zaoblena karta, volitelne cerveny obrys, zprava a dve
+     * tlacitka (zrusit bez obrysu, potvrdit s obrysem). Okno je mimo kartu pruhledne.
+     */
+    protected fun confirmDialog(message: CharSequence, confirmLabel: CharSequence, cancelLabel: CharSequence, red: Boolean, onConfirm: () -> Unit) {
+        val dialog = Dialog(this)
+        dialog.requestWindowFeature(Window.FEATURE_NO_TITLE)
+        val root = LinearLayout(this)
+        root.orientation = LinearLayout.VERTICAL
+        root.setPadding(dp(20f), dp(20f), dp(20f), dp(14f))
+        root.background = GradientDrawable().apply {
+            setColor(card)
+            cornerRadius = dp(16f).toFloat()
+            if (red) setStroke(dp(2f), danger)
+        }
+        root.addView(label(message, 16f), rowParams())
+        val row = LinearLayout(this)
+        row.gravity = Gravity.END or Gravity.CENTER_VERTICAL
+        val rlp = rowParams()
+        rlp.topMargin = dp(18f)
+        root.addView(row, rlp)
+        fun dialogButton(t: CharSequence, color: Int, outlined: Boolean, action: () -> Unit) {
+            val b = label(t, 15f, color)
+            b.gravity = Gravity.CENTER
+            b.typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
+            b.minHeight = dp(44f)
+            b.minWidth = dp(88f)
+            b.setPadding(dp(16f), 0, dp(16f), 0)
+            val face = GradientDrawable().apply {
+                cornerRadius = dp(12f).toFloat()
+                setColor(0x00000000)
+                if (outlined) setStroke(dp(1.5f), color)
+            }
+            val mask = GradientDrawable().apply {
+                setColor(0xFFFFFFFF.toInt())
+                cornerRadius = dp(12f).toFloat()
+            }
+            b.background = RippleDrawable(ColorStateList.valueOf(0x33FFFFFF), face, mask)
+            b.setOnClickListener {
+                dialog.dismiss()
+                action()
+            }
+            val lp = LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT)
+            lp.leftMargin = dp(8f)
+            row.addView(b, lp)
+        }
+        dialogButton(cancelLabel, dim, false) {}
+        dialogButton(confirmLabel, if (red) danger else accent, true, onConfirm)
+        dialog.setContentView(root)
+        dialog.window?.let { w ->
+            w.setBackgroundDrawable(ColorDrawable(0x00000000))
+            val width = minOf(resources.displayMetrics.widthPixels - dp(48f), dp(420f))
+            w.setLayout(width, ViewGroup.LayoutParams.WRAP_CONTENT)
+        }
+        dialog.show()
+    }
+
+    /** Potvrzeni mazani / odchodu: cerveny obrys. */
+    protected fun confirmDanger(message: CharSequence, confirmLabel: CharSequence, onConfirm: () -> Unit) =
+        confirmDialog(message, confirmLabel, getString(R.string.cancel), true, onConfirm)
 
     /** Radek, ktery otevira dalsi obrazovku (text + sipka vpravo). */
     protected fun navRow(box: LinearLayout, s: CharSequence, onClick: () -> Unit) {

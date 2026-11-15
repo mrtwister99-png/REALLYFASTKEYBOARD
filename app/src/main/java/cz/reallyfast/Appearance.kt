@@ -365,6 +365,7 @@ class AppearanceActivity : SettingsScreen() {
         override fun onVoiceStart() {}
         override fun onVoiceStop() {}
         override fun onVoiceDelete() {}
+        override fun onVoiceResume() {}
     }
 
     // ------------------------------------------------------------------ poloha male napovedy

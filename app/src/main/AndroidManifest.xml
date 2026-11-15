@@ -80,5 +80,10 @@
             android:exported="false"
             android:label="@string/voice_open"
             android:windowSoftInputMode="adjustResize" />
+
+        <activity
+            android:name=".AboutActivity"
+            android:exported="false"
+            android:label="@string/sec_about" />
     </application>
 </manifest>

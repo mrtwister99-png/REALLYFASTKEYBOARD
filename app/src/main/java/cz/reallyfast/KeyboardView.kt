@@ -2,6 +2,8 @@ package cz.reallyfast
 
 import android.annotation.SuppressLint
 import android.content.Context
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.graphics.Canvas
 import android.graphics.Paint
 import android.graphics.Path
@@ -78,6 +80,8 @@ class KeyboardView(context: Context) : View(context) {
         fun onVoiceStop()
         /** Tlacitko smazani na obrazovce diktovani (opakuje se pri drzeni). */
         fun onVoiceDelete()
+        /** Tlacitko Play na pozastavene obrazovce diktovani: znovu spustit poslech. */
+        fun onVoiceResume()
     }
 
     companion object {
@@ -211,7 +215,10 @@ class KeyboardView(context: Context) : View(context) {
         set(value) {
             if (field != value) {
                 field = value
-                if (!value) stopVoiceDelete()
+                if (!value) {
+                    stopVoiceDelete()
+                    voicePaused = false
+                }
                 invalidate()
             }
         }
@@ -414,6 +421,13 @@ class KeyboardView(context: Context) : View(context) {
         strokeJoin = Paint.Join.ROUND
     }
     private val rect = RectF()
+    /** Obrazek na klavese maker; dekoduje se jednou (null = nepodarilo se, kresli se blesk). */
+    private val macroBitmap: Bitmap? = try {
+        BitmapFactory.decodeResource(resources, R.drawable.dollo)
+    } catch (_: Throwable) {
+        null
+    }
+    private val bitmapPaint = Paint(Paint.FILTER_BITMAP_FLAG or Paint.ANTI_ALIAS_FLAG)
     private val clip = RectF()
     private val path = Path()
     private val charBuf = CharArray(8)
@@ -693,6 +707,11 @@ class KeyboardView(context: Context) : View(context) {
                     textPaint.textSize = min(rowH * 0.27f, unitW * 0.36f)
                     canvas.drawText(k.label, cx, cy - (textPaint.ascent() + textPaint.descent()) / 2f, textPaint)
                 }
+                KIND_MACRO -> if (macroBitmap != null) {
+                    drawMacroImage(canvas, macroBitmap, cx, cy, hw, hh, dimKey)
+                } else {
+                    drawIcon(canvas, k.kind, cx, cy, min(k.vw, k.h) * 0.2f, fg)
+                }
                 else -> drawIcon(canvas, k.kind, cx, cy, min(k.vw, k.h) * 0.2f, fg)
             }
         }
@@ -713,6 +732,21 @@ class KeyboardView(context: Context) : View(context) {
             charBuf[i] = if (upper) Character.toUpperCase(c) else c
         }
         return n
+    }
+
+    /** Obrazek na klavese maker: stred klavesy, pomer stran bitmapy, ~78 % vnitrni vysky (max 80 % sirky). */
+    private fun drawMacroImage(canvas: Canvas, bmp: Bitmap, cx: Float, cy: Float, hw: Float, hh: Float, dimmed: Boolean) {
+        val ratio = bmp.width.toFloat() / bmp.height
+        var h = hh * 2f * 0.78f
+        var w = h * ratio
+        val maxW = hw * 2f * 0.8f
+        if (w > maxW) {
+            w = maxW
+            h = w / ratio
+        }
+        rect.set(cx - w / 2f, cy - h / 2f, cx + w / 2f, cy + h / 2f)
+        bitmapPaint.alpha = if (dimmed) 77 else 255
+        canvas.drawBitmap(bmp, null, rect, bitmapPaint)
     }
 
     private fun drawIcon(canvas: Canvas, kind: Int, cx: Float, cy: Float, s: Float, color: Int) {
@@ -1195,6 +1229,25 @@ class KeyboardView(context: Context) : View(context) {
         }
     private var shownLevel = 0f
 
+    /** Diktovani je pozastavene: mikrofon je tlumeny a pod nim je tlacitko Play. */
+    var voicePaused = false
+        set(value) {
+            if (field != value) {
+                field = value
+                if (dictating) invalidate()
+            }
+        }
+
+    /** Svisla poloha mikrofonu na obrazovce diktovani (pri pauze vys, aby se pod nej vesel Play). */
+    private fun voiceCy(): Float = height * (if (voicePaused) 0.34f else 0.44f)
+
+    private fun voiceBase(): Float = min(width, height) * 0.13f
+
+    private fun playCy(): Float = voiceCy() + voiceBase() * 0.9f * 1.35f + 30f * density
+
+    private fun inPlayButton(x: Float, y: Float): Boolean =
+        hypot(x - width / 2f, y - playCy()) <= 30f * density
+
     /** Prekryti behem diktovani: mikrofon v kruhu, ktery roste a zmensuje se s hlasem. */
     private fun drawVoice(canvas: Canvas): Boolean {
         if (!dictating) {
@@ -1205,20 +1258,45 @@ class KeyboardView(context: Context) : View(context) {
         fill.color = (theme.background and 0x00FFFFFF) or (0xD8 shl 24)
         canvas.drawRect(0f, 0f, width.toFloat(), height.toFloat(), fill)
         val cx = width / 2f
-        val cy = height * 0.44f
-        val base = min(width, height) * 0.13f
-        val r = base * (1f + 0.75f * shownLevel)
-        fill.color = (theme.accent and 0x00FFFFFF) or (0x38 shl 24)
-        canvas.drawCircle(cx, cy, r * 1.45f, fill)
-        fill.color = theme.accent
-        canvas.drawCircle(cx, cy, r, fill)
-        stroke.color = theme.onAccent
-        stroke.strokeWidth = 2.2f * density
-        drawMic(canvas, cx, cy, r * 0.42f)
+        val cy = voiceCy()
+        val base = voiceBase()
+        val labelY: Float
+        if (voicePaused) {
+            // Pauza: mikrofon bez pulzovani a ztlumeny, pod nim kulate tlacitko Play.
+            val r = base * 0.9f
+            fill.color = Theme.blend(theme.accent, theme.background, 0.6f)
+            canvas.drawCircle(cx, cy, r, fill)
+            stroke.color = Theme.blend(theme.onAccent, theme.background, 0.35f)
+            stroke.strokeWidth = 2.2f * density
+            drawMic(canvas, cx, cy, r * 0.42f)
+            val py = playCy()
+            val pr = 26f * density
+            fill.color = theme.accent
+            canvas.drawCircle(cx, py, pr, fill)
+            val s = 13f * density
+            path.reset()
+            path.moveTo(cx - s * 0.45f, py - s * 0.8f)
+            path.lineTo(cx - s * 0.45f, py + s * 0.8f)
+            path.lineTo(cx + s * 0.85f, py)
+            path.close()
+            fill.color = theme.onAccent
+            canvas.drawPath(path, fill)
+            labelY = py + pr + 24f * density
+        } else {
+            val r = base * (1f + 0.75f * shownLevel)
+            fill.color = (theme.accent and 0x00FFFFFF) or (0x38 shl 24)
+            canvas.drawCircle(cx, cy, r * 1.45f, fill)
+            fill.color = theme.accent
+            canvas.drawCircle(cx, cy, r, fill)
+            stroke.color = theme.onAccent
+            stroke.strokeWidth = 2.2f * density
+            drawMic(canvas, cx, cy, r * 0.42f)
+            labelY = cy + base * 2.75f
+        }
         if (voiceLabel.isNotEmpty()) {
             textPaint.color = theme.text
             textPaint.textSize = min(rowH * 0.3f, 16f * density * fontScale)
-            canvas.drawText(voiceLabel, cx, cy + base * 2.75f, textPaint)
+            canvas.drawText(voiceLabel, cx, labelY, textPaint)
         }
         // Tlacitko smazani vlevo nahore.
         val by = 32f * density
@@ -1304,6 +1382,7 @@ class KeyboardView(context: Context) : View(context) {
         hypot(x - cx, y - 32 * density) <= 34 * density
 
     private var voiceTouch = false
+    private var voicePlayTouch = false
 
     private fun cancelTouch() {
         handler.removeCallbacks(longPress)
@@ -1347,6 +1426,7 @@ class KeyboardView(context: Context) : View(context) {
             when (e.actionMasked) {
                 MotionEvent.ACTION_DOWN -> {
                     voiceTouch = true
+                    voicePlayTouch = voicePaused && inPlayButton(e.x, e.y)
                     if (inVoiceButton(e.x, e.y, 32 * density)) {
                         // Smazani: hned jednou, pri drzeni se opakuje.
                         voiceDeleting = true
@@ -1359,12 +1439,15 @@ class KeyboardView(context: Context) : View(context) {
                     // prst, ktery diktovani spustil dlouhym stiskem, muze byt stale dole: jen dokoncit gesto
                     if (touchMode != T_NONE) cancelTouch()
                     if (voiceTouch && inVoiceButton(e.x, e.y, width - 32 * density)) listener?.onVoiceStop()
+                    else if (voicePlayTouch && voicePaused && inPlayButton(e.x, e.y)) listener?.onVoiceResume()
                     voiceTouch = false
+                    voicePlayTouch = false
                 }
                 MotionEvent.ACTION_CANCEL -> {
                     stopVoiceDelete()
                     cancelTouch()
                     voiceTouch = false
+                    voicePlayTouch = false
                 }
             }
             return true

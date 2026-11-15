@@ -32,7 +32,6 @@ class SettingsActivity : SettingsScreen() {
     }
 
     private var statusView: TextView? = null
-    private var aboutView: TextView? = null
     private var swipeLogButton: TextView? = null
 
     // ------------------------------------------------------------------ zivotni cyklus
@@ -64,17 +63,12 @@ class SettingsActivity : SettingsScreen() {
     override fun onResume() {
         super.onResume()
         updateStatus()
-        aboutView?.text = RustBridge.info()
         updateSwipeLogButton()
     }
 
     override fun onWindowFocusChanged(hasFocus: Boolean) {
         super.onWindowFocusChanged(hasFocus)
         if (hasFocus) updateStatus()
-    }
-
-    override fun onSettingsChanged() {
-        aboutView?.text = RustBridge.info()
     }
 
     // ------------------------------------------------------------------ obsah
@@ -121,20 +115,17 @@ class SettingsActivity : SettingsScreen() {
         navRow(box, getString(R.string.dictionary_open)) { startActivity(Intent(this, DictionaryActivity::class.java)) }
         navRow(box, getString(R.string.voice_open)) { startActivity(Intent(this, VoiceActivity::class.java)) }
         navRow(box, getString(R.string.typing_open)) { startActivity(Intent(this, TypingActivity::class.java)) }
+        navRow(box, getString(R.string.sec_about)) { startActivity(Intent(this, AboutActivity::class.java)) }
 
         // Schranka
         box = section(container, getString(R.string.sec_clipboard))
         switchRow(box, R.string.clipboard_enabled, "clipboard_enabled", R.string.clipboard_help, 5000)
         sliderRow(box, R.string.clipboard_ttl, "clipboard_ttl_minutes", 5, 240, 1) { getString(R.string.unit_minutes, it) }
         buttonRow(box, getString(R.string.clipboard_clear), danger) {
-            AlertDialog.Builder(this)
-                .setMessage(R.string.clipboard_clear_confirm)
-                .setPositiveButton(R.string.delete) { _, _ ->
-                    RustBridge.clipClear()
-                    Toast.makeText(this, R.string.clipboard_cleared, Toast.LENGTH_SHORT).show()
-                }
-                .setNegativeButton(R.string.cancel, null)
-                .show()
+            confirmDanger(getString(R.string.clipboard_clear_confirm), getString(R.string.delete)) {
+                RustBridge.clipClear()
+                Toast.makeText(this, R.string.clipboard_cleared, Toast.LENGTH_SHORT).show()
+            }
         }
 
         // Zaloha a ladeni
@@ -143,7 +134,7 @@ class SettingsActivity : SettingsScreen() {
             val i = Intent(Intent.ACTION_CREATE_DOCUMENT)
             i.addCategory(Intent.CATEGORY_OPENABLE)
             i.type = "application/json"
-            i.putExtra(Intent.EXTRA_TITLE, "reallyfast-zaloha.json")
+            i.putExtra(Intent.EXTRA_TITLE, "fazt-zaloha.json")
             @Suppress("DEPRECATION") startActivityForResult(i, REQ_BACKUP_EXPORT)
         }
         buttonRow(box, getString(R.string.backup_import), accent) {
@@ -158,27 +149,15 @@ class SettingsActivity : SettingsScreen() {
             val i = Intent(Intent.ACTION_CREATE_DOCUMENT)
             i.addCategory(Intent.CATEGORY_OPENABLE)
             i.type = "application/json"
-            i.putExtra(Intent.EXTRA_TITLE, "reallyfast-tahy.json")
+            i.putExtra(Intent.EXTRA_TITLE, "fazt-tahy.json")
             @Suppress("DEPRECATION") startActivityForResult(i, REQ_SWIPE_LOG_EXPORT)
         }
         buttonRow(box, getString(R.string.swipe_log_clear), danger) {
-            AlertDialog.Builder(this)
-                .setMessage(R.string.swipe_log_clear_confirm)
-                .setPositiveButton(R.string.delete) { _, _ ->
-                    RustBridge.clearSwipeLog()
-                    updateSwipeLogButton()
-                    Toast.makeText(this, R.string.swipe_log_cleared, Toast.LENGTH_SHORT).show()
-                }
-                .setNegativeButton(R.string.cancel, null)
-                .show()
-        }
-
-        // O aplikaci
-        box = section(container, getString(R.string.sec_about))
-        box.addView(label(getString(R.string.about_privacy), 14f).also { it.setPadding(0, dp(12f), 0, dp(8f)) }, rowParams())
-        aboutView = label(RustBridge.info(), 12f, dim).also {
-            it.setPadding(0, 0, 0, dp(12f))
-            box.addView(it, rowParams())
+            confirmDanger(getString(R.string.swipe_log_clear_confirm), getString(R.string.delete)) {
+                RustBridge.clearSwipeLog()
+                updateSwipeLogButton()
+                Toast.makeText(this, R.string.swipe_log_cleared, Toast.LENGTH_SHORT).show()
+            }
         }
 
         updateStatus()
@@ -186,11 +165,7 @@ class SettingsActivity : SettingsScreen() {
 
     /** Systemove zpet na hlavni obrazovce se nejdriv zepta (bublina se zavira driv, v BaseScreen). */
     override fun onBackRequested(): Boolean {
-        AlertDialog.Builder(this)
-            .setMessage(R.string.leave_settings_confirm)
-            .setPositiveButton(R.string.leave) { _, _ -> finish() }
-            .setNegativeButton(R.string.stay, null)
-            .show()
+        confirmDialog(getString(R.string.leave_settings_confirm), getString(R.string.leave), getString(R.string.stay), true) { finish() }
         return true
     }
 

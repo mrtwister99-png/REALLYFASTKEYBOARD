@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="ime_name">reallyFAST! – private swipe keyboard</string>
+    <string name="ime_name">fAZT! – private swipe keyboard</string>
 
     <string name="voice_input">Dictation by holding Enter</string>
     <string name="voice_listening">● Listening… ✕ to stop</string>
@@ -63,10 +63,10 @@
     <string name="settings_subtitle">Private swipe keyboard · fully offline</string>
     <string name="sec_setup">Setup</string>
     <string name="setup_enable">1. Enable the keyboard in system settings</string>
-    <string name="setup_select">2. Select reallyFAST! as active</string>
+    <string name="setup_select">2. Select fAZT! as active</string>
     <string name="setup_status_disabled">The keyboard is not enabled yet.</string>
     <string name="setup_status_enabled">Enabled. Now select it as the active keyboard.</string>
-    <string name="setup_status_active">reallyFAST! is the active keyboard.</string>
+    <string name="setup_status_active">fAZT! is the active keyboard.</string>
     <string name="test_hint">Try typing here…</string>
     <string name="core_missing">The native core failed to load. The keyboard will not work – please reinstall the app.</string>
 
@@ -150,9 +150,9 @@
     <string name="backup_restore_confirm">Restore from backup? Settings will be overwritten, dictionary and macros will be merged with what you already have.</string>
     <string name="backup_restore">Restore</string>
     <string name="backup_restored">Restored, accepted words: %1$d</string>
-    <string name="backup_restore_failed">The file is not a valid reallyFAST backup</string>
+    <string name="backup_restore_failed">The file is not a valid fAZT! backup</string>
     <string name="swipe_log">Record swipes for tuning</string>
-    <string name="swipe_log_hint">Records swipe paths together with the confirmed words, only on this device, never in password fields, at most 1000 swipes. Off by default.</string>
+    <string name="swipe_log_hint">When on, every swipe that types a word is saved: the finger path and the word you confirmed. The last 1000 swipes are kept, the oldest are dropped as new ones arrive. It stays on the phone only and is never saved in password fields. It is for tuning swipe accuracy; you can export it and it is included in the backup. Off by default.</string>
     <string name="swipe_log_export">Export swipe log (%1$d)</string>
     <string name="swipe_log_exported">Swipe log exported</string>
     <string name="swipe_log_clear">Delete swipe log</string>
@@ -176,7 +176,7 @@
     <string name="layout_not_editable">This key cannot be changed</string>
     <string name="layout_char_invalid">Enter a single character (not a space)</string>
     <string name="voice_open">Voice</string>
-    <string name="voice_hint">Hold Enter and speak. ✕ ends dictation, the ⌫ button on the dictation screen deletes the last word (or discards the transcript in progress).</string>
+    <string name="voice_hint">Hold Enter and speak. After each sentence dictation pauses – tap ▶ to continue. ✕ ends dictation, ⌫ deletes the last word (or discards the transcript in progress).</string>
     <string name="sec_voice_commands">Voice commands</string>
     <string name="voice_commands_hint">A word or short phrase that does something instead of being typed while you dictate. The command runs as soon as you finish speaking.</string>
     <string name="voice_commands_empty">No commands yet.</string>
@@ -231,4 +231,12 @@
     <string name="key_shadow_hint">A subtle dark edge under every key</string>
     <string name="key_glow_hint">The key briefly lights up with neon after a tap</string>
     <string name="swipe_glow_hint">You can change the animation style and color in Appearance.</string>
+    <string name="about_title">fAZT!</string>
+    <string name="about_tagline">A fast, private keyboard</string>
+    <string name="about_p1">A fast Czech and English keyboard with swipe typing across the letters. It learns your words and corrections.</string>
+    <string name="about_p2">Start dictation by holding Enter, with your own voice commands. Plus macros with shortcuts and a clipboard history.</string>
+    <string name="about_p3">Customize both the look and the key layout. Works offline, with no ads and no telemetry.</string>
+    <string name="about_p4">Your data stays on the phone and can be backed up to a file.</string>
+    <string name="voice_paused">Paused – tap ▶ to continue</string>
+    <string name="voice_resume">Continue dictation</string>
 </resources>

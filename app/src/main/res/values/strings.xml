@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">reallyFAST!</string>
-    <string name="ime_name">reallyFAST! – soukromá swipe klávesnice</string>
+    <string name="app_name">fAZT!</string>
+    <string name="ime_name">fAZT! – soukromá swipe klávesnice</string>
     <string name="subtype_cs">Čeština (QWERTZ)</string>
     <string name="subtype_en">English (QWERTY)</string>
 
@@ -66,10 +66,10 @@
     <string name="settings_subtitle">Soukromá swipe klávesnice · vše offline</string>
     <string name="sec_setup">Aktivace</string>
     <string name="setup_enable">1. Povolit klávesnici v systému</string>
-    <string name="setup_select">2. Vybrat reallyFAST! jako aktivní</string>
+    <string name="setup_select">2. Vybrat fAZT! jako aktivní</string>
     <string name="setup_status_disabled">Klávesnice zatím není povolená.</string>
     <string name="setup_status_enabled">Povoleno. Ještě ji vyber jako aktivní.</string>
-    <string name="setup_status_active">reallyFAST! je aktivní klávesnice.</string>
+    <string name="setup_status_active">fAZT! je aktivní klávesnice.</string>
     <string name="test_hint">Tady si vyzkoušej psaní…</string>
     <string name="core_missing">Nativní jádro se nepodařilo načíst. Klávesnice nebude fungovat – přeinstaluj aplikaci.</string>
 
@@ -153,9 +153,9 @@
     <string name="backup_restore_confirm">Obnovit ze zálohy? Nastavení se přepíše, slovník a makra se sloučí s tím, co už máš.</string>
     <string name="backup_restore">Obnovit</string>
     <string name="backup_restored">Obnoveno, přijatých slov: %1$d</string>
-    <string name="backup_restore_failed">Soubor není platná záloha reallyFAST</string>
+    <string name="backup_restore_failed">Soubor není platná záloha fAZT!</string>
     <string name="swipe_log">Záznam tahů pro ladění</string>
-    <string name="swipe_log_hint">Ukládá dráhy tahů spolu s potvrzenými slovy, jen v tomto zařízení, nikdy v polích pro hesla, nejvýše 1000 tahů. Ve výchozím stavu vypnuto.</string>
+    <string name="swipe_log_hint">Když je zapnuto, ukládá se každý tah, kterým napíšeš slovo: dráha prstu a slovo, které jsi potvrdil. Uchovává se posledních 1000 tahů, nejstarší se průběžně mažou. Zůstává jen v telefonu a nikdy se neukládá v polích pro hesla. Slouží k ladění přesnosti psaní tahem; můžeš ho exportovat a je i v záloze. Ve výchozím stavu je vypnuto.</string>
     <string name="swipe_log_export">Exportovat záznam tahů (%1$d)</string>
     <string name="swipe_log_exported">Záznam tahů exportován</string>
     <string name="swipe_log_clear">Smazat záznam tahů</string>
@@ -183,7 +183,7 @@
     <string name="layout_not_editable">Tuhle klávesu změnit nejde</string>
     <string name="layout_char_invalid">Zadej jeden znak (ne mezeru)</string>
     <string name="voice_open">Hlas</string>
-    <string name="voice_hint">Podrž Enter a diktuj. ✕ diktování ukončí, tlačítko ⌫ na obrazovce diktování smaže poslední slovo (nebo zahodí rozpracovaný přepis).</string>
+    <string name="voice_hint">Podrž Enter a diktuj. Po každé větě se diktování pozastaví – pokračuješ klepnutím na ▶. ✕ diktování ukončí, ⌫ smaže poslední slovo (nebo zahodí rozpracovaný přepis).</string>
     <string name="sec_voice_commands">Hlasové povely</string>
     <string name="voice_commands_hint">Slovo nebo krátká fráze, která při diktování místo zapsání něco udělá. Povel se provede, jakmile domluvíš.</string>
     <string name="voice_commands_empty">Zatím žádné povely.</string>
@@ -238,4 +238,12 @@
     <string name="key_shadow_hint">Jemný tmavý okraj pod každou klávesou</string>
     <string name="key_glow_hint">Klávesa se po klepnutí krátce rozsvítí neonem</string>
     <string name="swipe_glow_hint">Styl a barvu animace najdeš ve Vzhledu.</string>
+    <string name="about_title">fAZT!</string>
+    <string name="about_tagline">Rychlá soukromá klávesnice</string>
+    <string name="about_p1">Rychlá česko-anglická klávesnice s psaním tahem prstu přes písmena. Učí se tvoje slova a opravy.</string>
+    <string name="about_p2">Diktování spustíš podržením Enteru, včetně vlastních hlasových povelů. K tomu makra se zkratkami a historie schránky.</string>
+    <string name="about_p3">Vzhled i rozložení kláves si přizpůsobíš podle sebe. Funguje bez internetu, bez reklam a bez telemetrie.</string>
+    <string name="about_p4">Data zůstávají v telefonu a můžeš je zálohovat do souboru.</string>
+    <string name="voice_paused">Pozastaveno – klepni na ▶ a mluv dál</string>
+    <string name="voice_resume">Pokračovat v diktování</string>
 </resources>

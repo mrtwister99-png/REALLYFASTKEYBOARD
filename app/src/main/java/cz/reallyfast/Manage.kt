@@ -118,7 +118,7 @@ class DictionaryActivity : SubScreen() {
             val i = Intent(Intent.ACTION_CREATE_DOCUMENT)
             i.addCategory(Intent.CATEGORY_OPENABLE)
             i.type = "application/json"
-            i.putExtra(Intent.EXTRA_TITLE, "reallyfast-slovnik.json")
+            i.putExtra(Intent.EXTRA_TITLE, "fazt-slovnik.json")
             @Suppress("DEPRECATION") startActivityForResult(i, REQ_EXPORT)
         }
         buttonRow(box, getString(R.string.dictionary_import), accent) {

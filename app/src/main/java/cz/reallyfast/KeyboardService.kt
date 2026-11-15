@@ -36,7 +36,7 @@ import kotlin.math.max
 import kotlin.math.min
 
 /**
- * reallyFAST! - InputMethodService. Tenka slupka: zivotni cyklus, InputConnection, haptika, zvuk.
+ * fAZT! - InputMethodService. Tenka slupka: zivotni cyklus, InputConnection, haptika, zvuk.
  * Rozhodovani (navrhy, swipe, uceni, gesta, velka pismena...) dela Rust pres RustBridge.
  *
  * Zadne pozadi: zadny polling, zadne wake locky, zadne vlastni sluzby ani sit.
@@ -844,7 +844,8 @@ class KeyboardService : InputMethodService(), KeyboardView.Listener,
     /** V liste navrhu je zobrazena hlaska diktovani (ne slova k vyberu). */
     private var voiceStatus = false
     private var dictationText = ""
-    private var silentErrors = 0
+    /** Diktovani je pozastavene: promluva skoncila, poslech nebezi a ceka na klepnuti na Play. */
+    private var voicePaused = false
     private var busyRetried = false
     private var dictationPrefix = ""
     private var dictationCapitalize = false
@@ -952,8 +953,8 @@ class KeyboardService : InputMethodService(), KeyboardView.Listener,
         refreshDictationContext(ic)
         dictationText = ""
         backendAttempts = 0
-        silentErrors = 0
         busyRetried = false
+        voicePaused = false
         voiceSession = true
         dictating = true
         keyboard?.voiceLevel = 0f
@@ -968,6 +969,14 @@ class KeyboardService : InputMethodService(), KeyboardView.Listener,
     override fun onVoiceStop() {
         voiceSession = false
         if (!dictating) return
+        if (voicePaused) {
+            // Poslech nebezi, neni na co cekat: rovnou ukoncit.
+            endDictation()
+            voiceStatus = false
+            updateShift()
+            scheduleSuggestions()
+            return
+        }
         try {
             recognizer?.stopListening()
         } catch (_: Throwable) {
@@ -980,7 +989,25 @@ class KeyboardService : InputMethodService(), KeyboardView.Listener,
         handler.postDelayed(voiceTimeout, 7000)
     }
 
-    /** Po zpracovani promluvy pri bezici relaci: znovu spusti poslech (panel zustava). */
+    /** Promluva skoncila: panel zustane otevreny, poslech se nespousti sam (zadne dalsi pipnuti), ceka na Play. */
+    private fun pauseSession() {
+        handler.removeCallbacks(voiceTimeout)
+        dictationText = ""
+        voicePaused = true
+        keyboard?.voiceLevel = 0f
+        keyboard?.voicePaused = true
+        showVoiceStatus(getString(R.string.voice_paused))
+    }
+
+    /** Klepnuti na Play: znovu spusti poslech ve stejne relaci. */
+    override fun onVoiceResume() {
+        if (!dictating || !voicePaused) return
+        voicePaused = false
+        keyboard?.voicePaused = false
+        continueSession()
+    }
+
+    /** Spusti poslech znovu (po Play, po zahozeni prepisu tlacitkem smazani nebo po jednorazovem BUSY). */
     private fun continueSession() {
         val ic = currentInputConnection
         dictationText = ""
@@ -1101,6 +1128,8 @@ class KeyboardService : InputMethodService(), KeyboardView.Listener,
     private fun endDictation() {
         handler.removeCallbacks(voiceTimeout)
         dictating = false
+        voicePaused = false
+        keyboard?.voicePaused = false
         keyboard?.dictating = false
         keyboard?.voiceLevel = 0f
     }
@@ -1145,16 +1174,15 @@ class KeyboardService : InputMethodService(), KeyboardView.Listener,
         override fun onEvent(eventType: Int, params: Bundle?) {}
 
         override fun onPartialResults(partialResults: Bundle?) {
-            if (!dictating) return
+            if (!dictating || voicePaused) return
             val text = partialResults?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)?.firstOrNull() ?: return
             if (text.isBlank()) return
-            silentErrors = 0
             dictationText = text
             currentInputConnection?.setComposingText(dictated(text), 1)
         }
 
         override fun onResults(results: Bundle?) {
-            if (!dictating) return
+            if (!dictating || voicePaused) return
             val text = results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)?.firstOrNull()
                 ?.takeIf { it.isNotBlank() } ?: dictationText
             val ic = currentInputConnection
@@ -1162,7 +1190,7 @@ class KeyboardService : InputMethodService(), KeyboardView.Listener,
             if (text.isBlank() || ic == null) {
                 ic?.finishComposingText()
                 if (voiceSession && ic != null) {
-                    continueSession()
+                    pauseSession()
                     return
                 }
                 voiceSession = false
@@ -1170,11 +1198,10 @@ class KeyboardService : InputMethodService(), KeyboardView.Listener,
                 showVoiceStatus(getString(R.string.voice_nothing), 1500)
                 return
             }
-            silentErrors = 0
             voicePrefs.edit().putInt("backend", backendIndex).apply() // tahle sluzba funguje
             if (commitDictation(ic, text)) voiceSession = false
             if (voiceSession) {
-                continueSession()
+                pauseSession()
                 return
             }
             endDictation()
@@ -1184,13 +1211,13 @@ class KeyboardService : InputMethodService(), KeyboardView.Listener,
         }
 
         override fun onError(error: Int) {
-            if (!dictating) return
+            if (!dictating || voicePaused) return
             val ic = currentInputConnection
             if (dictationText.isNotBlank() && ic != null) {
                 // Castecny prepis nezahazovat.
                 if (commitDictation(ic, dictationText)) voiceSession = false
                 if (voiceSession) {
-                    continueSession()
+                    pauseSession()
                     return
                 }
                 endDictation()
@@ -1201,21 +1228,13 @@ class KeyboardService : InputMethodService(), KeyboardView.Listener,
             }
             val quiet = error == SpeechRecognizer.ERROR_NO_MATCH || error == SpeechRecognizer.ERROR_SPEECH_TIMEOUT
             if (quiet && voiceSession) {
-                silentErrors++
-                if (silentErrors < 4) {
-                    ic?.finishComposingText()
-                    continueSession()
-                    return
-                }
-                voiceSession = false
                 ic?.finishComposingText()
-                endDictation()
-                showVoiceStatus(getString(R.string.voice_nothing), 1500)
+                pauseSession()
                 return
             }
             if (error == SpeechRecognizer.ERROR_RECOGNIZER_BUSY && voiceSession && !busyRetried) {
                 busyRetried = true
-                handler.postDelayed({ if (dictating && voiceSession) continueSession() }, 300)
+                handler.postDelayed({ if (dictating && voiceSession && !voicePaused) continueSession() }, 300)
                 return
             }
             val permission = error == SpeechRecognizer.ERROR_INSUFFICIENT_PERMISSIONS
