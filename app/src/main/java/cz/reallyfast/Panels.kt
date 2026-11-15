@@ -172,6 +172,8 @@ class SuggestionBar(context: Context, private var theme: Theme, private val call
     private val closeButton = IconView(context, IconView.CLOSE)
     private var words: List<String> = emptyList()
     private var highlighted = -1
+    /** Zobrazeny stavovy text (null = normalni navrhy); pri zmene motivu se vykresli znovu. */
+    private var status: String? = null
 
     init {
         normalRow.orientation = LinearLayout.HORIZONTAL
@@ -237,15 +239,36 @@ class SuggestionBar(context: Context, private var theme: Theme, private val call
         addButton.color = t.textDim
         closeButton.color = t.textDim
         queryView.setTextColor(t.text)
-        setSuggestions(words, highlighted)
+        status?.let { setStatus(it) } ?: setSuggestions(words, highlighted)
+    }
+
+    /** Stavovy text pres celou sirku mezi tlacitky + a schranka; `setSuggestions` vrati normalni stav. */
+    fun setStatus(text: String) {
+        status = text
+        words = emptyList()
+        highlighted = -1
+        slots[0].visibility = GONE
+        slots[2].visibility = GONE
+        for (d in dividers) d.visibility = GONE
+        val tv = slots[1]
+        tv.ellipsize = TextUtils.TruncateAt.END
+        tv.text = text
+        tv.alpha = 1f
+        tv.isClickable = false
+        tv.setTextColor(theme.accent)
+        tv.contentDescription = text
     }
 
     /** Zobrazi az 3 navrhy; `highlight` = index zvyrazneneho (accent barva), -1 = zadny. */
     fun setSuggestions(list: List<String>, highlight: Int = -1) {
+        status = null
         words = list
         highlighted = highlight
+        for (d in dividers) d.visibility = VISIBLE
         for (i in 0 until 3) {
             val tv = slots[i]
+            tv.visibility = VISIBLE
+            tv.ellipsize = TextUtils.TruncateAt.MIDDLE
             val w = list.getOrNull(i)
             val changed = (w ?: "") != tv.text.toString()
             tv.text = w ?: ""

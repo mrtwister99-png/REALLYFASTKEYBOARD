@@ -838,7 +838,7 @@ class KeyboardService : InputMethodService(), KeyboardView.Listener,
     private fun showVoiceStatus(text: String, holdMs: Long = 0) {
         voiceStatus = true
         handler.removeCallbacks(suggestionUpdate)
-        bar?.setSuggestions(listOf("", text, ""), 1)
+        bar?.setStatus(text)
         keyboard?.voiceLabel = text
         if (holdMs > 0) handler.postDelayed(suggestionUpdate, holdMs)
     }

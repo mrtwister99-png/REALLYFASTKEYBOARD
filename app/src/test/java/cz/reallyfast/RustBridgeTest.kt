@@ -178,6 +178,26 @@ class RustBridgeTest {
     }
 
     @Test
+    fun keyAltsChangeLayoutJson() {
+        requireCore()
+        val j = RustBridge.settings.edit()
+        j.put("key_alts", JSONObject().put("a", "xy").put("e", ""))
+        RustBridge.setSettings(j)
+        try {
+            val keys = JSONObject(RustBridge.layout(1440, 1050, 0, true)).getJSONArray("keys")
+            val all = (0 until keys.length()).map { keys.getJSONObject(it) }
+            assertEquals("xy", all.first { it.getInt("src") == 'a'.code }.getString("alts"))
+            assertEquals("", all.first { it.getInt("src") == 'e'.code }.getString("alts"))
+        } finally {
+            j.put("key_alts", JSONObject())
+            RustBridge.setSettings(j)
+        }
+        val keys = JSONObject(RustBridge.layout(1440, 1050, 0, true)).getJSONArray("keys")
+        val a = (0 until keys.length()).map { keys.getJSONObject(it) }.first { it.getInt("src") == 'a'.code }
+        assertEquals("áä", a.getString("alts"))
+    }
+
+    @Test
     fun twoWordContextAndManualWords() {
         requireCore()
         // vestaveny trigram z korpusu: "na konci" -> "roku"

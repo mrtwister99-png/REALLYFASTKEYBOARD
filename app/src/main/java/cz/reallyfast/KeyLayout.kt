@@ -25,6 +25,7 @@ class LayoutActivity : BaseScreen() {
     private var statusView: TextView? = null
     private var cancelSwapView: TextView? = null
     private val pills = ArrayList<TextView>()
+    private val hintPills = ArrayList<TextView>()
     private var shownMode = KeyboardView.MODE_LETTERS
 
     /** Cekajici prohozeni: puvodni kod pozice prvni klavesy a znak, ktery na ni ted je. */
@@ -33,6 +34,7 @@ class LayoutActivity : BaseScreen() {
     private val listener: () -> Unit = {
         updatePreview()
         updateStatus()
+        paintPills()
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -107,6 +109,30 @@ class LayoutActivity : BaseScreen() {
         box.addView(row, rlp)
         paintPills()
 
+        // Poloha male napovedy: dva radky po trech.
+        box.addView(
+            label(getString(R.string.layout_hint_pos), 14f, dim).also { it.setPadding(0, dp(8f), 0, dp(2f)) },
+            rowParams(),
+        )
+        for (r in 0 until 2) {
+            val hr = LinearLayout(this)
+            for (c in 0 until 3) {
+                val idx = r * 3 + c
+                val p = label(getString(HINT_LABELS[idx]), 14f)
+                p.gravity = Gravity.CENTER
+                p.setPadding(dp(4f), dp(10f), dp(4f), dp(10f))
+                p.setOnClickListener { setHintPos(HINT_POS[idx]) }
+                hintPills.add(p)
+                val lp = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
+                if (c > 0) lp.leftMargin = dp(6f)
+                hr.addView(p, lp)
+            }
+            val hlp = rowParams()
+            hlp.topMargin = dp(6f)
+            box.addView(hr, hlp)
+        }
+        paintPills()
+
         statusView = label("", 14f, dim).also {
             it.setPadding(0, dp(10f), 0, dp(6f))
             box.addView(it, rowParams())
@@ -118,7 +144,7 @@ class LayoutActivity : BaseScreen() {
                 .setMessage(R.string.layout_reset_confirm)
                 .setPositiveButton(R.string.ok) { _, _ ->
                     cancelSwap()
-                    writeMap(LinkedHashMap())
+                    writeMaps(LinkedHashMap(), LinkedHashMap())
                 }
                 .setNegativeButton(R.string.cancel, null)
                 .show()
@@ -135,6 +161,18 @@ class LayoutActivity : BaseScreen() {
             p.background = rounded(if (on) a else field, dp(12f).toFloat())
             p.setTextColor(if (on) onA else text)
         }
+        val cur = RustBridge.settings.keyHintPos
+        for ((i, p) in hintPills.withIndex()) {
+            val on = HINT_POS[i] == cur
+            p.background = rounded(if (on) a else field, dp(12f).toFloat())
+            p.setTextColor(if (on) onA else text)
+        }
+    }
+
+    private fun setHintPos(pos: String) {
+        val j = RustBridge.settings.edit()
+        j.put("key_hint_pos", pos)
+        RustBridge.setSettings(j)
     }
 
     /** Nahled ukazuje presne to, co klavesnice (tema, vyska, premapovane znaky). */
@@ -153,7 +191,7 @@ class LayoutActivity : BaseScreen() {
         statusView?.text = if (swapping) {
             getString(R.string.layout_status_swap, pendingChar)
         } else {
-            val n = readMap().size
+            val n = (readMap().keys + readAlts().keys).size
             if (n == 0) getString(R.string.layout_status_none) else getString(R.string.layout_status_changed, n)
         }
         cancelSwapView?.visibility = if (swapping) android.view.View.VISIBLE else android.view.View.GONE
@@ -175,11 +213,22 @@ class LayoutActivity : BaseScreen() {
         return out
     }
 
-    private fun writeMap(map: Map<String, String>) {
+    private fun readAlts(): LinkedHashMap<String, String> {
+        val out = LinkedHashMap<String, String>()
+        val o = RustBridge.settings.json.optJSONObject("key_alts") ?: return out
+        for (k in o.keys()) out[k] = o.optString(k)
+        return out
+    }
+
+    /** Obe mapy se zapisuji jednim volanim, aby se rozlozeni prepocitalo jen jednou. */
+    private fun writeMaps(map: Map<String, String>, alts: Map<String, String>) {
         val obj = JSONObject()
         for ((k, v) in map) if (k != v) obj.put(k, v)
+        val altsObj = JSONObject()
+        for ((k, v) in alts) altsObj.put(k, v)
         val j = RustBridge.settings.edit()
         j.put("key_map", obj)
+        j.put("key_alts", altsObj)
         RustBridge.setSettings(j)
     }
 
@@ -198,7 +247,7 @@ class LayoutActivity : BaseScreen() {
                 map[String(Character.toChars(pendingSrc))] = key.label
                 map[srcString(key)] = pendingChar
                 cancelSwap()
-                writeMap(map)
+                writeMaps(map, readAlts())
             } else {
                 cancelSwap() // klepnuti na tu samou klavesu = zrusit
             }
@@ -216,13 +265,26 @@ class LayoutActivity : BaseScreen() {
         et.setSingleLine(true)
         et.setText(key.label)
         et.selectAll()
+        val alts = EditText(this)
+        alts.setTextColor(text)
+        alts.setHintTextColor(dim)
+        alts.hint = getString(R.string.layout_alts_hint)
+        alts.inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS
+        alts.setSingleLine(true)
+        alts.setText(key.alts)
         val form = LinearLayout(this)
+        form.orientation = LinearLayout.VERTICAL
         form.setPadding(dp(20f), dp(12f), dp(20f), 0)
         form.addView(et, rowParams())
+        form.addView(
+            label(getString(R.string.layout_alts_label), 13f, dim).also { it.setPadding(0, dp(12f), 0, 0) },
+            rowParams(),
+        )
+        form.addView(alts, rowParams())
         AlertDialog.Builder(this)
             .setTitle(key.label)
             .setView(form)
-            .setPositiveButton(R.string.save) { _, _ -> saveChar(key, et.text.toString().trim()) }
+            .setPositiveButton(R.string.save) { _, _ -> saveChar(key, et.text.toString().trim(), alts.text.toString(), key.alts) }
             .setNeutralButton(R.string.layout_swap) { _, _ ->
                 pendingSrc = key.src
                 pendingChar = key.label
@@ -231,13 +293,15 @@ class LayoutActivity : BaseScreen() {
             }
             .setNegativeButton(R.string.layout_original) { _, _ ->
                 val map = readMap()
+                val altsMap = readAlts()
                 map.remove(srcString(key))
-                writeMap(map)
+                altsMap.remove(srcString(key))
+                writeMaps(map, altsMap)
             }
             .show()
     }
 
-    private fun saveChar(key: KeyboardView.Key, typed: String) {
+    private fun saveChar(key: KeyboardView.Key, typed: String, typedAlts: String, oldAlts: String) {
         // Podporuje se jen jeden znak z zakladni roviny (jedna Rust `char` = jeden UTF-16 znak).
         val cp = if (typed.isEmpty()) -1 else typed.codePointAt(0)
         if (cp < 0 || cp > 0xFFFF || Character.isWhitespace(cp) || Character.isISOControl(cp)) {
@@ -246,6 +310,17 @@ class LayoutActivity : BaseScreen() {
         }
         val map = readMap()
         map[srcString(key)] = String(Character.toChars(cp))
-        writeMap(map)
+        val altsMap = readAlts()
+        val cleanAlts = typedAlts.filter { !it.isWhitespace() && !Character.isISOControl(it) }
+        if (cleanAlts != oldAlts) altsMap[srcString(key)] = cleanAlts
+        writeMaps(map, altsMap)
+    }
+
+    private companion object {
+        val HINT_POS = listOf("top_left", "top_center", "top_right", "bottom_left", "bottom_center", "bottom_right")
+        val HINT_LABELS = listOf(
+            R.string.hint_top_left, R.string.hint_top_center, R.string.hint_top_right,
+            R.string.hint_bottom_left, R.string.hint_bottom_center, R.string.hint_bottom_right,
+        )
     }
 }

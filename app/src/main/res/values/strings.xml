@@ -205,5 +205,16 @@
     <string name="voice_action_enter">Enter / odeslat</string>
     <string name="voice_action_stop">Ukončit diktování</string>
     <string name="voice_action_text">Vložit text</string>
+    <string name="layout_alts_label">Znaky při podržení</string>
+    <string name="layout_alts_hint">např. áä – první se ukáže jako nápověda</string>
+    <string name="layout_hint_pos">Pozice malé nápovědy na klávese</string>
+    <string name="hint_top_left">Vlevo nahoře</string>
+    <string name="hint_top_center">Nahoře</string>
+    <string name="hint_top_right">Vpravo nahoře</string>
+    <string name="hint_bottom_left">Vlevo dole</string>
+    <string name="hint_bottom_center">Dole</string>
+    <string name="hint_bottom_right">Vpravo dole</string>
+    <string name="neon_color">Barva neonu po klepnutí</string>
+    <string name="glow_color">Barva písmen po úspěšném tahu</string>
     <string name="key_glow">Neonové rozsvícení klávesy při klepnutí</string>
 </resources>

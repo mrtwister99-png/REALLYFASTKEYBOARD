@@ -201,6 +201,7 @@ impl Engine {
         );
         // Premapovani pred zapamatovanim geometrie, aby swipe sel podle noveho rozlozeni.
         l.apply_key_map(&self.settings.key_map);
+        l.apply_key_alts(&self.settings.key_alts);
         if remember && mode == MODE_LETTERS {
             self.geom = Some(l.geom());
         }

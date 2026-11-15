@@ -218,6 +218,9 @@ class SettingsActivity : BaseScreen() {
         j.put(key, value)
         RustBridge.setSettings(j)
         if (key == "voice_input" && value == true) ensureMicrophone()
+        // Nahled neni interaktivni, tak barvy ukazeme ukazkou (listener uz nahled prekreslil).
+        if (key == "neon_color" || key == "key_glow") preview?.demoNeon()
+        if (key == "glow_color" || key == "swipe_glow") preview?.glowWord("ahoj")
     }
 
     // ------------------------------------------------------------------ stavebni prvky
@@ -523,6 +526,7 @@ class SettingsActivity : BaseScreen() {
         sliderRow(box, R.string.swipe_sensitivity, "swipe_sensitivity", 50, 150, 100) { String.format(Locale.getDefault(), "%.2f", it / 100f) }
         switchRow(box, R.string.swipe_trail, "swipe_trail")
         switchRow(box, R.string.swipe_glow, "swipe_glow")
+        colorRow(box, R.string.glow_color, "glow_color")
         switchRow(box, R.string.swipe_adapt, "swipe_adapt")
         buttonRow(box, getString(R.string.swipe_adapt_reset), danger) {
             RustBridge.resetCalibration()
@@ -551,6 +555,7 @@ class SettingsActivity : BaseScreen() {
         switchRow(box, R.string.key_shadow, "key_shadow")
         switchRow(box, R.string.animations, "animations")
         switchRow(box, R.string.key_glow, "key_glow")
+        colorRow(box, R.string.neon_color, "neon_color")
 
         // Odezva
         box = section(container, getString(R.string.sec_feedback))

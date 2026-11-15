@@ -146,8 +146,6 @@ class KeyboardView(context: Context) : View(context) {
         private const val GLOW_RISE_MS = 50L
         private const val GLOW_FALL_MS = 350L
         private const val WHITE = 0xFFFFFFFF.toInt()
-        private const val GLOW_COLOR = 0xFFFFD60A.toInt()
-        private const val GLOW_TEXT = 0xFF15151A.toInt()
     }
 
     var listener: Listener? = null
@@ -201,19 +199,17 @@ class KeyboardView(context: Context) : View(context) {
     var theme: Theme = Theme.from(RustBridge.settings)
         set(value) {
             field = value
-            updateNeon()
             applyAppearance()
             invalidate()
         }
 
-    // Neon klepnuti: barva se pocita jen pri zmene motivu, ne v onDraw.
-    private var neon = Theme.blend(theme.accent, WHITE, 0.35f)
-    private var neonText = if (Theme.luminance(neon) > 0.6f) 0xFF101012.toInt() else WHITE
+    // Barvy neonu a zablikani slova: pocitaji se jen pri zmene nastaveni (applyAppearance), ne v onDraw.
+    private var neon = Theme.parse(RustBridge.settings.neonColor, 0xFF59ACFF.toInt())
+    private var neonText = textOn(neon)
+    private var glowColor = Theme.parse(RustBridge.settings.glowColor, 0xFFFFD60A.toInt())
+    private var glowText = textOn(glowColor)
 
-    private fun updateNeon() {
-        neon = Theme.blend(theme.accent, WHITE, 0.35f)
-        neonText = if (Theme.luminance(neon) > 0.6f) 0xFF101012.toInt() else WHITE
-    }
+    private fun textOn(c: Int) = if (Theme.luminance(c) > 0.6f) 0xFF15151A.toInt() else WHITE
 
     var shiftState = SHIFT_OFF
         set(value) {
@@ -239,6 +235,9 @@ class KeyboardView(context: Context) : View(context) {
     private var keyRadius = 10f * density
     private val shadowOffset = 1.5f * density
     private var fontScale = 1f
+    // Poloha male napovedy: vodorovne -1 vlevo / 0 uprostred / 1 vpravo, svisle true = nahore.
+    private var hintH = 1
+    private var hintTop = true
 
     private fun applyAppearance() {
         val s = RustBridge.settings
@@ -251,6 +250,13 @@ class KeyboardView(context: Context) : View(context) {
         showPreview = s.keyPopup
         keyRadius = s.keyRadiusDp * density
         fontScale = resources.configuration.fontScale
+        val pos = s.keyHintPos
+        hintH = if (pos.endsWith("left")) -1 else if (pos.endsWith("center")) 0 else 1
+        hintTop = !pos.startsWith("bottom")
+        neon = Theme.parse(s.neonColor, 0xFF59ACFF.toInt())
+        neonText = textOn(neon)
+        glowColor = Theme.parse(s.glowColor, 0xFFFFD60A.toInt())
+        glowText = textOn(glowColor)
     }
 
     // --- nabidka po dlouhem stisku ?123
@@ -498,7 +504,7 @@ class KeyboardView(context: Context) : View(context) {
             var keyColor = if (p > 0f) Theme.blend(base, if (accentKey) theme.text else theme.keyPressed, if (accentKey) 0.25f * p else p) else base
             if (k.passed) keyColor = Theme.blend(keyColor, theme.accent, 0.55f)
             val glow = if (glowActive) glowAmount(ki, now) else 0f
-            if (glow > 0f) keyColor = Theme.blend(keyColor, GLOW_COLOR, glow)
+            if (glow > 0f) keyColor = Theme.blend(keyColor, glowColor, glow)
             val neonA = if (k.neonAt != 0L) neonAmount(k, now) else 0f
             if (neonA > 0f) {
                 if (k.neonAt > 0L) animating = true
@@ -515,19 +521,22 @@ class KeyboardView(context: Context) : View(context) {
 
             var fg = if (accentKey) theme.onAccent else theme.text
             if (k.passed) fg = Theme.blend(fg, theme.onAccent, 0.55f)
-            if (glow > 0f) fg = Theme.blend(fg, GLOW_TEXT, glow)
+            if (glow > 0f) fg = Theme.blend(fg, glowText, glow)
             if (neonA > 0f) fg = Theme.blend(fg, neonText, neonA)
             when (k.kind) {
                 KIND_CHAR -> {
-                    if (drawHints && k.hint.isNotEmpty()) {
+                    val hinted = drawHints && k.hint.isNotEmpty()
+                    if (hinted) {
                         textPaint.color = theme.hint
                         textPaint.textSize = labelSize * 0.46f
-                        canvas.drawText(k.hint, cx + hw - labelSize * 0.34f, cy - hh + labelSize * 0.52f, textPaint)
+                        val hx = if (hintH == 0) cx else cx + hintH * (hw - labelSize * 0.34f)
+                        val hy = if (hintTop) cy - hh + labelSize * 0.52f else cy + hh - labelSize * 0.22f
+                        canvas.drawText(k.hint, hx, hy, textPaint)
                     }
                     textPaint.color = fg
                     textPaint.textSize = labelSize
                     val n = labelChars(k.label, upper)
-                    val shift = if (drawHints && k.hint.isNotEmpty()) labelSize * 0.06f else 0f
+                    val shift = if (!hinted) 0f else if (hintTop) labelSize * 0.06f else -labelSize * 0.06f
                     canvas.drawText(charBuf, 0, n, cx, cy + shift - (textPaint.ascent() + textPaint.descent()) / 2f, textPaint)
                 }
                 KIND_SPACE -> {
@@ -912,6 +921,20 @@ class KeyboardView(context: Context) : View(context) {
         glowStep = min(100L, 1200L / n)
         glowStart = SystemClock.uptimeMillis()
         invalidate()
+    }
+
+    /** Ukazka neonu po klepnuti (nahled v nastaveni): par pismenovych klaves se rozsviti a doznivaji. */
+    fun demoNeon() {
+        if (!neonEnabled) return
+        val now = SystemClock.uptimeMillis()
+        var n = 0
+        for (k in keys) {
+            if (k.isLetter && n < 4 && k.code.toChar() in "ahoj") {
+                k.neonAt = now
+                n++
+            }
+        }
+        if (n > 0) invalidate()
     }
 
     /** Intenzita zablikani klavesy 0..1: nejvyssi ze vsech pozic, na kterych se pismeno ve slove objevi. */

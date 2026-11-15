@@ -198,5 +198,16 @@
     <string name="voice_action_enter">Enter / send</string>
     <string name="voice_action_stop">Stop dictation</string>
     <string name="voice_action_text">Insert text</string>
+    <string name="layout_alts_label">Characters on long press</string>
+    <string name="layout_alts_hint">e.g. áä – the first one is shown as the hint</string>
+    <string name="layout_hint_pos">Position of the small hint on the key</string>
+    <string name="hint_top_left">Top left</string>
+    <string name="hint_top_center">Top</string>
+    <string name="hint_top_right">Top right</string>
+    <string name="hint_bottom_left">Bottom left</string>
+    <string name="hint_bottom_center">Bottom</string>
+    <string name="hint_bottom_right">Bottom right</string>
+    <string name="neon_color">Neon color on tap</string>
+    <string name="glow_color">Letter color after a swipe</string>
     <string name="key_glow">Neon glow on key tap</string>
 </resources>

@@ -295,6 +295,20 @@ impl Layout {
         }
     }
 
+    /// Prepise varianty pro dlouhy stisk podle puvodniho znaku pozice (po `apply_key_map`).
+    /// Prazdna hodnota = klavesa nema zadne varianty.
+    pub fn apply_key_alts(&mut self, map: &BTreeMap<String, String>) {
+        if map.is_empty() {
+            return;
+        }
+        for k in self.keys.iter_mut().filter(|k| k.kind == KIND_CHAR) {
+            let Some(old) = char::from_u32(k.src as u32) else { continue };
+            if let Some(v) = map.get(old.to_string().as_str()) {
+                k.alts = v.clone();
+            }
+        }
+    }
+
     /// Klavesa pod bodem; mimo klavesy vraci nejblizsi.
     pub fn key_at(&self, x: f32, y: f32) -> Option<&Key> {
         let mut best: Option<(&Key, f32)> = None;
@@ -474,6 +488,26 @@ mod tests {
         // nemapovane klavesy zustavaji
         let w = l.keys.iter().find(|k| k.src == 'w' as i32).unwrap();
         assert_eq!((w.code, w.alts.as_str()), ('w' as i32, "2"));
+    }
+
+    #[test]
+    fn key_alts_override_and_clear() {
+        let mut l = Layout::build(1440.0, 1000.0, true, MODE_LETTERS, false, "x");
+        l.apply_key_alts(&map_of(&[("a", "xy"), ("e", ""), ("⏎", "z")]));
+        let alts = |l: &Layout, c: char| l.keys.iter().find(|k| k.src == c as i32).unwrap().alts.clone();
+        assert_eq!(alts(&l, 'a'), "xy");
+        assert_eq!(alts(&l, 'e'), "");
+        assert_eq!(alts(&l, 'o'), "9óöô"); // nedotcene klavesy zustavaji
+        assert!(l.keys.iter().filter(|k| k.kind != KIND_CHAR).all(|k| k.alts.is_empty()));
+    }
+
+    #[test]
+    fn key_alts_work_with_key_map() {
+        let mut l = Layout::build(1440.0, 1000.0, true, MODE_LETTERS, false, "x");
+        l.apply_key_map(&map_of(&[("e", "a")]));
+        l.apply_key_alts(&map_of(&[("e", "q")]));
+        let k = l.keys.iter().find(|k| k.src == 'e' as i32).unwrap();
+        assert_eq!((k.code, k.alts.as_str()), ('a' as i32, "q"));
     }
 
     #[test]

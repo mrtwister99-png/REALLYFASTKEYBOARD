@@ -61,6 +61,14 @@ pub struct Settings {
     pub key_glow: bool,
     /// Premapovani klaves: puvodni znak pozice -> znak, ktery tam je.
     pub key_map: BTreeMap<String, String>,
+    /// Znaky pro dlouhy stisk: puvodni znak pozice -> retezec variant (prazdny = zadne).
+    pub key_alts: BTreeMap<String, String>,
+    /// Poloha male napovedy na klavese (viz HINT_POSITIONS).
+    pub key_hint_pos: String,
+    /// Barva neonu po klepnuti.
+    pub neon_color: String,
+    /// Barva pismen po uspesnem tahu.
+    pub glow_color: String,
     // --- gesta (kazde lze vypnout) ---
     pub gesture_delete_word: bool,
     pub gesture_space_cursor: bool,
@@ -109,6 +117,10 @@ impl Default for Settings {
             swipe_log: false,
             key_glow: true,
             key_map: BTreeMap::new(),
+            key_alts: BTreeMap::new(),
+            key_hint_pos: "top_right".into(),
+            neon_color: "#59ACFF".into(),
+            glow_color: "#FFD60A".into(),
             gesture_delete_word: true,
             gesture_space_cursor: true,
             gesture_swipe_up_caps: true,
@@ -122,6 +134,12 @@ impl Default for Settings {
 
 /// Nejvyse tolik premapovanych klaves se drzi v nastaveni.
 pub const MAX_KEY_MAP: usize = 64;
+/// Nejvyse tolik klaves s vlastnimi znaky pro dlouhy stisk.
+pub const MAX_KEY_ALTS: usize = 64;
+/// Nejvyse tolik variant na klavesu.
+pub const MAX_ALTS_LEN: usize = 12;
+pub const HINT_POSITIONS: [&str; 6] =
+    ["top_right", "top_left", "top_center", "bottom_right", "bottom_left", "bottom_center"];
 
 /// Jediny znak, ktery neni mezera ani ridici.
 fn single_char(s: &str) -> Option<char> {
@@ -180,6 +198,20 @@ impl Settings {
             .filter(|(k, v)| matches!((single_char(k), single_char(v)), (Some(a), Some(b)) if a != b))
             .take(MAX_KEY_MAP)
             .collect();
+        self.key_alts = std::mem::take(&mut self.key_alts)
+            .into_iter()
+            .filter(|(k, _)| single_char(k).is_some())
+            .map(|(k, v)| {
+                let v: String = v.chars().filter(|c| !c.is_whitespace() && !c.is_control()).take(MAX_ALTS_LEN).collect();
+                (k, v)
+            })
+            .take(MAX_KEY_ALTS)
+            .collect();
+        if !HINT_POSITIONS.contains(&self.key_hint_pos.as_str()) {
+            self.key_hint_pos = d.key_hint_pos.clone();
+        }
+        fix_color(&mut self.neon_color, &d.neon_color);
+        fix_color(&mut self.glow_color, &d.glow_color);
         fix_color(&mut self.accent_color, &d.accent_color);
         fix_color(&mut self.custom_background, &d.custom_background);
         fix_color(&mut self.custom_key, &d.custom_key);
@@ -362,6 +394,38 @@ mod tests {
         s.key_glow = false;
         let back = Settings::from_json(&s.to_json()).unwrap();
         assert_eq!(back, s);
+    }
+
+    #[test]
+    fn key_alts_validation() {
+        let s = Settings::from_json(
+            r#"{"key_alts":{"a":" á ä\n","b":"","cc":"x"," ":"x","":"y","d":"123456789012345"}}"#,
+        )
+        .unwrap();
+        let keys: Vec<&str> = s.key_alts.keys().map(String::as_str).collect();
+        assert_eq!(keys, vec!["a", "b", "d"]);
+        assert_eq!(s.key_alts["a"], "áä");
+        assert_eq!(s.key_alts["b"], "");
+        assert_eq!(s.key_alts["d"].chars().count(), MAX_ALTS_LEN);
+        let many: BTreeMap<String, String> =
+            (0..100u32).map(|i| (char::from_u32(0x4E00 + i).unwrap().to_string(), "x".to_string())).collect();
+        let mut s = Settings { key_alts: many, ..Settings::default() };
+        s.validate();
+        assert_eq!(s.key_alts.len(), MAX_KEY_ALTS);
+    }
+
+    #[test]
+    fn hint_pos_and_colors() {
+        let s = Settings::default();
+        assert_eq!(s.key_hint_pos, "top_right");
+        assert_eq!((s.neon_color.as_str(), s.glow_color.as_str()), ("#59ACFF", "#FFD60A"));
+        assert!(s.key_alts.is_empty());
+        let s = Settings::from_json(r##"{"key_hint_pos":"bottom_left","neon_color":"#ff0000","glow_color":"x"}"##).unwrap();
+        assert_eq!(s.key_hint_pos, "bottom_left");
+        assert_eq!(s.neon_color, "#FF0000");
+        assert_eq!(s.glow_color, "#FFD60A");
+        let s = Settings::from_json(r#"{"key_hint_pos":"middle"}"#).unwrap();
+        assert_eq!(s.key_hint_pos, "top_right");
     }
 
     #[test]
