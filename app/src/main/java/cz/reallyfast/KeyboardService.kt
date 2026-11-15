@@ -1,10 +1,10 @@
 package cz.reallyfast
 
+import android.annotation.SuppressLint
 import android.content.ClipboardManager
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
-import android.content.res.Configuration
 import android.inputmethodservice.InputMethodService
 import android.media.AudioAttributes
 import android.media.AudioManager
@@ -91,21 +91,21 @@ class KeyboardService : InputMethodService(), KeyboardView.Listener,
         super.onCreate()
         RustBridge.init(this)
         RustBridge.listeners.add(settingsListener)
-        clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager
+        clipboard = getSystemService(CLIPBOARD_SERVICE) as? ClipboardManager
         clipboard?.addPrimaryClipChangedListener(clipListener)
         vibrator = if (Build.VERSION.SDK_INT >= 31) {
-            (getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as? VibratorManager)?.defaultVibrator
+            (getSystemService(VIBRATOR_MANAGER_SERVICE) as? VibratorManager)?.defaultVibrator
         } else {
             @Suppress("DEPRECATION")
-            getSystemService(Context.VIBRATOR_SERVICE) as? Vibrator
+            getSystemService(VIBRATOR_SERVICE) as? Vibrator
         }
-        audio = getSystemService(Context.AUDIO_SERVICE) as? AudioManager
+        audio = getSystemService(AUDIO_SERVICE) as? AudioManager
     }
 
     override fun onDestroy() {
         try {
             recognizer?.destroy()
-        } catch (t: Throwable) {
+        } catch (_: Throwable) {
             // sluzba rozpoznavani uz nemusi existovat
         }
         recognizer = null
@@ -115,9 +115,7 @@ class KeyboardService : InputMethodService(), KeyboardView.Listener,
         super.onDestroy()
     }
 
-    private fun dp(v: Float): Int = (v * resources.displayMetrics.density + 0.5f).toInt()
-
-    private val barHeight: Int get() = dp(44f)
+    private val barHeight: Int get() = (44f * resources.displayMetrics.density + 0.5f).toInt()
 
     /** Vyska plochy klaves: radky * key_height_dp, nejvyse keyboard_height_percent obrazovky. */
     private fun keysHeight(): Int = keyboardKeysHeight(resources, settings, barHeight)
@@ -212,7 +210,7 @@ class KeyboardService : InputMethodService(), KeyboardView.Listener,
                 w.decorView.systemUiVisibility =
                     if (theme.isLight) w.decorView.systemUiVisibility or flag else w.decorView.systemUiVisibility and flag.inv()
             }
-        } catch (t: Throwable) {
+        } catch (_: Throwable) {
             // jen kosmetika
         }
     }
@@ -220,6 +218,7 @@ class KeyboardService : InputMethodService(), KeyboardView.Listener,
     /** Krajina: zadny fullscreen "extract" rezim, klavesnice zustava dole. */
     override fun onEvaluateFullscreenMode(): Boolean = false
 
+    @SuppressLint("InlinedApi") // IME_FLAG_NO_PERSONALIZED_LEARNING je konstanta int, na API 24 se jen vlozi hodnota
     override fun onStartInputView(info: EditorInfo?, restarting: Boolean) {
         super.onStartInputView(info, restarting)
         val type = info?.inputType ?: 0
@@ -301,7 +300,7 @@ class KeyboardService : InputMethodService(), KeyboardView.Listener,
             }
             try {
                 audio?.playSoundEffect(fx, 0.6f)
-            } catch (t: Throwable) {
+            } catch (_: Throwable) {
                 // zvuk neni kriticky
             }
         }
@@ -328,7 +327,7 @@ class KeyboardService : InputMethodService(), KeyboardView.Listener,
                 )
                 else -> @Suppress("DEPRECATION") v.vibrate(ms)
             }
-        } catch (t: Throwable) {
+        } catch (_: Throwable) {
             // bez vibrace
         }
     }
@@ -530,7 +529,7 @@ class KeyboardService : InputMethodService(), KeyboardView.Listener,
         try {
             startActivity(Intent(this, cls).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
             requestHideSelf(0)
-        } catch (t: Throwable) {
+        } catch (_: Throwable) {
             // obrazovku se nepodarilo otevrit - klavesnice bezi dal
         }
     }
@@ -768,7 +767,7 @@ class KeyboardService : InputMethodService(), KeyboardView.Listener,
     private fun moveCursorBy(ic: InputConnection, deltaUtf16: Int) {
         val et = try {
             ic.getExtractedText(ExtractedTextRequest(), 0)
-        } catch (t: Throwable) {
+        } catch (_: Throwable) {
             null
         }
         if (et != null) {
@@ -806,7 +805,7 @@ class KeyboardService : InputMethodService(), KeyboardView.Listener,
         }
     }
 
-    private val voicePrefs by lazy { getSharedPreferences("reallyfast_voice", Context.MODE_PRIVATE) }
+    private val voicePrefs by lazy { getSharedPreferences("reallyfast_voice", MODE_PRIVATE) }
 
     /**
      * Dostupne sluzby rozpoznavani reci v poradi, v jakem se zkousi:
@@ -817,13 +816,13 @@ class KeyboardService : InputMethodService(), KeyboardView.Listener,
         val list = ArrayList<Int>(3)
         try {
             if (Build.VERSION.SDK_INT >= 31 && SpeechRecognizer.isOnDeviceRecognitionAvailable(this)) list.add(BACKEND_ON_DEVICE)
-        } catch (t: Throwable) {
+        } catch (_: Throwable) {
             // nektere systemy tu vyhazuji vyjimku - povazovat za nedostupne
         }
         try {
             packageManager.getPackageInfo(GOOGLE_APP, 0)
             list.add(BACKEND_GOOGLE)
-        } catch (t: Throwable) {
+        } catch (_: Throwable) {
             // aplikace Google neni nainstalovana
         }
         if (SpeechRecognizer.isRecognitionAvailable(this)) list.add(BACKEND_DEFAULT)
@@ -848,7 +847,7 @@ class KeyboardService : InputMethodService(), KeyboardView.Listener,
             if (recognizer == null || recognizerBackend != backend) {
                 try {
                     recognizer?.destroy()
-                } catch (t: Throwable) {
+                } catch (_: Throwable) {
                     // stara sluzba uz nemusi existovat
                 }
                 val r = when {
@@ -868,7 +867,7 @@ class KeyboardService : InputMethodService(), KeyboardView.Listener,
             if (backend == BACKEND_ON_DEVICE) intent.putExtra(RecognizerIntent.EXTRA_PREFER_OFFLINE, true)
             recognizer?.startListening(intent)
             true
-        } catch (t: Throwable) {
+        } catch (_: Throwable) {
             false
         }
     }
@@ -887,7 +886,7 @@ class KeyboardService : InputMethodService(), KeyboardView.Listener,
                         .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                         .putExtra(EXTRA_REQUEST_MIC, true)
                 )
-            } catch (t: Throwable) {
+            } catch (_: Throwable) {
                 showVoiceStatus(getString(R.string.voice_permission), 2500)
             }
             return
@@ -920,7 +919,7 @@ class KeyboardService : InputMethodService(), KeyboardView.Listener,
         if (!dictating) return
         try {
             recognizer?.stopListening()
-        } catch (t: Throwable) {
+        } catch (_: Throwable) {
             cancelDictation()
             return
         }
@@ -968,7 +967,7 @@ class KeyboardService : InputMethodService(), KeyboardView.Listener,
         voiceSession = false
         try {
             recognizer?.cancel()
-        } catch (t: Throwable) {
+        } catch (_: Throwable) {
             // ignorovat
         }
         currentInputConnection?.finishComposingText()
@@ -1269,7 +1268,7 @@ class KeyboardService : InputMethodService(), KeyboardView.Listener,
             if (extras != null && extras.getBoolean("android.content.extra.IS_SENSITIVE", false)) return
             val text = clip.getItemAt(0)?.text?.toString() ?: return
             RustBridge.clipAdd(text)
-        } catch (t: Throwable) {
+        } catch (_: Throwable) {
             // Schranka nemusi byt dostupna (klavesnice neni aktivni) - ignorovat.
         }
     }

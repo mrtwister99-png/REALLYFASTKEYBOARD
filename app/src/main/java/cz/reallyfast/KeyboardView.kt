@@ -1,5 +1,6 @@
 package cz.reallyfast
 
+import android.annotation.SuppressLint
 import android.content.Context
 import android.graphics.Canvas
 import android.graphics.Paint
@@ -82,7 +83,6 @@ class KeyboardView(context: Context) : View(context) {
         const val KIND_MODE = 3
         const val KIND_ENTER = 4
         const val KIND_SPACE = 5
-        const val KIND_GLOBE = 6
         const val KIND_EMOJI = 7
 
         const val CODE_SYMBOLS = -3
@@ -364,7 +364,7 @@ class KeyboardView(context: Context) : View(context) {
                     )
                 )
             }
-        } catch (t: Throwable) {
+        } catch (_: Throwable) {
             // Jadro neni k dispozici: klavesnice zustane prazdna, ale nespadne.
         }
         keys = parsed
@@ -731,7 +731,7 @@ class KeyboardView(context: Context) : View(context) {
                 canvas.drawCircle(cx, cy, s * 0.78f, stroke)
                 canvas.drawCircle(cx, cy, s * 0.28f, stroke)
                 canvas.save()
-                for (i in 0 until 8) {
+                repeat(8) {
                     canvas.drawLine(cx, cy - s * 0.78f, cx, cy - s * 1.12f, stroke)
                     canvas.rotate(45f, cx, cy)
                 }
@@ -981,6 +981,7 @@ class KeyboardView(context: Context) : View(context) {
         sampleCount++
     }
 
+    @SuppressLint("ClickableViewAccessibility") // klavesnice ma vlastni virtualni uzly pro TalkBack
     override fun onTouchEvent(e: MotionEvent): Boolean {
         if (preview) return false
         if (dictating) {
@@ -1350,6 +1351,7 @@ class KeyboardView(context: Context) : View(context) {
         return true
     }
 
+    @Suppress("DEPRECATION") // nahrada obtain() existuje az od API 30, minSdk je 24
     private fun sendVirtualEvent(index: Int, type: Int) {
         val k = keys.getOrNull(index) ?: return
         val event = AccessibilityEvent.obtain(type)
@@ -1363,6 +1365,7 @@ class KeyboardView(context: Context) : View(context) {
     private val nodeProvider = object : AccessibilityNodeProvider() {
         private val tmp = IntArray(2)
 
+        @Suppress("DEPRECATION") // nahrada obtain() existuje az od API 30, minSdk je 24
         override fun createAccessibilityNodeInfo(virtualViewId: Int): AccessibilityNodeInfo? {
             if (virtualViewId == HOST_VIEW_ID) {
                 val info = AccessibilityNodeInfo.obtain(this@KeyboardView)

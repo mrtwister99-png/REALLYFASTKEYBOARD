@@ -1,5 +1,6 @@
 package cz.reallyfast
 
+import android.annotation.SuppressLint
 import android.app.AlertDialog
 import android.content.Context
 import android.content.Intent
@@ -24,6 +25,7 @@ import android.widget.SeekBar
 import android.widget.Switch
 import android.widget.TextView
 import android.widget.Toast
+import java.util.Locale
 
 /** Klavesnice zada o povoleni mikrofonu (sluzba o nej pozadat nemuze). */
 const val EXTRA_REQUEST_MIC = "request_mic"
@@ -32,6 +34,7 @@ const val EXTRA_REQUEST_MIC = "request_mic"
 private class Preset(val name: String, val theme: String, val bg: String, val key: String, val text: String, val accent: String)
 
 /** Miniatura klavesnice v barvach stylu. */
+@SuppressLint("ViewConstructor")
 private class PresetTile(context: Context, private val colors: Theme) : View(context) {
     var selectedStyle = false
         set(value) {
@@ -439,7 +442,7 @@ class SettingsActivity : BaseScreen() {
             startActivity(Intent(SystemSettings.ACTION_INPUT_METHOD_SETTINGS))
         }
         buttonRow(box, getString(R.string.setup_select), accent) {
-            (getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager).showInputMethodPicker()
+            (getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager).showInputMethodPicker()
         }
         val test = EditText(this)
         test.hint = getString(R.string.test_hint)
@@ -466,13 +469,13 @@ class SettingsActivity : BaseScreen() {
             i.addCategory(Intent.CATEGORY_OPENABLE)
             i.type = "application/json"
             i.putExtra(Intent.EXTRA_TITLE, "reallyfast-zaloha.json")
-            startActivityForResult(i, REQ_BACKUP_EXPORT)
+            @Suppress("DEPRECATION") startActivityForResult(i, REQ_BACKUP_EXPORT)
         }
         buttonRow(box, getString(R.string.backup_import), accent) {
             val i = Intent(Intent.ACTION_OPEN_DOCUMENT)
             i.addCategory(Intent.CATEGORY_OPENABLE)
             i.type = "*/*"
-            startActivityForResult(i, REQ_BACKUP_IMPORT)
+            @Suppress("DEPRECATION") startActivityForResult(i, REQ_BACKUP_IMPORT)
         }
         hintText(box, getString(R.string.backup_hint))
         switchRow(box, R.string.swipe_log, "swipe_log")
@@ -482,7 +485,7 @@ class SettingsActivity : BaseScreen() {
             i.addCategory(Intent.CATEGORY_OPENABLE)
             i.type = "application/json"
             i.putExtra(Intent.EXTRA_TITLE, "reallyfast-tahy.json")
-            startActivityForResult(i, REQ_SWIPE_LOG_EXPORT)
+            @Suppress("DEPRECATION") startActivityForResult(i, REQ_SWIPE_LOG_EXPORT)
         }
         buttonRow(box, getString(R.string.swipe_log_clear), danger) {
             AlertDialog.Builder(this)
@@ -516,7 +519,7 @@ class SettingsActivity : BaseScreen() {
         // Swipe
         box = section(container, getString(R.string.sec_swipe))
         switchRow(box, R.string.swipe_enabled, "swipe_enabled")
-        sliderRow(box, R.string.swipe_sensitivity, "swipe_sensitivity", 50, 150, 100) { String.format("%.2f", it / 100f) }
+        sliderRow(box, R.string.swipe_sensitivity, "swipe_sensitivity", 50, 150, 100) { String.format(Locale.getDefault(), "%.2f", it / 100f) }
         switchRow(box, R.string.swipe_trail, "swipe_trail")
         switchRow(box, R.string.swipe_glow, "swipe_glow")
         switchRow(box, R.string.swipe_adapt, "swipe_adapt")
@@ -587,6 +590,7 @@ class SettingsActivity : BaseScreen() {
         swipeLogButton?.text = getString(R.string.swipe_log_export, RustBridge.swipeLogCount())
     }
 
+    @Suppress("DEPRECATION") // bez AndroidX neni jina cesta k vysledku aktivity
     @Deprecated("Deprecated in Java")
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
@@ -611,7 +615,7 @@ class SettingsActivity : BaseScreen() {
                     Toast.makeText(this, R.string.swipe_log_exported, Toast.LENGTH_SHORT).show()
                 }
             }
-        } catch (t: Throwable) {
+        } catch (_: Throwable) {
             val msg = if (requestCode == REQ_BACKUP_IMPORT) R.string.backup_restore_failed else R.string.backup_export_failed
             Toast.makeText(this, msg, Toast.LENGTH_SHORT).show()
         }
@@ -635,10 +639,10 @@ class SettingsActivity : BaseScreen() {
     }
 
     private fun updateStatus() {
-        val imm = getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
+        val imm = getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager
         val enabled = try {
             imm.enabledInputMethodList.any { it.packageName == packageName }
-        } catch (t: Throwable) {
+        } catch (_: Throwable) {
             false
         }
         val current = SystemSettings.Secure.getString(contentResolver, SystemSettings.Secure.DEFAULT_INPUT_METHOD) ?: ""

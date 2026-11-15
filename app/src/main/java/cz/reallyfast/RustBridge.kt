@@ -1,5 +1,6 @@
 package cz.reallyfast
 
+import android.annotation.SuppressLint
 import android.content.Context
 import android.os.Handler
 import android.os.Looper
@@ -43,7 +44,6 @@ object RustBridge {
     private const val OP_SHOULD_CAPITALIZE = 24
     private const val OP_DOUBLE_SPACE = 25
     private const val OP_PINCH = 26
-    private const val OP_DICT_READY = 27
     private const val OP_CYCLE_LANGUAGE = 28
     private const val OP_SHIFT_TAP = 29
     private const val OP_LAST_WORD = 30
@@ -103,12 +103,13 @@ object RustBridge {
 
     /** Nacte nativni knihovnu. `hostLibPath` se pouziva jen v JVM testech na pocitaci. */
     @Synchronized
+    @SuppressLint("UnsafeDynamicallyLoadedCode") // System.load jen pro JVM test na pocitaci
     fun load(hostLibPath: String? = null): Boolean {
         if (loaded) return true
         loaded = try {
             if (hostLibPath != null) System.load(hostLibPath) else System.loadLibrary("keyboard_core")
             true
-        } catch (t: Throwable) {
+        } catch (_: Throwable) {
             false
         }
         return loaded
@@ -121,7 +122,7 @@ object RustBridge {
         return try {
             nativeCall(op, a?.toByteArray(Charsets.UTF_8), b?.toByteArray(Charsets.UTF_8), num)
                 ?.toString(Charsets.UTF_8) ?: ""
-        } catch (t: Throwable) {
+        } catch (_: Throwable) {
             ""
         }
     }
@@ -168,7 +169,7 @@ object RustBridge {
                 val target = File(app.filesDir, DICT_ASSET)
                 val stamp = try {
                     app.packageManager.getPackageInfo(app.packageName, 0).lastUpdateTime.toString()
-                } catch (t: Throwable) {
+                } catch (_: Throwable) {
                     "0"
                 }
                 if (!target.isFile || prefs.getString(PREF_DICT_STAMP, null) != stamp) {
@@ -181,7 +182,7 @@ object RustBridge {
                     prefs.edit().putString(PREF_DICT_STAMP, stamp).apply()
                 }
                 loadDictionary(target.absolutePath)
-            } catch (t: Throwable) {
+            } catch (_: Throwable) {
                 // Bez slovniku funguje tap psani, jen bez navrhu a swipe.
             } finally {
                 dictLoading = false
@@ -191,8 +192,6 @@ object RustBridge {
     }
 
     fun loadDictionary(path: String): Boolean = call(OP_LOAD_DICT, path) == "1"
-
-    val dictionaryReady: Boolean get() = call(OP_DICT_READY) == "1"
 
     private fun notifyListeners() {
         for (l in listeners) l()
@@ -204,7 +203,7 @@ object RustBridge {
         val json = call(OP_GET_SETTINGS)
         settings = Settings(try {
             JSONObject(json)
-        } catch (t: Throwable) {
+        } catch (_: Throwable) {
             JSONObject()
         })
     }
@@ -213,7 +212,7 @@ object RustBridge {
         if (json.isEmpty()) return
         settings = Settings(try {
             JSONObject(json)
-        } catch (t: Throwable) {
+        } catch (_: Throwable) {
             return
         })
         appContext?.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
@@ -239,7 +238,7 @@ object RustBridge {
         if (!loaded) return emptyList()
         return try {
             lines(nativeSwipe(points, count, if (capitalize) FLAG_CAPITALIZE else 0)?.toString(Charsets.UTF_8) ?: "")
-        } catch (t: Throwable) {
+        } catch (_: Throwable) {
             emptyList()
         }
     }
@@ -278,7 +277,7 @@ object RustBridge {
             val o = arr.getJSONObject(i)
             Macro(o.getLong("id"), o.getString("name"), o.getString("text"), o.getString("shortcut"))
         }
-    } catch (t: Throwable) {
+    } catch (_: Throwable) {
         emptyList()
     }
 
@@ -328,7 +327,7 @@ object RustBridge {
             val o = arr.getJSONObject(i)
             UserWord(o.getString("word"), o.getInt("count"), o.getLong("last_used"))
         }
-    } catch (t: Throwable) {
+    } catch (_: Throwable) {
         emptyList()
     }
 
@@ -385,7 +384,7 @@ object RustBridge {
             val o = arr.getJSONObject(i)
             ClipItem(o.getLong("id"), o.getString("text"), o.getLong("created"), o.getBoolean("pinned"))
         }
-    } catch (t: Throwable) {
+    } catch (_: Throwable) {
         emptyList()
     }
 

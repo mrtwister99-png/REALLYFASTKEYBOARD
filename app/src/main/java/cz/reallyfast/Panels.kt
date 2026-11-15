@@ -1,5 +1,6 @@
 package cz.reallyfast
 
+import android.annotation.SuppressLint
 import android.content.Context
 import android.graphics.Canvas
 import android.graphics.Paint
@@ -50,6 +51,7 @@ internal fun View.reveal() {
 }
 
 /** Jednoducha carova ikona kreslena na Canvas (zadne bitmapy, zadne zavislosti na fontu). */
+@SuppressLint("ViewConstructor")
 class IconView(context: Context, private val icon: Int) : View(context) {
     companion object {
         const val CLIPBOARD = 0
@@ -149,6 +151,7 @@ class IconView(context: Context, private val icon: Int) : View(context) {
 /**
  * Horni lista: 3 navrhy + tlacitko schranky. V rezimu hledani emoji zobrazuje dotaz a vysledky.
  */
+@SuppressLint("ViewConstructor")
 class SuggestionBar(context: Context, private var theme: Theme, private val callbacks: Callbacks) : FrameLayout(context) {
     interface Callbacks {
         fun onSuggestionPicked(index: Int, word: String)
@@ -175,11 +178,11 @@ class SuggestionBar(context: Context, private var theme: Theme, private val call
         normalRow.gravity = Gravity.CENTER_VERTICAL
         addButton.contentDescription = context.getString(R.string.add_word)
         addButton.setOnClickListener { callbacks.onAddWordClicked() }
-        normalRow.addView(addButton, LinearLayout.LayoutParams(dp(44f), ViewGroup.LayoutParams.MATCH_PARENT))
+        normalRow.addView(addButton, LinearLayout.LayoutParams(dp(44f), LayoutParams.MATCH_PARENT))
         for (i in 0 until 3) {
             val tv = TextView(context).apply {
                 gravity = Gravity.CENTER
-                setSingleLine(true)
+                isSingleLine = true
                 ellipsize = TextUtils.TruncateAt.MIDDLE
                 setTextSize(TypedValue.COMPLEX_UNIT_SP, 16f)
                 setPadding(dp(6f), 0, dp(6f), 0)
@@ -187,7 +190,7 @@ class SuggestionBar(context: Context, private var theme: Theme, private val call
                 setOnClickListener { words.getOrNull(i)?.let { w -> callbacks.onSuggestionPicked(i, w) } }
             }
             slots.add(tv)
-            val slp = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 1f)
+            val slp = LinearLayout.LayoutParams(0, LayoutParams.MATCH_PARENT, 1f)
             slp.setMargins(dp(3f), dp(5f), dp(3f), dp(5f))
             normalRow.addView(tv, slp)
             if (i < 2) {
@@ -198,27 +201,27 @@ class SuggestionBar(context: Context, private var theme: Theme, private val call
         }
         clipButton.contentDescription = context.getString(R.string.clipboard)
         clipButton.setOnClickListener { callbacks.onClipboardClicked() }
-        normalRow.addView(clipButton, LinearLayout.LayoutParams(dp(48f), ViewGroup.LayoutParams.MATCH_PARENT))
+        normalRow.addView(clipButton, LinearLayout.LayoutParams(dp(48f), LayoutParams.MATCH_PARENT))
 
         searchRow.orientation = LinearLayout.HORIZONTAL
         searchRow.gravity = Gravity.CENTER_VERTICAL
         searchRow.visibility = GONE
         closeButton.contentDescription = context.getString(R.string.close)
         closeButton.setOnClickListener { callbacks.onSearchClosed() }
-        searchRow.addView(closeButton, LinearLayout.LayoutParams(dp(44f), ViewGroup.LayoutParams.MATCH_PARENT))
-        queryView.setSingleLine(true)
+        searchRow.addView(closeButton, LinearLayout.LayoutParams(dp(44f), LayoutParams.MATCH_PARENT))
+        queryView.isSingleLine = true
         queryView.setTextSize(TypedValue.COMPLEX_UNIT_SP, 15f)
         queryView.gravity = Gravity.CENTER_VERTICAL
         queryView.setPadding(dp(4f), 0, dp(10f), 0)
-        searchRow.addView(queryView, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.MATCH_PARENT))
+        searchRow.addView(queryView, LinearLayout.LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.MATCH_PARENT))
         val scroll = HorizontalScrollView(context)
         scroll.isHorizontalScrollBarEnabled = false
         resultsRow.orientation = LinearLayout.HORIZONTAL
-        scroll.addView(resultsRow, LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.MATCH_PARENT))
-        searchRow.addView(scroll, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 1f))
+        scroll.addView(resultsRow, LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.MATCH_PARENT))
+        searchRow.addView(scroll, LinearLayout.LayoutParams(0, LayoutParams.MATCH_PARENT, 1f))
 
-        addView(normalRow, LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
-        addView(searchRow, LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
+        addView(normalRow, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT))
+        addView(searchRow, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT))
         applyTheme(theme)
     }
 
@@ -278,7 +281,7 @@ class SuggestionBar(context: Context, private var theme: Theme, private val call
                 background = pressable(theme.keyPressed, dp(10f).toFloat())
                 setOnClickListener { callbacks.onSearchResultPicked(e) }
             }
-            resultsRow.addView(tv, LinearLayout.LayoutParams(dp(46f), ViewGroup.LayoutParams.MATCH_PARENT))
+            resultsRow.addView(tv, LinearLayout.LayoutParams(dp(46f), LayoutParams.MATCH_PARENT))
         }
     }
 
@@ -325,6 +328,7 @@ class EmojiGrid(context: Context) : View(context) {
         }
     }
 
+    @SuppressLint("ClickableViewAccessibility") // jen vyber bunky, zadna samostatna akce kliknuti
     override fun onTouchEvent(e: MotionEvent): Boolean {
         when (e.actionMasked) {
             MotionEvent.ACTION_DOWN -> {
@@ -341,6 +345,7 @@ class EmojiGrid(context: Context) : View(context) {
 }
 
 /** Panel emoji: kategorie (nedavne, smajlici, zvirata, jidlo, aktivity, symboly) + hledani. */
+@SuppressLint("ViewConstructor", "SetTextI18n") // ABC je popisek tlacitka, ne prekladany text
 class EmojiPanel(context: Context, private val theme: Theme, private val callbacks: Callbacks) : LinearLayout(context) {
     interface Callbacks {
         fun onEmojiPicked(emoji: String)
@@ -369,7 +374,7 @@ class EmojiPanel(context: Context, private val theme: Theme, private val callbac
             contentDescription = context.getString(R.string.back_to_keyboard)
             setOnClickListener { callbacks.onPanelBack() }
         }
-        header.addView(back, LayoutParams(dp(52f), ViewGroup.LayoutParams.MATCH_PARENT))
+        header.addView(back, LayoutParams(dp(52f), LayoutParams.MATCH_PARENT))
         val icons = listOf("🕘", "😀", "🐶", "🍎", "⚽", "❤️")
         val names = context.resources.getStringArray(R.array.emoji_categories)
         for (i in icons.indices) {
@@ -381,33 +386,33 @@ class EmojiPanel(context: Context, private val theme: Theme, private val callbac
                 setOnClickListener { select(i) }
             }
             tabs.add(tv)
-            header.addView(tv, LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 1f))
+            header.addView(tv, LayoutParams(0, LayoutParams.MATCH_PARENT, 1f))
         }
         val search = IconView(context, IconView.SEARCH).apply {
             color = theme.text
             contentDescription = context.getString(R.string.emoji_search)
             setOnClickListener { callbacks.onEmojiSearch() }
         }
-        header.addView(search, LayoutParams(dp(44f), ViewGroup.LayoutParams.MATCH_PARENT))
+        header.addView(search, LayoutParams(dp(44f), LayoutParams.MATCH_PARENT))
         val del = IconView(context, IconView.BACKSPACE).apply {
             color = theme.text
             contentDescription = context.getString(R.string.delete)
             setOnClickListener { callbacks.onPanelBackspace() }
         }
-        header.addView(del, LayoutParams(dp(48f), ViewGroup.LayoutParams.MATCH_PARENT))
-        addView(header, LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(44f)))
+        header.addView(del, LayoutParams(dp(48f), LayoutParams.MATCH_PARENT))
+        addView(header, LayoutParams(LayoutParams.MATCH_PARENT, dp(44f)))
 
         grid.textColor = theme.text
         grid.onPick = { callbacks.onEmojiPicked(it) }
-        scroll.addView(grid, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+        scroll.addView(grid, ViewGroup.LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT))
         val body = FrameLayout(context)
-        body.addView(scroll, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
+        body.addView(scroll, FrameLayout.LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT))
         empty.text = context.getString(R.string.emoji_recent_empty)
         empty.gravity = Gravity.CENTER
         empty.setTextColor(theme.textDim)
         empty.setTextSize(TypedValue.COMPLEX_UNIT_SP, 14f)
-        body.addView(empty, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
-        addView(body, LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f))
+        body.addView(empty, FrameLayout.LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT))
+        addView(body, LayoutParams(LayoutParams.MATCH_PARENT, 0, 1f))
     }
 
     /** Otevre panel: nedavne emoji, pokud nejake jsou, jinak smajliky. */
@@ -429,6 +434,7 @@ class EmojiPanel(context: Context, private val theme: Theme, private val callbac
 }
 
 /** Panel schranky: historie az 30 polozek, pripnuti, smazani polozky, smazani vseho. */
+@SuppressLint("ViewConstructor", "SetTextI18n") // ABC je popisek tlacitka, ne prekladany text
 class ClipboardPanel(context: Context, private val theme: Theme, private val callbacks: Callbacks) : LinearLayout(context) {
     interface Callbacks {
         fun onClipPaste(text: String)
@@ -452,14 +458,14 @@ class ClipboardPanel(context: Context, private val theme: Theme, private val cal
             contentDescription = context.getString(R.string.back_to_keyboard)
             setOnClickListener { callbacks.onPanelBack() }
         }
-        header.addView(back, LayoutParams(dp(52f), ViewGroup.LayoutParams.MATCH_PARENT))
+        header.addView(back, LayoutParams(dp(52f), LayoutParams.MATCH_PARENT))
         val title = TextView(context).apply {
             text = context.getString(R.string.clipboard)
             setTextColor(theme.textDim)
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 14f)
             gravity = Gravity.CENTER_VERTICAL
         }
-        header.addView(title, LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 1f))
+        header.addView(title, LayoutParams(0, LayoutParams.MATCH_PARENT, 1f))
         val clear = TextView(context).apply {
             text = context.getString(R.string.clear_all)
             setTextColor(theme.accent)
@@ -471,22 +477,22 @@ class ClipboardPanel(context: Context, private val theme: Theme, private val cal
                 refresh()
             }
         }
-        header.addView(clear, LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.MATCH_PARENT))
-        addView(header, LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(44f)))
+        header.addView(clear, LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.MATCH_PARENT))
+        addView(header, LayoutParams(LayoutParams.MATCH_PARENT, dp(44f)))
 
         list.orientation = VERTICAL
         list.setPadding(dp(8f), 0, dp(8f), dp(8f))
         val scroll = ScrollView(context)
-        scroll.addView(list, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+        scroll.addView(list, ViewGroup.LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT))
         val body = FrameLayout(context)
-        body.addView(scroll, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
+        body.addView(scroll, FrameLayout.LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT))
         empty.text = context.getString(R.string.clipboard_empty)
         empty.gravity = Gravity.CENTER
         empty.setTextColor(theme.textDim)
         empty.setTextSize(TypedValue.COMPLEX_UNIT_SP, 14f)
         empty.setPadding(dp(24f), 0, dp(24f), 0)
-        body.addView(empty, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
-        addView(body, LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f))
+        body.addView(empty, FrameLayout.LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT))
+        addView(body, LayoutParams(LayoutParams.MATCH_PARENT, 0, 1f))
     }
 
     fun refresh() {
@@ -507,7 +513,7 @@ class ClipboardPanel(context: Context, private val theme: Theme, private val cal
                 setPadding(dp(14f), dp(10f), dp(6f), dp(10f))
                 setOnClickListener { callbacks.onClipPaste(item.text) }
             }
-            row.addView(text, LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+            row.addView(text, LayoutParams(0, LayoutParams.WRAP_CONTENT, 1f))
             val pin = IconView(context, IconView.PIN).apply {
                 color = if (item.pinned) theme.accent else theme.textDim
                 filled = item.pinned
@@ -527,7 +533,7 @@ class ClipboardPanel(context: Context, private val theme: Theme, private val cal
                 }
             }
             row.addView(del, LayoutParams(dp(44f), dp(48f)))
-            val lp = LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
+            val lp = LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT)
             lp.topMargin = dp(6f)
             list.addView(row, lp)
         }

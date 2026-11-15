@@ -119,13 +119,13 @@ class DictionaryActivity : SubScreen() {
             i.addCategory(Intent.CATEGORY_OPENABLE)
             i.type = "application/json"
             i.putExtra(Intent.EXTRA_TITLE, "reallyfast-slovnik.json")
-            startActivityForResult(i, REQ_EXPORT)
+            @Suppress("DEPRECATION") startActivityForResult(i, REQ_EXPORT)
         }
         buttonRow(box, getString(R.string.dictionary_import), accent) {
             val i = Intent(Intent.ACTION_OPEN_DOCUMENT)
             i.addCategory(Intent.CATEGORY_OPENABLE)
             i.type = "*/*"
-            startActivityForResult(i, REQ_IMPORT)
+            @Suppress("DEPRECATION") startActivityForResult(i, REQ_IMPORT)
         }
         buttonRow(box, getString(R.string.dictionary_clear), danger) {
             AlertDialog.Builder(this)
@@ -171,6 +171,7 @@ class DictionaryActivity : SubScreen() {
         }
     }
 
+    @Suppress("DEPRECATION") // bez AndroidX neni jina cesta k vysledku aktivity
     @Deprecated("Deprecated in Java")
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
@@ -192,7 +193,7 @@ class DictionaryActivity : SubScreen() {
                     refresh()
                 }
             }
-        } catch (t: Throwable) {
+        } catch (_: Throwable) {
             Toast.makeText(this, R.string.dictionary_import_failed, Toast.LENGTH_SHORT).show()
         }
     }

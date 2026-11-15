@@ -11,10 +11,6 @@ class Settings(val json: JSONObject) {
     val language: String get() = json.optString("language", "cs+en")
     val layout: String get() = json.optString("layout", "qwertz")
     val swipeEnabled: Boolean get() = json.optBoolean("swipe_enabled", true)
-    val swipeSensitivity: Double get() = json.optDouble("swipe_sensitivity", 1.0)
-    val autocorrect: Boolean get() = json.optBoolean("autocorrect", true)
-    val predictions: Boolean get() = json.optBoolean("predictions", true)
-    val learnFromTyping: Boolean get() = json.optBoolean("learn_from_typing", true)
     val vibrationMs: Int get() = json.optInt("vibration_ms", 10)
     val soundEnabled: Boolean get() = json.optBoolean("sound_enabled", false)
     val keyHeightDp: Int get() = json.optInt("key_height_dp", 56)
@@ -43,7 +39,6 @@ class Settings(val json: JSONObject) {
     val animations: Boolean get() = json.optBoolean("animations", true)
     val swipeTrail: Boolean get() = json.optBoolean("swipe_trail", true)
     val swipeGlow: Boolean get() = json.optBoolean("swipe_glow", true)
-    val swipeLog: Boolean get() = json.optBoolean("swipe_log", false)
 
     /** Kopie k uprave (SettingsActivity). */
     fun edit(): JSONObject = JSONObject(json.toString())
@@ -86,7 +81,7 @@ class Theme(
     companion object {
         fun parse(hex: String, fallback: Int): Int = try {
             Color.parseColor(hex)
-        } catch (t: Throwable) {
+        } catch (_: Throwable) {
             fallback
         }
 
