@@ -123,7 +123,7 @@ class KeyboardService : InputMethodService(), KeyboardView.Listener,
 
     private val barHeight: Int get() = (44f * resources.displayMetrics.density + 0.5f).toInt()
 
-    /** Vyska plochy klaves: radky * key_height_dp, nejvyse keyboard_height_percent obrazovky. */
+    /** Vyska plochy klaves: radky * key_height_dp, nejvyse 50 % obrazovky. */
     private fun keysHeight(): Int = keyboardKeysHeight(resources, settings, barHeight)
 
     override fun onCreateInputView(): View {
@@ -271,6 +271,15 @@ class KeyboardService : InputMethodService(), KeyboardView.Listener,
         applyWindowColors()
         updateShift()
         scheduleSuggestions()
+    }
+
+    /**
+     * Pri kazdem zobrazeni znovu zaregistruje geometrii klaves pro swipe decoder (jadro je sdilene
+     * s nastavenim; zkusebni rezim nahledu v nastaveni tam muze mit zapamatovanou svoji geometrii).
+     */
+    override fun onWindowShown() {
+        super.onWindowShown()
+        keyboard?.reloadLayout()
     }
 
     override fun onFinishInputView(finishingInput: Boolean) {

@@ -8,6 +8,7 @@ pub const LANGUAGES: [&str; 3] = ["cs", "en", "cs+en"];
 pub const LAYOUTS: [&str; 2] = ["qwertz", "qwerty"];
 pub const KEY_PLACES: [&str; 3] = ["left", "right", "hidden"];
 pub const THEMES: [&str; 4] = ["dark", "light", "oled_black", "custom"];
+pub const GLOW_STYLES: [&str; 2] = ["blink", "fill"];
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
@@ -76,6 +77,12 @@ pub struct Settings {
     pub neon_color: String,
     /// Barva pismen po uspesnem tahu.
     pub glow_color: String,
+    /// Animace pismen po uspesnem tahu: "blink" (postupne zablikani) nebo "fill" (vybarveni klaves).
+    pub glow_style: String,
+    /// Mezera mezi klavesami v dp (vodorovna; svisla je 1,6x vetsi, pomer jako driv 5 : 8).
+    pub key_gap_dp: u32,
+    /// Velikost znaku na klavesach v procentech (100 = vychozi).
+    pub key_text_percent: u32,
     /// Tlacitko emoji ve spodni rade: "left" (vlevo od mezerniku), "right" (vpravo), "hidden".
     pub emoji_key: String,
     /// Tlacitko maker ve spodni rade: stejne hodnoty jako `emoji_key`.
@@ -132,8 +139,11 @@ impl Default for Settings {
             key_hint_pos: "top_right".into(),
             key_hint_x: 1.0,
             key_hint_y: 0.0,
-            neon_color: "#59ACFF".into(),
-            glow_color: "#FFD60A".into(),
+            neon_color: DEFAULT_ACCENT.into(),
+            glow_color: DEFAULT_ACCENT.into(),
+            glow_style: "blink".into(),
+            key_gap_dp: 5,
+            key_text_percent: 100,
             emoji_key: "left".into(),
             macro_key: "left".into(),
             gesture_delete_word: true,
@@ -224,6 +234,11 @@ impl Settings {
         self.long_press_delay_ms = self.long_press_delay_ms.clamp(150, 500);
         self.clipboard_ttl_minutes = self.clipboard_ttl_minutes.clamp(1, 1440);
         self.key_radius_dp = self.key_radius_dp.clamp(2, 22);
+        self.key_gap_dp = self.key_gap_dp.clamp(1, 10);
+        self.key_text_percent = self.key_text_percent.clamp(70, 150);
+        if !GLOW_STYLES.contains(&self.glow_style.as_str()) {
+            self.glow_style = d.glow_style.clone();
+        }
         self.key_map = std::mem::take(&mut self.key_map)
             .into_iter()
             .filter(|(k, v)| matches!((single_char(k), single_char(v)), (Some(a), Some(b)) if a != b))
@@ -461,14 +476,40 @@ mod tests {
     fn hint_pos_and_colors() {
         let s = Settings::default();
         assert_eq!(s.key_hint_pos, "top_right");
-        assert_eq!((s.neon_color.as_str(), s.glow_color.as_str()), ("#59ACFF", "#FFD60A"));
+        assert_eq!((s.neon_color.as_str(), s.glow_color.as_str()), ("#0080FF", "#0080FF"));
         assert!(s.key_alts.is_empty());
         let s = Settings::from_json(r##"{"key_hint_pos":"bottom_left","neon_color":"#ff0000","glow_color":"x"}"##).unwrap();
         assert_eq!(s.key_hint_pos, "bottom_left");
         assert_eq!(s.neon_color, "#FF0000");
-        assert_eq!(s.glow_color, "#FFD60A");
+        assert_eq!(s.glow_color, "#0080FF");
         let s = Settings::from_json(r#"{"key_hint_pos":"middle"}"#).unwrap();
         assert_eq!(s.key_hint_pos, "top_right");
+    }
+
+    #[test]
+    fn default_colors_are_blue_and_stored_values_stay() {
+        let s = Settings::default();
+        assert_eq!((s.accent_color.as_str(), s.neon_color.as_str(), s.glow_color.as_str()), ("#0080FF", "#0080FF", "#0080FF"));
+        let s = Settings::from_json(r##"{"neon_color":"#59ACFF","glow_color":"#ffd60a"}"##).unwrap();
+        assert_eq!((s.neon_color.as_str(), s.glow_color.as_str()), ("#59ACFF", "#FFD60A"));
+        // chybejici nebo neplatna barva -> nova vychozi modra
+        let s = Settings::from_json(r##"{"neon_color":"x"}"##).unwrap();
+        assert_eq!((s.neon_color.as_str(), s.glow_color.as_str()), ("#0080FF", "#0080FF"));
+    }
+
+    #[test]
+    fn glow_style_gap_and_text_size() {
+        let s = Settings::default();
+        assert_eq!((s.glow_style.as_str(), s.key_gap_dp, s.key_text_percent), ("blink", 5, 100));
+        let s = Settings::from_json(r#"{"glow_style":"fill","key_gap_dp":7,"key_text_percent":120}"#).unwrap();
+        assert_eq!((s.glow_style.as_str(), s.key_gap_dp, s.key_text_percent), ("fill", 7, 120));
+        let s = Settings::from_json(r#"{"glow_style":"spin","key_gap_dp":0,"key_text_percent":10}"#).unwrap();
+        assert_eq!((s.glow_style.as_str(), s.key_gap_dp, s.key_text_percent), ("blink", 1, 70));
+        let s = Settings::from_json(r#"{"key_gap_dp":99,"key_text_percent":999}"#).unwrap();
+        assert_eq!((s.key_gap_dp, s.key_text_percent), (10, 150));
+        // stary soubor bez poli
+        let s = Settings::from_json(r#"{"theme":"light"}"#).unwrap();
+        assert_eq!((s.glow_style.as_str(), s.key_gap_dp, s.key_text_percent), ("blink", 5, 100));
     }
 
     #[test]

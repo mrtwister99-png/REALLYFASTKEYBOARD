@@ -63,6 +63,8 @@ pub struct Layout {
     pub unit_w: f32,
     pub row_h: f32,
     pub mode: u8,
+    /// Prvni radek je rada cislic nad pismeny (jen v rezimu pismen se zapnutou radou).
+    pub number_row: bool,
 }
 
 /// Stredy pismen a-z v normalizovanych jednotkach (1 = sirka klavesy / vyska radku).
@@ -297,6 +299,7 @@ impl Layout {
         let width = if width.is_finite() && width > 1.0 { width } else { 1080.0 };
         let height = if height.is_finite() && height > 1.0 { height } else { 800.0 };
         let rows = rows_for(qwertz, mode, number_row, space_label, bottom);
+        let number_row = number_row && mode == MODE_LETTERS;
         let n_rows = rows.len();
         let unit_w = width / UNITS;
         let row_h = height / n_rows as f32;
@@ -326,7 +329,7 @@ impl Layout {
                 x += vw;
             }
         }
-        Layout { keys, width, height, rows: n_rows, unit_w, row_h, mode }
+        Layout { keys, width, height, rows: n_rows, unit_w, row_h, mode, number_row }
     }
 
     /// Premapuje znakove klavesy podle nastaveni (puvodni znak pozice -> novy znak).
@@ -408,9 +411,17 @@ impl Layout {
             height: f32,
             rows: usize,
             mode: u8,
+            number_row: bool,
             keys: &'a [Key],
         }
-        serde_json::to_string(&Out { width: self.width, height: self.height, rows: self.rows, mode: self.mode, keys: &self.keys })
+        serde_json::to_string(&Out {
+            width: self.width,
+            height: self.height,
+            rows: self.rows,
+            mode: self.mode,
+            number_row: self.number_row,
+            keys: &self.keys,
+        })
             .unwrap_or_else(|_| "{\"keys\":[]}".to_string())
     }
 }
@@ -635,5 +646,18 @@ mod tests {
         let v: serde_json::Value = serde_json::from_str(&l.to_json()).unwrap();
         assert_eq!(v["keys"].as_array().unwrap().len(), l.keys.len());
         assert_eq!(v["rows"], 5);
+    }
+
+    #[test]
+    fn json_marks_number_row() {
+        let flag = |mode: u8, number_row: bool| {
+            let l = Layout::build(1440.0, 1000.0, true, mode, number_row, "x");
+            let v: serde_json::Value = serde_json::from_str(&l.to_json()).unwrap();
+            v["number_row"].as_bool().unwrap()
+        };
+        assert!(flag(MODE_LETTERS, true));
+        assert!(!flag(MODE_LETTERS, false));
+        assert!(!flag(MODE_SYMBOLS, true));
+        assert!(!flag(MODE_SYMBOLS2, true));
     }
 }

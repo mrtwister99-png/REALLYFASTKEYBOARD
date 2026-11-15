@@ -14,7 +14,6 @@ class Settings(val json: JSONObject) {
     val vibrationMs: Int get() = json.optInt("vibration_ms", 10)
     val soundEnabled: Boolean get() = json.optBoolean("sound_enabled", false)
     val keyHeightDp: Int get() = json.optInt("key_height_dp", 56)
-    val keyboardHeightPercent: Int get() = json.optInt("keyboard_height_percent", 38)
     val theme: String get() = json.optString("theme", "dark")
     val accentColor: String get() = json.optString("accent_color", "#0080FF")
     val showNumberRow: Boolean get() = json.optBoolean("show_number_row", true)
@@ -42,22 +41,26 @@ class Settings(val json: JSONObject) {
     val keyGlow: Boolean get() = json.optBoolean("key_glow", true)
     val keyHintX: Float get() = json.optDouble("key_hint_x", 1.0).toFloat().coerceIn(0f, 1f)
     val keyHintY: Float get() = json.optDouble("key_hint_y", 0.0).toFloat().coerceIn(0f, 1f)
-    val neonColor: String get() = json.optString("neon_color", "#59ACFF")
-    val glowColor: String get() = json.optString("glow_color", "#FFD60A")
+    val neonColor: String get() = json.optString("neon_color", "#0080FF")
+    val glowColor: String get() = json.optString("glow_color", "#0080FF")
+    val glowStyle: String get() = json.optString("glow_style", "blink")
+    val keyGapDp: Int get() = json.optInt("key_gap_dp", 5).coerceIn(1, 10)
+    val keyTextPercent: Int get() = json.optInt("key_text_percent", 100).coerceIn(70, 150)
 
     /** Kopie k uprave (SettingsActivity). */
     fun edit(): JSONObject = JSONObject(json.toString())
 }
 
 /**
- * Vyska plochy klaves v px: radky * key_height_dp, nejvyse keyboard_height_percent obrazovky.
+ * Vyska plochy klaves v px: radky * key_height_dp, nejvyse 50 % obrazovky (na sirku 58 %).
+ * Pevny bezpecnostni strop; ulozena hodnota `keyboard_height_percent` se uz nepouziva.
  * Pouziva klavesnice i zivy nahled v nastaveni, aby ukazovaly totez.
  */
 fun keyboardKeysHeight(res: android.content.res.Resources, s: Settings, barHeightPx: Int): Int {
     val dm = res.displayMetrics
     val rows = if (s.showNumberRow) 5 else 4
     val landscape = res.configuration.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
-    val percent = if (landscape) minOf(s.keyboardHeightPercent + 14, 58) else s.keyboardHeightPercent
+    val percent = if (landscape) 58 else 50
     val byKeys = rows * s.keyHeightDp * dm.density
     val cap = dm.heightPixels * percent / 100f - barHeightPx
     val minimum = rows * (if (landscape) 32f else 40f) * dm.density

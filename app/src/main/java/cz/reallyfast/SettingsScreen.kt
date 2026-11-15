@@ -1,7 +1,6 @@
 package cz.reallyfast
 
 import android.annotation.SuppressLint
-import android.app.AlertDialog
 import android.content.Context
 import android.graphics.Canvas
 import android.graphics.Paint
@@ -10,11 +9,9 @@ import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
 import android.os.SystemClock
-import android.text.InputType
 import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
-import android.widget.EditText
 import android.widget.FrameLayout
 import android.widget.HorizontalScrollView
 import android.widget.LinearLayout
@@ -89,7 +86,7 @@ abstract class SettingsScreen : BaseScreen() {
             Preset("Mono", "custom", "#18181B", "#2E2E33", "#FAFAFA", "#FAFAFA"),
         )
         val PALETTE = listOf(
-            "#0080FF", "#F59E0B", "#EF4444", "#EC4899", "#8B5CF6", "#06B6D4", "#10B981", "#84CC16", "#F4F4F5", "#111113",
+            "#005DEB", "#B1CF4E", "#FF5100", "#960000", "#6A02E8", "#E8E8E8", "#171717", "#73DEFF", "#F2ECC4", "#2B27A8",
         )
     }
 
@@ -137,7 +134,7 @@ abstract class SettingsScreen : BaseScreen() {
      * Prepinac. S `helpRes` je mezi popiskem a prepinacem kulate "?"; klepnuti otevre nad nim
      * bublinu s napovedou, ktera se po `helpMs` (nebo klepnutim kamkoli) zase zasune.
      */
-    protected fun switchRow(box: LinearLayout, labelRes: Int, key: String, helpRes: Int = 0, helpMs: Long = 5000) {
+    protected fun switchRow(box: LinearLayout, labelRes: Int, key: String, helpRes: Int = 0, helpMs: Long = 5000, hintRes: Int = 0) {
         val row = LinearLayout(this)
         row.gravity = Gravity.CENTER_VERTICAL
         row.minimumHeight = dp(52f)
@@ -171,7 +168,6 @@ abstract class SettingsScreen : BaseScreen() {
             row.addView(hit, LinearLayout.LayoutParams(dp(44f), dp(44f)))
         }
         val sw = ToggleView(this)
-        sw.accentColor = accent
         sw.contentDescription = getString(labelRes)
         sw.setChecked(RustBridge.settings.json.optBoolean(key), false)
         sw.onChange = { checked ->
@@ -180,8 +176,8 @@ abstract class SettingsScreen : BaseScreen() {
         row.addView(sw)
         row.setOnClickListener { sw.toggle() }
         box.addView(row, rowParams())
+        if (hintRes != 0) hintText(box, getString(hintRes))
         refreshers.add {
-            sw.accentColor = accent
             sw.setChecked(RustBridge.settings.json.optBoolean(key), false)
         }
     }
@@ -270,19 +266,15 @@ abstract class SettingsScreen : BaseScreen() {
         val head = LinearLayout(this)
         head.gravity = Gravity.CENTER_VERTICAL
         head.addView(label(getString(labelRes)), LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
-        val hex = label("", 14f, dim)
-        hex.setPadding(dp(8f), dp(6f), 0, dp(6f))
-        hex.setOnClickListener { askHex(key) }
-        head.addView(hex)
         col.addView(head, rowParams())
         val row = LinearLayout(this)
         val swatches = ArrayList<View>()
         fun paint() {
-            val cur = RustBridge.settings.json.optString(key).uppercase()
-            hex.text = cur
+            val cur = RustBridge.settings.json.optString(key)
             for ((i, v) in swatches.withIndex()) {
                 val d = rounded(Theme.parse(PALETTE[i], 0), dp(10f).toFloat())
-                d.setStroke(dp(2f), if (PALETTE[i] == cur) text else 0x33FFFFFF)
+                // Vybrana = zvyrazneny obrys; ostatni maji jemny svetly obrys, aby tmave barvy bylo videt na tmave karte.
+                if (PALETTE[i].equals(cur, ignoreCase = true)) d.setStroke(dp(2.5f), text) else d.setStroke(dp(1.5f), 0x66FFFFFF)
                 v.background = d
             }
         }
@@ -300,22 +292,6 @@ abstract class SettingsScreen : BaseScreen() {
         box.addView(col, rowParams())
         paint()
         refreshers.add { paint() }
-    }
-
-    private fun askHex(key: String) {
-        val input = EditText(this)
-        input.inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS
-        input.setText(RustBridge.settings.json.optString(key))
-        AlertDialog.Builder(this)
-            .setTitle(R.string.color_hex_title)
-            .setView(input)
-            .setPositiveButton(R.string.ok) { _, _ ->
-                var v = input.text.toString().trim()
-                if (!v.startsWith("#")) v = "#$v"
-                update(key, v) // neplatnou hodnotu Rust nahradi vychozi barvou
-            }
-            .setNegativeButton(R.string.cancel, null)
-            .show()
     }
 
     /** Vodorovny pruh hotovych stylu s miniaturami. */

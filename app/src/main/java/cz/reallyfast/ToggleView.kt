@@ -10,21 +10,17 @@ import android.view.accessibility.AccessibilityNodeInfo
 import android.view.animation.OvershootInterpolator
 
 /**
- * Vlastni prepinac (nahrazuje android.widget.Switch). Palec se pohybuje s mirnym preskocenim
- * a behem pohybu se zmensi a zase zvetsi; v klidu je vypnuty 70 % a zapnuty 105 % zakladniho
- * polomeru. Jedna animace 420 ms na kazde prepnuti; obraceni uprostred navazuje z aktualni
- * hodnoty. onDraw nealokuje.
+ * Vlastni prepinac (nahrazuje android.widget.Switch), kapsle 52 x 30 dp. Vypnuty: tmave seda kapsle
+ * a svetle sedy palec; zapnuty: svetle seda kapsle a modry palec (pevna modra, ne accent barva).
+ * Palec se pohybuje s mirnym preskocenim a behem pohybu se zmensi a zase zvetsi (vypnuty 70 %,
+ * zapnuty 105 % zakladniho polomeru 10 dp); jeho stred je ale vzdy omezen tak, aby kruh nikdy
+ * nepresahl vnitrni okraj kapsle (odsazeni 2 dp). Jedna animace 420 ms na kazde prepnuti;
+ * obraceni uprostred navazuje z aktualni hodnoty. onDraw nealokuje.
  */
 class ToggleView(context: Context) : View(context) {
 
     /** Zavola se jen pri prepnuti uzivatelem (ne pri setChecked). */
     var onChange: ((Boolean) -> Unit)? = null
-
-    var accentColor: Int = 0xFF0080FF.toInt()
-        set(value) {
-            field = value
-            invalidate()
-        }
 
     var isChecked = false
         private set
@@ -86,22 +82,27 @@ class ToggleView(context: Context) : View(context) {
     }
 
     override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
-        setMeasuredDimension((56f * d + 0.5f).toInt(), (30f * d + 0.5f).toInt())
+        setMeasuredDimension((TRACK_W * d + 0.5f).toInt(), (TRACK_H * d + 0.5f).toInt())
     }
 
     override fun onDraw(canvas: Canvas) {
         val w = width.toFloat()
         val h = height.toFloat()
-        val trackW = 44f * d
-        val trackH = 24f * d
+        val trackW = TRACK_W * d
+        val trackH = TRACK_H * d
         val left = (w - trackW) / 2f
         val top = (h - trackH) / 2f
-        paint.color = Theme.blend(OFF_COLOR, accentColor, pos.coerceIn(0f, 1f))
+        val t = pos.coerceIn(0f, 1f)
+        paint.color = Theme.blend(OFF_TRACK, ON_TRACK, t)
         rect.set(left, top, left + trackW, top + trackH)
         canvas.drawRoundRect(rect, trackH / 2f, trackH / 2f, paint)
         val r = 10f * d * size
-        val cx = left + trackH / 2f + 24f * d * pos
-        paint.color = 0xFFFFFFFF.toInt()
+        // Stred palce: od vnitrniho okraje vlevo po vnitrni okraj vpravo, preskok se orizne.
+        val inset = INSET * d
+        val minX = left + inset + r
+        val maxX = left + trackW - inset - r
+        val cx = (minX + (maxX - minX) * pos).coerceIn(minX, maxX)
+        paint.color = Theme.blend(OFF_THUMB, ON_THUMB, t)
         canvas.drawCircle(cx, h / 2f, r, paint)
     }
 
@@ -123,6 +124,12 @@ class ToggleView(context: Context) : View(context) {
         const val SIZE_ON = 1.05f
         const val SIZE_MIN = 0.60f
         const val SIZE_MID_AT = 0.35f
-        val OFF_COLOR = 0xFF3A3A40.toInt()
+        const val TRACK_W = 52f
+        const val TRACK_H = 30f
+        const val INSET = 2f
+        val OFF_TRACK = 0xFF3A3A40.toInt()
+        val ON_TRACK = 0xFFD4D4D8.toInt()
+        val OFF_THUMB = 0xFFB4B4BC.toInt()
+        val ON_THUMB = 0xFF0080FF.toInt()
     }
 }

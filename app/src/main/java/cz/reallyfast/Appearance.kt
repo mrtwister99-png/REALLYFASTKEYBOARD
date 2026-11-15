@@ -10,8 +10,11 @@ import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.os.Build
 import android.os.Bundle
+import android.text.Editable
 import android.text.InputFilter
 import android.text.InputType
+import android.text.TextUtils
+import android.text.TextWatcher
 import android.view.Gravity
 import android.view.MotionEvent
 import android.view.View
@@ -35,7 +38,8 @@ import kotlin.math.max
  * Zalozka "Jazyk a rozlozeni": jazyk, spodni rada a znaky na klavesach; klepnuti na klavesu
  * v nahledu otevre nad ni bublinu s editorem znaku. Zmena se ulozi do nastaveni (`key_map`,
  * `key_alts`) a Rust ji pouzije v rozlozeni i v swipe decoderu.
- * Tlacitko TEST zapne zkusebni rezim nahledu (klavesy reaguji, nic se nepise).
+ * Tlacitko TEST zapne zkusebni rezim nahledu: klavesy reaguji jako na pravde (klepnuti i swipe)
+ * a napsany text se ukazuje v radku nad nahledem; nic se nikam nezapisuje ani neuci.
  * "Nastavit" u male napovedy zapne nad klavesnici ovladac polohy napovedy.
  */
 class AppearanceActivity : SettingsScreen() {
@@ -44,6 +48,9 @@ class AppearanceActivity : SettingsScreen() {
     private lateinit var previewBox: LinearLayout
     private lateinit var rootView: View
     private lateinit var testButton: TextView
+    private lateinit var testView: TextView
+    private lateinit var captionRow: LinearLayout
+    private lateinit var editBar: LinearLayout
     private lateinit var hintPanel: FrameLayout
     private lateinit var hintPad: HintPad
     private lateinit var hintSave: TextView
@@ -59,6 +66,8 @@ class AppearanceActivity : SettingsScreen() {
     private var tab = 0
 
     private var testMode = false
+    private val testTyped = StringBuilder()
+    private var imeVisible = false
     private var adjusting = false
     private var saving = false
     private var adjX = 1f
@@ -73,6 +82,11 @@ class AppearanceActivity : SettingsScreen() {
     /** Cekajici prohozeni: puvodni kod pozice prvni klavesy a znak, ktery na ni ted je. */
     private var pendingSrc = -1
     private var pendingChar = ""
+
+    // Akce tri tlacitek v radku nahledu (nastavuje editor klavesy).
+    private var editSwap: (() -> Unit)? = null
+    private var editOriginal: (() -> Unit)? = null
+    private var editSave: (() -> Unit)? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -91,10 +105,21 @@ class AppearanceActivity : SettingsScreen() {
         box.orientation = LinearLayout.VERTICAL
         val captionRow = LinearLayout(this)
         captionRow.gravity = Gravity.CENTER_VERTICAL
-        captionRow.setPadding(dp(22f), dp(8f), dp(16f), dp(6f))
+        captionRow.minimumHeight = dp(46f)
+        captionRow.setPadding(dp(22f), dp(6f), dp(16f), dp(4f))
+        this.captionRow = captionRow
         val caption = label(getString(R.string.preview).uppercase(), 11f, dim)
         caption.letterSpacing = 0.08f
-        captionRow.addView(caption, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+        captionRow.addView(caption, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+        // Text napsany v zkusebnim rezimu (jednoradkovy, zkracuje se zepredu).
+        val typed = label("", 13f)
+        typed.maxLines = 1
+        typed.isSingleLine = true
+        typed.ellipsize = TextUtils.TruncateAt.START
+        typed.gravity = Gravity.END or Gravity.CENTER_VERTICAL
+        typed.setPadding(dp(12f), 0, dp(12f), 0)
+        captionRow.addView(typed, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+        testView = typed
         val test = label(getString(R.string.preview_test), 11f)
         test.typeface = Typeface.DEFAULT_BOLD
         test.letterSpacing = 0.08f
@@ -103,6 +128,21 @@ class AppearanceActivity : SettingsScreen() {
         test.setOnClickListener { if (testMode) stopTest() else startTest() }
         captionRow.addView(test)
         testButton = test
+        // Tlacitka editoru klavesy: behem upravy nahrazuji TEST a napsany text.
+        val bar = LinearLayout(this)
+        bar.visibility = View.GONE
+        fun editButton(textRes: Int, color: Int, first: Boolean, onClick: () -> Unit) {
+            val lp = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
+            if (!first) lp.leftMargin = dp(6f)
+            bar.addView(outlinedButton(textRes, color, onClick), lp)
+        }
+        editButton(R.string.swap_short, BLUE, true) { editSwap?.invoke() }
+        editButton(R.string.original_short, ORANGE, false) { editOriginal?.invoke() }
+        editButton(R.string.save, GREEN, false) { editSave?.invoke() }
+        val blp = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
+        blp.leftMargin = dp(12f)
+        captionRow.addView(bar, blp)
+        editBar = bar
         box.addView(captionRow, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
 
         // Ovladac polohy male napovedy (jen v rezimu nastavovani): kruh s kulickou + tlacitko Ulozit.
@@ -139,10 +179,12 @@ class AppearanceActivity : SettingsScreen() {
         rootView = root
         updatePreview()
 
-        // Kdyz je otevrena skutecna klavesnice, nahled se schova - je videt ta prava.
+        // Kdyz je otevrena skutecna klavesnice, nahled se schova - je videt ta prava. Behem upravy
+        // klavesy se schova jen klavesnice nahledu, radek s tlacitky zustane nad skutecnou klavesnici.
         if (Build.VERSION.SDK_INT >= 30) {
             root.setOnApplyWindowInsetsListener { v, insets ->
-                box.visibility = if (insets.isVisible(WindowInsets.Type.ime())) View.GONE else View.VISIBLE
+                imeVisible = insets.isVisible(WindowInsets.Type.ime())
+                applyImeLayout()
                 v.onApplyWindowInsets(insets)
             }
         }
@@ -171,6 +213,7 @@ class AppearanceActivity : SettingsScreen() {
         val s = RustBridge.settings
         val theme = Theme.from(s)
         preview.theme = theme
+        testView.setTextColor(theme.text)
         // Nejvyse 45 % obrazovky, aby zbylo misto na nastaveni.
         val real = keyboardKeysHeight(resources, s, dp(44f))
         preview.desiredHeight = minOf(real, (resources.displayMetrics.heightPixels * 0.45f).toInt())
@@ -186,8 +229,28 @@ class AppearanceActivity : SettingsScreen() {
     }
 
     override fun onSettingUpdated(key: String, value: Any) {
-        // Nahled neni na zalozce Vzhled interaktivni, tak barvy ukazeme ukazkou.
-        if (key == "neon_color" || key == "key_glow") preview.demoNeon()
+        // Zmena, kterou neni na staticke klavesnici videt, se ukaze kratkou ukazkou v nahledu.
+        when (key) {
+            "neon_color", "key_glow" -> preview.demoNeon()
+            "key_popup" -> preview.demoPopup()
+            "animations" -> preview.demoPress()
+            "glow_style", "glow_color" -> preview.glowWord("ahoj")
+        }
+    }
+
+    /** Skutecna klavesnice otevrena = nahled schovany; behem upravy klavesy zustane radek s tlacitky. */
+    private fun applyImeLayout() {
+        val editing = editor != null
+        previewBox.visibility = if (imeVisible && !editing) View.GONE else View.VISIBLE
+        preview.visibility = if (imeVisible && editing) View.GONE else View.VISIBLE
+    }
+
+    /** Radek nahledu: pri uprave klavesy tri tlacitka, jinak napsany text a TEST. */
+    private fun setEditing(on: Boolean) {
+        editBar.visibility = if (on) View.VISIBLE else View.GONE
+        testView.visibility = if (on) View.GONE else View.VISIBLE
+        testButton.visibility = if (on || adjusting) View.GONE else View.VISIBLE
+        applyImeLayout()
     }
 
     private fun showTab(i: Int) {
@@ -217,7 +280,16 @@ class AppearanceActivity : SettingsScreen() {
         if (adjusting) return
         currentBubble?.hide(immediate = true)
         testMode = true
-        preview.listener = null
+        testTyped.setLength(0)
+        testView.text = ""
+        // Swipe se dekoduje jen v pismenech.
+        if (shownMode != KeyboardView.MODE_LETTERS) {
+            shownMode = KeyboardView.MODE_LETTERS
+            preview.setMode(KeyboardView.MODE_LETTERS)
+        }
+        preview.listener = testListener
+        preview.swipeAllowed = true
+        // Zapne zkusebni rezim a zaregistruje geometrii nahledu pro swipe decoder.
         preview.previewTouch = true
         applyPickMode()
         testButton.text = getString(R.string.preview_back)
@@ -227,9 +299,72 @@ class AppearanceActivity : SettingsScreen() {
     private fun stopTest() {
         testMode = false
         preview.previewTouch = false
+        preview.swipeAllowed = false
+        preview.listener = null
+        preview.shiftState = KeyboardView.SHIFT_OFF
+        testTyped.setLength(0)
+        testView.text = ""
         applyPickMode()
         testButton.text = getString(R.string.preview_test)
         paintPills()
+    }
+
+    /** Pridani textu do zkusebniho pole (poslednich ~300 znaku). */
+    private fun testAppend(t: String) {
+        testTyped.append(t)
+        if (testTyped.length > 300) testTyped.delete(0, testTyped.length - 300)
+        testView.text = testTyped.toString()
+    }
+
+    /**
+     * Posluchac zkusebniho rezimu: jen vypisuje do pole nahledu. Zadne uceni, slovnik, schranka ani
+     * diktovani; ostatni udalosti (gesta, kurzor, nabidky, pinch) se ignoruji.
+     */
+    private val testListener = object : KeyboardView.Listener {
+        private fun afterLetter() {
+            if (preview.shiftState == KeyboardView.SHIFT_ONCE) preview.shiftState = KeyboardView.SHIFT_OFF
+        }
+
+        override fun onPressFeedback(key: KeyboardView.Key) {}
+
+        override fun onKeyTap(key: KeyboardView.Key) {
+            when (key.kind) {
+                KeyboardView.KIND_CHAR -> {
+                    val upper = preview.shiftState != KeyboardView.SHIFT_OFF && preview.mode == KeyboardView.MODE_LETTERS
+                    testAppend(if (upper) key.label.uppercase() else key.label)
+                    afterLetter()
+                }
+                KeyboardView.KIND_SPACE -> testAppend(" ")
+                KeyboardView.KIND_BACKSPACE -> if (testTyped.isNotEmpty()) {
+                    testTyped.setLength(testTyped.length - Character.charCount(Character.codePointBefore(testTyped, testTyped.length)))
+                    testView.text = testTyped.toString()
+                }
+                KeyboardView.KIND_SHIFT -> preview.shiftState =
+                    if (preview.shiftState == KeyboardView.SHIFT_OFF) KeyboardView.SHIFT_ONCE else KeyboardView.SHIFT_OFF
+            }
+        }
+
+        override fun onAltText(text: String) {
+            testAppend(text)
+            afterLetter()
+        }
+
+        override fun onSwipeWords(words: List<String>) {
+            val word = words.firstOrNull() ?: return
+            testAppend("$word ")
+            preview.glowWord(word)
+            afterLetter()
+        }
+
+        override fun onGestureAction(action: Int) {}
+        override fun onCursorSteps(steps: Int) {}
+        override fun onSpaceLongPress() {}
+        override fun onPinchScale(scale: Float) {}
+        override fun onMenuAction(kind: Int, index: Int) {}
+        override fun onBeforeSwipe() {}
+        override fun onVoiceStart() {}
+        override fun onVoiceStop() {}
+        override fun onVoiceDelete() {}
     }
 
     // ------------------------------------------------------------------ poloha male napovedy
@@ -253,6 +388,7 @@ class AppearanceActivity : SettingsScreen() {
         preview.setHintOverride(adjX, adjY)
         preview.hintFocus = true
         testButton.visibility = View.GONE
+        testView.visibility = View.INVISIBLE
         hintAdjustButton?.text = getString(R.string.cancel)
         hintPanel.visibility = View.VISIBLE
         // Tlacitko Ulozit pritece zprava zpoza okraje obrazovky.
@@ -273,6 +409,7 @@ class AppearanceActivity : SettingsScreen() {
         preview.hintFocus = false
         preview.clearHintOverride()
         testButton.visibility = View.VISIBLE
+        testView.visibility = View.VISIBLE
         hintAdjustButton?.text = getString(R.string.hint_adjust)
         applyPickMode()
         paintPills()
@@ -338,14 +475,18 @@ class AppearanceActivity : SettingsScreen() {
         box.addView(custom, rowParams())
         customColors = custom
         sliderRow(box, R.string.key_height, "key_height_dp", 48, 72, 1) { getString(R.string.unit_dp, it) }
-        sliderRow(box, R.string.keyboard_height, "keyboard_height_percent", 30, 50, 1) { getString(R.string.unit_percent, it) }
+        sliderRow(box, R.string.key_gap, "key_gap_dp", 1, 10, 1) { getString(R.string.unit_dp, it) }
         sliderRow(box, R.string.key_radius, "key_radius_dp", 2, 22, 1) { getString(R.string.unit_dp, it) }
-        switchRow(box, R.string.key_popup, "key_popup")
+        sliderRow(box, R.string.key_text_size, "key_text_percent", 70, 150, 1) { getString(R.string.unit_percent, it) }
+        switchRow(box, R.string.key_popup, "key_popup", hintRes = R.string.key_popup_hint)
         switchRow(box, R.string.key_hints, "key_hints")
-        switchRow(box, R.string.key_shadow, "key_shadow")
-        switchRow(box, R.string.animations, "animations")
-        switchRow(box, R.string.key_glow, "key_glow")
+        switchRow(box, R.string.key_shadow, "key_shadow", hintRes = R.string.key_shadow_hint)
+        switchRow(box, R.string.animations, "animations", hintRes = R.string.animations_hint)
+        switchRow(box, R.string.key_glow, "key_glow", hintRes = R.string.key_glow_hint)
         colorRow(box, R.string.neon_color, "neon_color")
+        choiceRow(box, R.string.glow_style_label, "glow_style", listOf("blink", "fill"),
+            listOf(getString(R.string.glow_style_blink), getString(R.string.glow_style_fill)))
+        colorRow(box, R.string.glow_color, "glow_color")
     }
 
     private fun buildLayout(tabBox: LinearLayout) {
@@ -527,10 +668,12 @@ class AppearanceActivity : SettingsScreen() {
 
     /** Tlacitko editoru: pruhledne s barevnym obrysem a barevnym textem. */
     private fun outlinedButton(textRes: Int, color: Int, onClick: () -> Unit): TextView {
-        val b = label(getString(textRes), 14f, color)
+        val b = label(getString(textRes), 12f, color)
         b.typeface = Typeface.DEFAULT_BOLD
         b.gravity = Gravity.CENTER
-        b.setPadding(dp(4f), dp(10f), dp(4f), dp(10f))
+        b.maxLines = 1
+        b.isSingleLine = true
+        b.setPadding(dp(2f), dp(7f), dp(2f), dp(7f))
         b.background = outline(color)
         b.setOnClickListener { onClick() }
         return b
@@ -590,46 +733,38 @@ class AppearanceActivity : SettingsScreen() {
         rlp.leftMargin = dp(12f)
         top.addView(right, rlp)
 
-        // Tlacitka: Prohodit / Puvodni / Ulozit.
-        val buttons = LinearLayout(this)
-        fun add(b: TextView, first: Boolean) {
-            val lp = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
-            if (!first) lp.leftMargin = dp(8f)
-            buttons.addView(b, lp)
-        }
-        add(outlinedButton(R.string.swap_short, BLUE) {
+        // Tlacitka Prohodit / Puvodni / Ulozit jsou v radku nahledu (editBar); tady jen jejich akce.
+        editSwap = {
             closeEditor()
             pendingSrc = key.src
             pendingChar = key.label
             preview.markedSrc = key.src
             updateStatus()
-        }, true)
-        add(outlinedButton(R.string.original_short, ORANGE) {
+        }
+        editOriginal = {
             closeEditor()
             val map = readMap()
             val altsMap = readAlts()
             map.remove(srcString(key))
             altsMap.remove(srcString(key))
             writeMaps(map, altsMap)
-        }, false)
-        add(outlinedButton(R.string.save, GREEN) {
+        }
+        editSave = {
             val typedAlts = altsEdit.text.toString()
             // Nezmenene pole zustane beze zmeny (vychozi varianty delsi nez 5 se tak neorezou).
             val outAlts = if (typedAlts == preAlts) key.alts else typedAlts
             if (saveChar(key, charEdit.text.toString().trim(), outAlts, key.alts)) closeEditor()
-        }, false)
+        }
 
         val form = LinearLayout(this)
         form.orientation = LinearLayout.VERTICAL
         form.setPadding(dp(12f), dp(12f), dp(12f), dp(12f))
         form.addView(top, rowParams())
-        val blp = rowParams()
-        blp.topMargin = dp(12f)
-        form.addView(buttons, blp)
         // Fokus drzi nepsaci pohled, aby se skutecna klavesnice neotevrela sama.
         form.isFocusableInTouchMode = true
 
         val bubble = Bubble(this, form, passThrough = false, widthDp = 300)
+        bubble.passViews = listOf(editBar) // tlacitka v radku nahledu zustavaji pouzitelna
         editor = bubble
         editorKey = key
         editorKeyRect.set(keyRectInWindow(key))
@@ -637,8 +772,25 @@ class AppearanceActivity : SettingsScreen() {
             removeEditorListener()
             editor = null
             editorKey = null
+            editSwap = null
+            editOriginal = null
+            editSave = null
+            preview.hideAltsDemo()
+            setEditing(false)
         }
-        bubble.show(Rect(editorKeyRect))
+        // Nabidka variant jako pri dlouhem stisku, zive podle pole "Podrz".
+        preview.showAltsDemo(key, preAlts)
+        altsEdit.addTextChangedListener(object : TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
+            override fun afterTextChanged(s: Editable?) {
+                if (editor == null) return
+                preview.showAltsDemo(key, s?.toString() ?: "")
+                repositionEditor(animate = true)
+            }
+        })
+        setEditing(true)
+        bubble.show(editorAnchor())
         form.requestFocus()
         rootView.viewTreeObserver.addOnGlobalLayoutListener(editorLayoutListener)
     }
@@ -658,13 +810,21 @@ class AppearanceActivity : SettingsScreen() {
         imm.hideSoftInputFromWindow(rootView.windowToken, 0)
     }
 
+    /** Radek nahledu (kde jsou tlacitka) v souradnicich okna. */
+    private fun captionRectInWindow(): Rect {
+        val loc = IntArray(2)
+        captionRow.getLocationInWindow(loc)
+        return Rect(loc[0], loc[1], loc[0] + captionRow.width, loc[1] + captionRow.height)
+    }
+
     /**
-     * Pri otevrene skutecne klavesnici (nahled je schovany) drzi editor tesne nad ni,
-     * jinak je nad klavesou. Vzdy v ramci viditelne oblasti okna.
+     * Kotva editoru: klavesa v dolni rade -> bublina primo nad nabidkou variant (nebo nad klavesou,
+     * kdyz variant neni); klavesa ve vyssi rade -> primo nad radkem nahledu, tedy cela nad klavesnici.
+     * Kdyz je klavesnice nahledu schovana (otevrena skutecna klavesnice), je kotvou radek s tlacitky.
+     * Vzdy v ramci viditelne oblasti okna.
      */
-    private fun repositionEditor() {
-        val b = editor ?: return
-        val key = editorKey ?: return
+    private fun editorAnchor(): Rect {
+        val key = editorKey ?: return Rect(editorKeyRect)
         val r = Rect()
         rootView.getWindowVisibleDisplayFrame(r)
         val l0 = IntArray(2)
@@ -672,14 +832,23 @@ class AppearanceActivity : SettingsScreen() {
         rootView.getLocationInWindow(l0)
         rootView.getLocationOnScreen(l1)
         val visibleBottom = r.bottom - (l1[1] - l0[1])
-        val previewShown = previewBox.visibility == View.VISIBLE && preview.width > 0
-        if (previewShown) editorKeyRect.set(keyRectInWindow(key))
-        val a = if (!previewShown || editorKeyRect.bottom > visibleBottom) {
-            Rect(editorKeyRect.left, visibleBottom, editorKeyRect.right, visibleBottom)
-        } else {
-            Rect(editorKeyRect)
+        val keyboardShown = previewBox.visibility == View.VISIBLE && preview.visibility == View.VISIBLE && preview.width > 0
+        var top = captionRectInWindow().top
+        if (keyboardShown) {
+            editorKeyRect.set(keyRectInWindow(key))
+            if (preview.isBottomRow(key)) {
+                val loc = IntArray(2)
+                preview.getLocationInWindow(loc)
+                top = loc[1] + preview.stripTopFor(key).toInt()
+            }
         }
-        b.moveTo(a, animate = false)
+        top = minOf(top, visibleBottom)
+        return Rect(editorKeyRect.left, top, editorKeyRect.right, top)
+    }
+
+    private fun repositionEditor(animate: Boolean = false) {
+        val b = editor ?: return
+        b.moveTo(editorAnchor(), animate)
     }
 
     /** Ulozi znak a znaky pri podrzeni; false = neplatny znak (editor zustane otevreny). */

@@ -101,7 +101,6 @@
     <string name="custom_text">Text</string>
     <string name="preview">Preview</string>
     <string name="key_height">Key height</string>
-    <string name="keyboard_height">Max keyboard height</string>
     <string name="styles">Ready-made styles</string>
     <string name="key_radius">Key corner radius</string>
     <string name="key_popup">Letter bubble on key press</string>
@@ -109,7 +108,6 @@
     <string name="key_shadow">Subtle shadow under keys</string>
     <string name="swipe_trail">Finger trail while swiping</string>
     <string name="animations">Animations</string>
-    <string name="color_hex_title">Color (#RRGGBB)</string>
     <string name="ok">OK</string>
     <string name="cancel">Cancel</string>
 
@@ -223,4 +221,14 @@
     <string name="key_editor_hold">Hold</string>
     <string name="swap_short">Swap</string>
     <string name="original_short">Original</string>
+    <string name="glow_style_label">Animation after a successful swipe</string>
+    <string name="glow_style_blink">Sequential</string>
+    <string name="glow_style_fill">Fill</string>
+    <string name="key_gap">Gap between keys</string>
+    <string name="key_text_size">Character size</string>
+    <string name="animations_hint">Smooth key presses and panel transitions</string>
+    <string name="key_popup_hint">A bubble with the character above the pressed key</string>
+    <string name="key_shadow_hint">A subtle dark edge under every key</string>
+    <string name="key_glow_hint">The key briefly lights up with neon after a tap</string>
+    <string name="swipe_glow_hint">You can change the animation style and color in Appearance.</string>
 </resources>

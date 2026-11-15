@@ -104,7 +104,6 @@
     <string name="custom_text">Text</string>
     <string name="preview">Náhled</string>
     <string name="key_height">Výška klávesy</string>
-    <string name="keyboard_height">Max. výška klávesnice</string>
     <string name="styles">Hotové styly</string>
     <string name="key_radius">Zaoblení kláves</string>
     <string name="key_popup">Bublina s písmenem při stisku</string>
@@ -112,7 +111,6 @@
     <string name="key_shadow">Jemný stín pod klávesami</string>
     <string name="swipe_trail">Stopa za prstem při swipe</string>
     <string name="animations">Animace</string>
-    <string name="color_hex_title">Barva (#RRGGBB)</string>
     <string name="ok">OK</string>
     <string name="cancel">Zrušit</string>
 
@@ -230,4 +228,14 @@
     <string name="key_editor_hold">Podrž</string>
     <string name="swap_short">Prohodit</string>
     <string name="original_short">Původní</string>
+    <string name="glow_style_label">Animace po úspěšném tahu</string>
+    <string name="glow_style_blink">Postupně</string>
+    <string name="glow_style_fill">Vybarvení</string>
+    <string name="key_gap">Mezery mezi klávesami</string>
+    <string name="key_text_size">Velikost znaků</string>
+    <string name="animations_hint">Plynulý stisk kláves a přechody panelů</string>
+    <string name="key_popup_hint">Bublina se znakem nad stisknutou klávesou</string>
+    <string name="key_shadow_hint">Jemný tmavý okraj pod každou klávesou</string>
+    <string name="key_glow_hint">Klávesa se po klepnutí krátce rozsvítí neonem</string>
+    <string name="swipe_glow_hint">Styl a barvu animace najdeš ve Vzhledu.</string>
 </resources>

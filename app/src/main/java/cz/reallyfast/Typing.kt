@@ -33,8 +33,7 @@ class TypingActivity : SettingsScreen() {
         switchRow(box, R.string.swipe_enabled, "swipe_enabled")
         sliderRow(box, R.string.swipe_sensitivity, "swipe_sensitivity", 50, 150, 100) { String.format(Locale.getDefault(), "%.2f", it / 100f) }
         switchRow(box, R.string.swipe_trail, "swipe_trail")
-        switchRow(box, R.string.swipe_glow, "swipe_glow")
-        colorRow(box, R.string.glow_color, "glow_color")
+        switchRow(box, R.string.swipe_glow, "swipe_glow", hintRes = R.string.swipe_glow_hint)
         switchRow(box, R.string.swipe_adapt, "swipe_adapt")
         buttonRow(box, getString(R.string.swipe_adapt_reset), danger) {
             RustBridge.resetCalibration()

@@ -33,6 +33,9 @@ class Bubble(
 ) {
     var onHidden: (() -> Unit)? = null
 
+    /** Pohledy pod bublinou, ktere zustavaji pouzitelne: dotyk na ne bublinu nezavre a projde dal. */
+    var passViews: List<View> = emptyList()
+
     /** Je zobrazena (i behem zasouvani, dokud se nesmazou pohledy). */
     var isShowing = false
         private set
@@ -67,9 +70,21 @@ class Bubble(
         // Klepnuti do bubliny nesmi propadnout na lapac: napovedu zavre, editor ho jen spotrebuje.
         box.setOnClickListener { if (passThrough) hide() }
         catcher.setOnTouchListener { _, e ->
-            if (e.actionMasked == MotionEvent.ACTION_DOWN) hide()
+            if (e.actionMasked == MotionEvent.ACTION_DOWN) {
+                if (onPassView(e.rawX, e.rawY)) return@setOnTouchListener false
+                hide()
+            }
             !passThrough
         }
+    }
+
+    private fun onPassView(rawX: Float, rawY: Float): Boolean {
+        for (v in passViews) {
+            if (!v.isShown) continue
+            v.getLocationOnScreen(loc1)
+            if (rawX >= loc1[0] && rawX < loc1[0] + v.width && rawY >= loc1[1] && rawY < loc1[1] + v.height) return true
+        }
+        return false
     }
 
     /** Souradnice pohledu v okne jako kotva bubliny. */
