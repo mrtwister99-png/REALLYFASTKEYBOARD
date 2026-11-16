@@ -3,5 +3,5 @@
     <color name="settings_bg">#111113</color>
     <color name="settings_text">#F4F4F5</color>
     <color name="accent">#0080FF</color>
-    <color name="icon_bg">#101012</color>
+    <color name="icon_bg">#000000</color>
 </resources>
