@@ -127,9 +127,9 @@ class ToggleView(context: Context) : View(context) {
         const val TRACK_W = 52f
         const val TRACK_H = 30f
         const val INSET = 2f
-        val OFF_TRACK = 0xFF3A3A40.toInt()
-        val ON_TRACK = 0xFFD4D4D8.toInt()
-        val OFF_THUMB = 0xFFB4B4BC.toInt()
-        val ON_THUMB = 0xFF0080FF.toInt()
+        const val OFF_TRACK = 0xFF3A3A40.toInt()
+        const val ON_TRACK = 0xFFD4D4D8.toInt()
+        const val OFF_THUMB = 0xFFB4B4BC.toInt()
+        const val ON_THUMB = 0xFF0080FF.toInt()
     }
 }

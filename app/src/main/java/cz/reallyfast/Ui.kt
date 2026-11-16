@@ -1,5 +1,6 @@
 package cz.reallyfast
 
+import android.annotation.SuppressLint
 import android.app.Activity
 import android.app.Dialog
 import android.content.res.ColorStateList
@@ -56,7 +57,9 @@ abstract class BaseScreen : Activity() {
         super.onDestroy()
     }
 
-    @Suppress("DEPRECATION")
+    // Bez AndroidX: od API 33 zpet ridi OnBackInvokedCallback, tohle zustava jen pro starsi systemy.
+    @SuppressLint("GestureBackNavigation")
+    @Suppress("OVERRIDE_DEPRECATION", "DEPRECATION")
     @Deprecated("Deprecated in Java")
     override fun onBackPressed() = handleBack()
 

@@ -144,6 +144,10 @@ pub struct Settings {
     pub digit_weight: u32,
     /// Makro prirazene primo klavese: puvodni znak pozice -> id makra.
     pub key_macros: BTreeMap<String, u32>,
+    /// Makro prirazene podrzeni klavesy (klavesa si drzi znak i vzhled): puvodni znak pozice -> id makra.
+    pub key_macros_hold: BTreeMap<String, u32>,
+    /// Obrazek na klavese s makrem na klik: puvodni znak pozice -> 0 (trol) nebo 1 (chocho).
+    pub key_macro_faces: BTreeMap<String, u32>,
 }
 
 impl Default for Settings {
@@ -225,6 +229,8 @@ impl Default for Settings {
             label_weight: 400,
             digit_weight: 400,
             key_macros: BTreeMap::new(),
+            key_macros_hold: BTreeMap::new(),
+            key_macro_faces: BTreeMap::new(),
         }
     }
 }
@@ -242,6 +248,8 @@ pub const MAX_KEY_ALTS: usize = 64;
 pub const MAX_ALTS_LEN: usize = 12;
 /// Nejvyse tolik klaves s prirazenym makrem.
 pub const MAX_KEY_MACROS: usize = 16;
+/// Pocet obrazku na klavese s makrem na klik.
+pub const MACRO_FACES: u32 = 2;
 pub const HINT_POSITIONS: [&str; 6] =
     ["top_right", "top_left", "top_center", "bottom_right", "bottom_left", "bottom_center"];
 
@@ -348,6 +356,16 @@ impl Settings {
         self.key_macros = std::mem::take(&mut self.key_macros)
             .into_iter()
             .filter(|(k, v)| single_char(k).is_some() && *v > 0)
+            .take(MAX_KEY_MACROS)
+            .collect();
+        self.key_macros_hold = std::mem::take(&mut self.key_macros_hold)
+            .into_iter()
+            .filter(|(k, v)| single_char(k).is_some() && *v > 0)
+            .take(MAX_KEY_MACROS)
+            .collect();
+        self.key_macro_faces = std::mem::take(&mut self.key_macro_faces)
+            .into_iter()
+            .filter(|(k, v)| single_char(k).is_some() && *v < MACRO_FACES)
             .take(MAX_KEY_MACROS)
             .collect();
         self.hint_percent = self.hint_percent.clamp(60, 180);
@@ -825,6 +843,27 @@ mod tests {
         let mut s = Settings { key_macros: many, ..Settings::default() };
         s.validate();
         assert_eq!(s.key_macros.len(), MAX_KEY_MACROS);
+        let back = Settings::from_json(&s.to_json()).unwrap();
+        assert_eq!(back, s);
+    }
+
+    #[test]
+    fn hold_macros_and_macro_faces() {
+        let s = Settings::default();
+        assert!(s.key_macros_hold.is_empty() && s.key_macro_faces.is_empty());
+        let s = Settings::from_json(r#"{"key_macros_hold":{"a":3,"bb":4,"c":0," ":5,"d":7},"key_macros":{"a":1}}"#).unwrap();
+        let keys: Vec<(&str, u32)> = s.key_macros_hold.iter().map(|(k, v)| (k.as_str(), *v)).collect();
+        assert_eq!(keys, vec![("a", 3), ("d", 7)]);
+        assert_eq!(s.key_macros.len(), 1);
+        let s = Settings::from_json(r#"{"key_macro_faces":{"a":0,"b":1,"c":2,"dd":1}}"#).unwrap();
+        let faces: Vec<(&str, u32)> = s.key_macro_faces.iter().map(|(k, v)| (k.as_str(), *v)).collect();
+        assert_eq!(faces, vec![("a", 0), ("b", 1)]);
+        let many: BTreeMap<String, u32> = (0..40u32).map(|i| (char::from_u32(0x100 + i).unwrap().to_string(), i + 1)).collect();
+        let faces: BTreeMap<String, u32> = (0..40u32).map(|i| (char::from_u32(0x100 + i).unwrap().to_string(), i % 2)).collect();
+        let mut s = Settings { key_macros_hold: many, key_macro_faces: faces, ..Settings::default() };
+        s.validate();
+        assert_eq!(s.key_macros_hold.len(), MAX_KEY_MACROS);
+        assert_eq!(s.key_macro_faces.len(), MAX_KEY_MACROS);
         let back = Settings::from_json(&s.to_json()).unwrap();
         assert_eq!(back, s);
     }

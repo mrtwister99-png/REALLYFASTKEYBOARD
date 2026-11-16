@@ -3,6 +3,7 @@ package cz.reallyfast
 import android.graphics.Color
 import android.util.SparseIntArray
 import org.json.JSONObject
+import kotlin.math.roundToInt
 
 /**
  * Pohled na nastaveni (JSON ze settings.json, ktery vlastni a validuje Rust).
@@ -55,7 +56,7 @@ class Settings(val json: JSONObject) {
     val rowGapDp: Int
         get() {
             val v = json.optInt("row_gap_dp", -1)
-            return (if (v < 0) Math.round(keyGapDp * 1.6f) else v).coerceIn(2, 16)
+            return (if (v < 0) (keyGapDp * 1.6f).roundToInt() else v).coerceIn(2, 16)
         }
     /** Prazdny retezec = automaticka barva podle motivu. */
     val popupColor: String get() = json.optString("popup_color", "")
@@ -82,17 +83,23 @@ class Settings(val json: JSONObject) {
     val digitWeight: Int get() = (json.optInt("digit_weight", 400) / 100 * 100).coerceIn(100, 900)
 
     /** Makra prirazena klavesam: puvodni kod pozice (`Key.src`) -> id makra. Sestavi se jednou pro kazde nastaveni. */
-    val keyMacros: SparseIntArray by lazy {
+    val keyMacros: SparseIntArray by lazy { intMap("key_macros") }
+
+    /** Makra na podrzeni klavesy (klavesa si drzi znak i vzhled): stejny tvar jako `keyMacros`. */
+    val keyMacrosHold: SparseIntArray by lazy { intMap("key_macros_hold") }
+
+    /** Obrazek na klavese s makrem na klik: kod pozice -> 0 (trol) nebo 1 (chocho); chybejici = 0. */
+    val keyMacroFaces: SparseIntArray by lazy { intMap("key_macro_faces", allowZero = true) }
+
+    private fun intMap(key: String, allowZero: Boolean = false): SparseIntArray {
         val out = SparseIntArray()
-        val o = json.optJSONObject("key_macros")
-        if (o != null) {
-            for (name in o.keys()) {
-                if (name.isEmpty()) continue
-                val id = o.optInt(name, 0)
-                if (id > 0) out.put(name.codePointAt(0), id)
-            }
+        val o = json.optJSONObject(key) ?: return out
+        for (name in o.keys()) {
+            if (name.isEmpty()) continue
+            val v = o.optInt(name, 0)
+            if (v > 0 || (allowZero && v == 0)) out.put(name.codePointAt(0), v)
         }
-        out
+        return out
     }
 
     /** Kopie k uprave (SettingsActivity). */

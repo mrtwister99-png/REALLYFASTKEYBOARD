@@ -21,6 +21,7 @@ import android.widget.HorizontalScrollView
 import android.widget.LinearLayout
 import android.widget.SeekBar
 import android.widget.TextView
+import kotlin.math.roundToInt
 
 /** Hotovy styl: barvy, ktere se nastavi jednim klepnutim (vzdy jako vlastni tema). */
 private class Preset(val name: String, val bg: String, val key: String, val text: String, val accent: String)
@@ -138,6 +139,14 @@ abstract class SettingsScreen : BaseScreen() {
         onSettingUpdated(key, value)
     }
 
+    /** Zapise vic hodnot jednim volanim (rozlozeni se prepocita jednou); ukazky se pusti pro kazdy klic. */
+    protected fun updateAll(vararg pairs: Pair<String, Any>) {
+        val j = RustBridge.settings.edit()
+        for ((k, v) in pairs) j.put(k, v)
+        RustBridge.setSettings(j)
+        for ((k, v) in pairs) onSettingUpdated(k, v)
+    }
+
     // ------------------------------------------------------------------ stavebni prvky
 
     /**
@@ -209,23 +218,33 @@ abstract class SettingsScreen : BaseScreen() {
     /**
      * Prepinac nad textovou volbou: zapnuto = `onValue`, vypnuto = `offValue`. Stav se bere z nastaveni
      * (kdyz je v klici jina hodnota, prepinac je vypnuty) a drzi se v souladu pres posluchace nastaveni.
+     * S `alsoOn` je prepinac zapnuty jen tehdy, kdyz je zapnuty i tento boolean klic; zapnuti ho zapne taky.
      */
-    protected fun valueSwitchRow(box: LinearLayout, labelRes: Int, key: String, onValue: String, offValue: String, hintRes: Int = 0) {
+    protected fun valueSwitchRow(
+        box: LinearLayout, labelRes: Int, key: String, onValue: String, offValue: String, hintRes: Int = 0, alsoOn: String = "",
+    ) {
         val row = LinearLayout(this)
         row.gravity = Gravity.CENTER_VERTICAL
         row.minimumHeight = dp(52f)
         row.addView(label(getString(labelRes)), LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
         val sw = ToggleView(this)
         sw.contentDescription = getString(labelRes)
-        sw.setChecked(RustBridge.settings.json.optString(key) == onValue, false)
+        fun isOn(): Boolean {
+            val j = RustBridge.settings.json
+            return j.optString(key) == onValue && (alsoOn.isEmpty() || j.optBoolean(alsoOn))
+        }
+        sw.setChecked(isOn(), false)
         sw.onChange = { checked ->
-            if ((RustBridge.settings.json.optString(key) == onValue) != checked) update(key, if (checked) onValue else offValue)
+            if (isOn() != checked) {
+                val v = if (checked) onValue else offValue
+                if (checked && alsoOn.isNotEmpty()) updateAll(alsoOn to true, key to v) else update(key, v)
+            }
         }
         row.addView(sw)
         row.setOnClickListener { sw.toggle() }
         box.addView(row, rowParams())
         if (hintRes != 0) hintText(box, getString(hintRes))
-        refreshers.add { sw.setChecked(RustBridge.settings.json.optString(key) == onValue, false) }
+        refreshers.add { sw.setChecked(isOn(), false) }
     }
 
     /**
@@ -245,7 +264,7 @@ abstract class SettingsScreen : BaseScreen() {
         seek.max = (max - min) / step
         fun current(): Int {
             val j = RustBridge.settings.json
-            return if (scale == 1) j.optInt(key, min) else Math.round(j.optDouble(key, min.toDouble() / scale) * scale).toInt()
+            return if (scale == 1) j.optInt(key, min) else (j.optDouble(key, min.toDouble() / scale) * scale).roundToInt()
         }
         seek.progress = (current() - min) / step
         value.text = format(current())
@@ -271,6 +290,14 @@ abstract class SettingsScreen : BaseScreen() {
     }
 
     protected fun choiceRow(box: LinearLayout, labelRes: Int, key: String, values: List<String>, labels: List<String>) {
+        choiceRow(box, labelRes, values, labels, { RustBridge.settings.json.optString(key) }, { update(key, it) })
+    }
+
+    /** Volba z pilulek; `current` vraci vybranou hodnotu (nebo cokoli mimo `values` = nic vybrano), `onPick` ji zapise. */
+    protected fun choiceRow(
+        box: LinearLayout, labelRes: Int, values: List<String>, labels: List<String>,
+        current: () -> String, onPick: (String) -> Unit,
+    ) {
         val col = LinearLayout(this)
         col.orientation = LinearLayout.VERTICAL
         col.setPadding(0, dp(10f), 0, dp(10f))
@@ -278,7 +305,7 @@ abstract class SettingsScreen : BaseScreen() {
         val row = LinearLayout(this)
         val pills = ArrayList<TextView>()
         fun paint() {
-            val cur = RustBridge.settings.json.optString(key)
+            val cur = current()
             val a = accent
             val onA = if (Theme.luminance(a) > 0.55f) 0xFF111113.toInt() else 0xFFFFFFFF.toInt()
             for ((i, p) in pills.withIndex()) {
@@ -291,7 +318,7 @@ abstract class SettingsScreen : BaseScreen() {
             val p = label(labels[i], 14f)
             p.gravity = Gravity.CENTER
             p.setPadding(dp(4f), dp(10f), dp(4f), dp(10f))
-            p.setOnClickListener { update(key, values[i]) }
+            p.setOnClickListener { onPick(values[i]) }
             pills.add(p)
             val lp = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
             if (i > 0) lp.leftMargin = dp(6f)
@@ -408,7 +435,7 @@ abstract class SettingsScreen : BaseScreen() {
         val seek = SeekBar(this)
         seek.max = 100
         seek.contentDescription = getString(R.string.color_brightness)
-        seek.progress = Math.round(wheel.value * 100f)
+        seek.progress = (wheel.value * 100f).roundToInt()
         val slp = rowParams()
         slp.topMargin = dp(4f)
         root.addView(seek, slp)

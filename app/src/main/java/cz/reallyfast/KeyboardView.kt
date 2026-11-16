@@ -66,6 +66,12 @@ class KeyboardView(context: Context) : View(context) {
 
         /** Makro prirazene klavese (null = obycejna znakova klavesa); nastavuje reloadLayout. */
         var macro: RustBridge.Macro? = null
+
+        /** Makro na podrzeni klavesy (klavesa si drzi znak i vzhled; null = zadne); nastavuje reloadLayout. */
+        var holdMacro: RustBridge.Macro? = null
+
+        /** Ktery obrazek (index do `faceBitmaps`) je na klavese s makrem na klik; nastavuje reloadLayout. */
+        var macroFace = 0
         val isLetter: Boolean get() = kind == KIND_CHAR && code in 'a'.code..'z'.code
 
         /** Hlavni popisek je jedna ASCII cislice. */
@@ -82,6 +88,8 @@ class KeyboardView(context: Context) : View(context) {
         fun onKeyTap(key: Key)
         /** Znak vybrany z nabidky dlouheho stisku. */
         fun onAltText(text: String)
+        /** Dlouhy stisk klavesy s makrem na podrzeni (`Key.holdMacro`). */
+        fun onKeyHold(key: Key)
         fun onSwipeWords(words: List<String>)
         fun onGestureAction(action: Int)
         fun onCursorSteps(steps: Int)
@@ -444,7 +452,7 @@ class KeyboardView(context: Context) : View(context) {
     private fun updateHintInfo() {
         anyHint = false
         hintSample = null
-        for (k in keys) if (k.hint.isNotEmpty() && k.macro == null) anyHint = true
+        for (k in keys) if (k.hint.isNotEmpty() && k.macro == null && k.holdMacro == null) anyHint = true
         if (hintFocus && !anyHint) hintSample = keys.firstOrNull { it.kind == KIND_CHAR }
     }
 
@@ -710,12 +718,14 @@ class KeyboardView(context: Context) : View(context) {
     } catch (_: Throwable) {
         null
     }
-    /** Obrazek na klavese s prirazenym makrem; dekoduje se jednou (null = nepodarilo se, kresli se znak). */
-    private val keyBitmap: Bitmap? = try {
-        BitmapFactory.decodeResource(resources, R.drawable.trol)
-    } catch (_: Throwable) {
-        null
-    }
+    /** Obrazky na klavese s makrem na klik (trol, chocho); dekoduji se jednou (null = nepodarilo se, kresli se znak). */
+    private val faceBitmaps: Array<Bitmap?> = arrayOf(R.drawable.trol, R.drawable.chocho).map { id ->
+        try {
+            BitmapFactory.decodeResource(resources, id)
+        } catch (_: Throwable) {
+            null
+        }
+    }.toTypedArray()
     private val bitmapPaint = Paint(Paint.FILTER_BITMAP_FLAG or Paint.ANTI_ALIAS_FLAG)
     private val clip = RectF()
     private val path = Path()
@@ -830,19 +840,30 @@ class KeyboardView(context: Context) : View(context) {
     }
 
     /**
-     * Prida klavesam makra z `key_macros`; makro, ktere uz neexistuje, klavesu nechava obycejnou.
+     * Prida klavesam makra z `key_macros` (klik, s obrazkem z `key_macro_faces`) a `key_macros_hold` (podrzeni);
+     * makro, ktere uz neexistuje, klavesu nechava obycejnou.
      * Vola se jen pri nacteni rozlozeni (to bezi pri kazde zmene nastaveni i pri zobrazeni klavesnice), ne pri
      * kresleni ani klepnuti.
      */
     private fun resolveMacros() {
-        val map = RustBridge.settings.keyMacros
-        if (map.size() == 0) {
-            for (k in keys) k.macro = null
+        val s = RustBridge.settings
+        val map = s.keyMacros
+        val hold = s.keyMacrosHold
+        if (map.size() == 0 && hold.size() == 0) {
+            for (k in keys) {
+                k.macro = null
+                k.holdMacro = null
+                k.macroFace = 0
+            }
         } else {
             val list = RustBridge.macros()
+            val faces = s.keyMacroFaces
             for (k in keys) {
                 val id = if (k.kind == KIND_CHAR) map.get(k.src, 0) else 0
+                val holdId = if (k.kind == KIND_CHAR) hold.get(k.src, 0) else 0
                 k.macro = if (id > 0) list.firstOrNull { it.id == id.toLong() } else null
+                k.holdMacro = if (holdId > 0) list.firstOrNull { it.id == holdId.toLong() } else null
+                k.macroFace = faces.get(k.src, 0).coerceIn(0, faceBitmaps.size - 1)
             }
         }
     }
@@ -1098,9 +1119,10 @@ class KeyboardView(context: Context) : View(context) {
                 }
             }
             if (dimKey) fg = Theme.blend(fg, theme.background, 0.7f)
+            val face = if (k.macro != null) faceBitmaps[k.macroFace] else null
             when (k.kind) {
-                KIND_CHAR -> if (k.macro != null && keyBitmap != null) {
-                    drawMacroImage(canvas, keyBitmap, cx, cy, hw, hh, dimKey, 0.85f)
+                KIND_CHAR -> if (face != null) {
+                    drawMacroImage(canvas, face, cx, cy, hw, hh, dimKey, 0.85f)
                 } else {
                     val hinted = (drawHints || hintFocus) && hintText.isNotEmpty()
                     textPaint.color = fg
@@ -1140,7 +1162,7 @@ class KeyboardView(context: Context) : View(context) {
         if (drawHints || hintFocus) {
             for (ki in keys.indices) {
                 val k = keys[ki]
-                if (k.kind != KIND_CHAR || k.macro != null) continue
+                if (k.kind != KIND_CHAR || k.macro != null || k.holdMacro != null) continue
                 val hintText = if (k === hintSample) "1" else k.hint
                 if (hintText.isEmpty()) continue
                 drawHint(canvas, k, hintText, if (k.changedAt == 0L) 0f else pressAmount(k, now), radius)
@@ -2270,7 +2292,9 @@ class KeyboardView(context: Context) : View(context) {
         }
         if (k.kind == KIND_BACKSPACE) handler.postDelayed(repeat, 350)
         val delay = RustBridge.settings.longPressDelayMs.toLong()
-        if (k.alts.isNotEmpty() && k.macro == null) {
+        if (k.kind == KIND_CHAR && k.holdMacro != null) {
+            handler.postDelayed(longPress, delay)
+        } else if (k.alts.isNotEmpty() && k.macro == null) {
             handler.postDelayed(longPress, delay)
         } else if (k.kind == KIND_MODE && (k.code == CODE_SYMBOLS || k.code == CODE_LETTERS)) {
             handler.postDelayed(longPress, maxOf(delay, 300L))
@@ -2419,6 +2443,15 @@ class KeyboardView(context: Context) : View(context) {
             previewKey = null
             listener?.onPressFeedback(k)
             invalidate()
+            return
+        }
+        if (touchMode == T_TAP && !moved && k.kind == KIND_CHAR && k.holdMacro != null) {
+            // Makro na podrzeni: misto nabidky variant se vlozi makro.
+            longPressFired = true
+            touchMode = T_CONSUMED
+            press(k, false)
+            listener?.onPressFeedback(k)
+            listener?.onKeyHold(k)
             return
         }
         if (touchMode != T_TAP || k.alts.isEmpty() || k.macro != null) return

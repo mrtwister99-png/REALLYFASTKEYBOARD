@@ -3,7 +3,6 @@ package cz.reallyfast
 import android.annotation.SuppressLint
 import android.content.ClipboardManager
 import android.content.ComponentName
-import android.content.Context
 import android.content.Intent
 import android.inputmethodservice.InputMethodService
 import android.media.AudioAttributes
@@ -412,6 +411,12 @@ class KeyboardService : InputMethodService(), KeyboardView.Listener,
     }
 
     override fun onAltText(text: String) = typeText(text, alreadyCased = true)
+
+    override fun onKeyHold(key: KeyboardView.Key) {
+        if (dictating) cancelDictation()
+        val macro = key.holdMacro
+        if (macro != null && !searchMode) insertMacro(macro)
+    }
 
     override fun onSpaceLongPress() {
         onPressFeedback(keyboardSpaceKey)

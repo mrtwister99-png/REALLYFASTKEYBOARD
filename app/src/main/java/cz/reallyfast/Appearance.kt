@@ -32,6 +32,8 @@ import org.json.JSONObject
 import kotlin.math.abs
 import kotlin.math.hypot
 import kotlin.math.max
+import kotlin.math.roundToInt
+import kotlin.random.Random
 
 /**
  * Vzhled a rozlozeni. Dole je pripnuty zivy nahled klavesnice ve skutecne velikosti.
@@ -244,7 +246,7 @@ class AppearanceActivity : SettingsScreen() {
     override fun onSettingUpdated(key: String, value: Any) {
         // Zmena, kterou neni na staticke klavesnici videt, se ukaze kratkou ukazkou v nahledu.
         when (key) {
-            "neon_color", "key_glow", "tap_effect", "tap_text_color" -> preview.demoNeon()
+            "neon_color", "tap_effect", "tap_text_color" -> preview.demoNeon()
             "paint_color1", "paint_color2", "paint_color3" -> preview.demoPaint()
             "key_popup", "popup_color" -> preview.demoPopup()
             "alts_color" -> preview.demoAlts()
@@ -349,6 +351,10 @@ class AppearanceActivity : SettingsScreen() {
         override fun onAltText(text: String) {
             testAppend(text)
             afterLetter()
+        }
+
+        override fun onKeyHold(key: KeyboardView.Key) {
+            key.holdMacro?.let { testAppend(it.text) }
         }
 
         override fun onSwipeWords(words: List<String>) {
@@ -456,8 +462,8 @@ class AppearanceActivity : SettingsScreen() {
         if (!adjusting || saving) return
         saving = true
         val j = RustBridge.settings.edit()
-        j.put(if (adjLabel) "key_label_x" else "key_hint_x", Math.round(adjX * 1000f) / 1000.0)
-        j.put(if (adjLabel) "key_label_y" else "key_hint_y", Math.round(adjY * 1000f) / 1000.0)
+        j.put(if (adjLabel) "key_label_x" else "key_hint_x", (adjX * 1000f).roundToInt() / 1000.0)
+        j.put(if (adjLabel) "key_label_y" else "key_hint_y", (adjY * 1000f).roundToInt() / 1000.0)
         RustBridge.setSettings(j)
         // Tlacitko nejdriv odjede doprava za okraj, az pak se obrazovka vrati do normalu.
         hintSave.animate().cancel()
@@ -534,12 +540,12 @@ class AppearanceActivity : SettingsScreen() {
         hintText(box, getString(R.string.background_color2_hint))
 
         box = section(tabBox, getString(R.string.sec_extra_effects))
-        valueSwitchRow(box, R.string.paint_effect, "tap_effect", "paint", "neon")
+        valueSwitchRow(box, R.string.paint_effect, "tap_effect", "paint", "neon", alsoOn = "key_glow")
         colorRow(box, R.string.paint_color1, "paint_color1")
         colorRow(box, R.string.paint_color2, "paint_color2")
         colorRow(box, R.string.paint_color3, "paint_color3")
         hintText(box, getString(R.string.paint_hint))
-        valueSwitchRow(box, R.string.fly_effect, "glow_style", "fly", "blink")
+        valueSwitchRow(box, R.string.fly_effect, "glow_style", "fly", "blink", alsoOn = "swipe_glow")
         hintText(box, getString(R.string.fly_hint))
 
         box = section(tabBox, getString(R.string.sec_extra_chars))
@@ -599,13 +605,16 @@ class AppearanceActivity : SettingsScreen() {
         hintAdjustButton = adjust
         box.addView(hintRow, rowParams())
         switchRow(box, R.string.animations, "animations", hintRes = R.string.animations_hint)
-        switchRow(box, R.string.key_glow, "key_glow", hintRes = R.string.key_glow_hint)
         // Zvlastni styly (Barvy, Slovo) se zapinaji na druhe zalozce; pri jejich aktivaci neni zadna volba vybrana.
-        choiceRow(box, R.string.tap_effect_label, "tap_effect", listOf("neon", "glitch"),
-            listOf(getString(R.string.tap_effect_neon), getString(R.string.tap_effect_glitch)))
+        choiceRow(box, R.string.tap_effect_label, listOf("none", "neon", "glitch"),
+            listOf(getString(R.string.effect_none), getString(R.string.tap_effect_neon), getString(R.string.tap_effect_glitch)),
+            { val j = RustBridge.settings.json; if (j.optBoolean("key_glow")) j.optString("tap_effect") else "none" },
+            { v -> if (v == "none") update("key_glow", false) else updateAll("key_glow" to true, "tap_effect" to v) })
         colorRow(box, R.string.neon_color, "neon_color")
-        choiceRow(box, R.string.glow_style_label, "glow_style", listOf("blink", "fill"),
-            listOf(getString(R.string.glow_style_blink), getString(R.string.glow_style_fill)))
+        choiceRow(box, R.string.glow_style_label, listOf("none", "blink", "fill"),
+            listOf(getString(R.string.anim_none), getString(R.string.glow_style_blink), getString(R.string.glow_style_fill)),
+            { val j = RustBridge.settings.json; if (j.optBoolean("swipe_glow")) j.optString("glow_style") else "none" },
+            { v -> if (v == "none") update("swipe_glow", false) else updateAll("swipe_glow" to true, "glow_style" to v) })
         colorRow(box, R.string.glow_color, "glow_color")
 
         // Jazyk
@@ -734,8 +743,10 @@ class AppearanceActivity : SettingsScreen() {
     }
 
     private fun readMacroKeys(): Set<String> {
-        val o = RustBridge.settings.json.optJSONObject("key_macros") ?: return emptySet()
-        return o.keys().asSequence().toSet()
+        val j = RustBridge.settings.json
+        val out = HashSet<String>()
+        for (name in arrayOf("key_macros", "key_macros_hold")) j.optJSONObject(name)?.keys()?.forEach { out.add(it) }
+        return out
     }
 
     /**
@@ -753,10 +764,8 @@ class AppearanceActivity : SettingsScreen() {
         val j = RustBridge.settings.edit()
         j.put("key_map", obj)
         j.put("key_alts", altsObj)
-        if (clearMacros) {
-            j.put("key_macros", JSONObject())
-        } else if (dropMacroFor != null) {
-            j.optJSONObject("key_macros")?.remove(dropMacroFor)
+        for (name in MACRO_MAPS) {
+            if (clearMacros) j.put(name, JSONObject()) else if (dropMacroFor != null) j.optJSONObject(name)?.remove(dropMacroFor)
         }
         if (resetSwaps) {
             j.put("swap_mode_enter", false)
@@ -853,7 +862,7 @@ class AppearanceActivity : SettingsScreen() {
         charEdit.typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
         charEdit.gravity = Gravity.CENTER
         charEdit.setPadding(0, 0, 0, 0)
-        charEdit.setSingleLine(true)
+        charEdit.isSingleLine = true
         charEdit.inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS
         charEdit.filters = arrayOf(InputFilter.LengthFilter(1))
         charEdit.setSelectAllOnFocus(true)
@@ -869,7 +878,7 @@ class AppearanceActivity : SettingsScreen() {
         altsEdit.setTextColor(text)
         altsEdit.setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, 16f)
         altsEdit.setPadding(dp(10f), dp(10f), dp(10f), dp(10f))
-        altsEdit.setSingleLine(true)
+        altsEdit.isSingleLine = true
         altsEdit.inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS
         altsEdit.filters = arrayOf(InputFilter.LengthFilter(MAX_ALTS_EDIT))
         altsEdit.setText(preAlts)
@@ -912,6 +921,9 @@ class AppearanceActivity : SettingsScreen() {
         form.orientation = LinearLayout.VERTICAL
         form.setPadding(dp(12f), dp(12f), dp(12f), dp(12f))
         form.addView(top, rowParams())
+        // Prirazena makra klavesy: male tlumene radky pod polem.
+        key.macro?.let { m -> form.addView(macroLine(R.string.key_editor_macro_click, m), rowParams()) }
+        key.holdMacro?.let { m -> form.addView(macroLine(R.string.key_editor_macro_hold, m), rowParams()) }
         // Fokus drzi nepsaci pohled, aby se skutecna klavesnice neotevrela sama.
         form.isFocusableInTouchMode = true
 
@@ -948,7 +960,17 @@ class AppearanceActivity : SettingsScreen() {
         rootView.viewTreeObserver.addOnGlobalLayoutListener(editorLayoutListener)
     }
 
-    /** Seznam ulozenych maker (nazev + zkratka) a "Bez makra"; zvolene makro se zapise na klavesu a editor se zavre. */
+    private fun macroLine(fmtRes: Int, m: RustBridge.Macro): TextView =
+        label(getString(fmtRes, m.name), 12f, dim).also {
+            it.setPadding(0, dp(8f), 0, 0)
+            it.maxLines = 1
+            it.ellipsize = TextUtils.TruncateAt.END
+        }
+
+    /**
+     * Seznam ulozenych maker (nazev + zkratka) a "Bez makra". Zvolene makro se pak priradi na klik nebo na podrzeni
+     * (druhy dialog); pri klepnuti se klavese nahodne vybere jeden z obrazku. Po zapisu se editor zavre.
+     */
     private fun pickMacro(key: KeyboardView.Key) {
         val macros = RustBridge.macros()
         if (macros.isEmpty()) {
@@ -961,14 +983,40 @@ class AppearanceActivity : SettingsScreen() {
         AlertDialog.Builder(this)
             .setTitle(R.string.key_macro_title)
             .setItems(names.toTypedArray()) { _, which ->
-                closeEditor()
-                val j = RustBridge.settings.edit()
-                val o = j.optJSONObject("key_macros") ?: JSONObject()
-                if (which == 0) o.remove(srcString(key)) else o.put(srcString(key), macros[which - 1].id)
-                j.put("key_macros", o)
-                RustBridge.setSettings(j)
+                if (which == 0) writeKeyMacro(key, 0, hold = false) else pickMacroPlace(key, macros[which - 1].id)
             }
             .show()
+    }
+
+    /** Kam s makrem: na klik (klavesa ukaze obrazek) nebo na podrzeni (klavesa zustane, jak je). */
+    private fun pickMacroPlace(key: KeyboardView.Key, id: Long) {
+        AlertDialog.Builder(this)
+            .setTitle(R.string.key_macro_place_title)
+            .setItems(arrayOf(getString(R.string.key_macro_on_click), getString(R.string.key_macro_on_hold))) { _, which ->
+                writeKeyMacro(key, id, hold = which == 1)
+            }
+            .setNegativeButton(R.string.cancel, null)
+            .show()
+    }
+
+    /** Zapise makro klavese (`id` 0 = smazat obe makra klavesy i s obrazkem) a zavre editor. */
+    private fun writeKeyMacro(key: KeyboardView.Key, id: Long, hold: Boolean) {
+        closeEditor()
+        val src = srcString(key)
+        val j = RustBridge.settings.edit()
+        for (name in MACRO_MAPS) {
+            val o = j.optJSONObject(name) ?: JSONObject().also { j.put(name, it) }
+            if (id == 0L) o.remove(src)
+        }
+        if (id != 0L) {
+            if (hold) {
+                j.getJSONObject("key_macros_hold").put(src, id)
+            } else {
+                j.getJSONObject("key_macros").put(src, id)
+                j.getJSONObject("key_macro_faces").put(src, Random.nextInt(2))
+            }
+        }
+        RustBridge.setSettings(j)
     }
 
     private fun removeEditorListener() {
@@ -1031,7 +1079,7 @@ class AppearanceActivity : SettingsScreen() {
     private fun saveChar(key: KeyboardView.Key, typed: String, typedAlts: String, oldAlts: String): Boolean {
         // Podporuje se jen jeden znak z zakladni roviny (jedna Rust `char` = jeden UTF-16 znak).
         val cp = if (typed.isEmpty()) -1 else typed.codePointAt(0)
-        if (cp < 0 || cp > 0xFFFF || Character.isWhitespace(cp) || Character.isISOControl(cp)) {
+        if (cp !in 0..0xFFFF || Character.isWhitespace(cp) || Character.isISOControl(cp)) {
             Toast.makeText(this, R.string.layout_char_invalid, Toast.LENGTH_SHORT).show()
             return false
         }
@@ -1046,10 +1094,13 @@ class AppearanceActivity : SettingsScreen() {
 
     private companion object {
         const val MAX_ALTS_EDIT = 5
-        val BLUE = 0xFF3B82F6.toInt()
-        val ORANGE = 0xFFF59E0B.toInt()
-        val GREEN = 0xFF22C55E.toInt()
-        val PURPLE = 0xFFA855F7.toInt()
+
+        /** Mapy maker na klavesach (klik, podrzeni) a obrazku maker na klik; vsechny se rusi spolecne. */
+        val MACRO_MAPS = arrayOf("key_macros", "key_macros_hold", "key_macro_faces")
+        const val BLUE = 0xFF3B82F6.toInt()
+        const val ORANGE = 0xFFF59E0B.toInt()
+        const val GREEN = 0xFF22C55E.toInt()
+        const val PURPLE = 0xFFA855F7.toInt()
     }
 }
 

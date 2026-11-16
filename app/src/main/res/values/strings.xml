@@ -36,7 +36,6 @@
     <string name="add_word_hint">Nové slovo… (Enter uloží)</string>
     <string name="word_added">„%1$s“ přidáno do slovníku</string>
     <string name="dictionary_search">Hledat ve slovníku</string>
-    <string name="swipe_glow">Rozsvítit klávesy po swipe</string>
     <string name="swipe_adapt">Přizpůsobit swipe mému psaní</string>
     <string name="swipe_adapt_reset">Zapomenout přizpůsobení swipe</string>
     <string name="swipe_adapt_reset_done">Přizpůsobení swipe smazáno</string>
@@ -164,7 +163,7 @@
     <string name="unit_percent">%1$d %%</string>
     <string name="unit_minutes">%1$d min</string>
     <string name="unit_off">vypnuto</string>
-    <string name="layout_hint">Klepni na písmeno v náhledu dole a zvol, jaký znak na něm má být, nebo ho prohoď s jiným. Klepnutím na ?123 či Enter, nebo na Shift či ⌫ prohodíš jejich pozice. Tlačítkem Makro dáš na klávesu makro místo znaku.</string>
+    <string name="layout_hint">Klepni na písmeno v náhledu dole a zvol, jaký znak na něm má být, nebo ho prohoď s jiným. Klepnutím na ?123 či Enter, nebo na Shift či ⌫ prohodíš jejich pozice. Tlačítkem Makro dáš na klávesu makro: na klik (klávesa pak ukáže obrázek místo znaku) nebo na podržení (klávesa zůstane, jak je).</string>
     <string name="layout_mode_letters">Písmena</string>
     <string name="layout_mode_symbols">Symboly</string>
     <string name="layout_mode_symbols2">Další symboly</string>
@@ -195,7 +194,6 @@
     <string name="layout_hint_pos">Pozice malé nápovědy na klávese</string>
     <string name="neon_color">Barva efektu</string>
     <string name="glow_color">Barva písmen po úspěšném tahu</string>
-    <string name="key_glow">Efekt při klepnutí</string>
     <string name="appearance_open">Vzhled a rozložení</string>
     <string name="typing_open">Psaní</string>
     <string name="sec_bottom_row">Spodní řada</string>
@@ -241,8 +239,6 @@
     <string name="animations_hint">Plynulý stisk kláves a přechody panelů</string>
     <string name="key_popup_hint">Bublina se znakem nad stisknutou klávesou</string>
     <string name="key_shadow_hint">Jemný tmavý okraj pod každou klávesou</string>
-    <string name="key_glow_hint">Klepnutá klávesa se krátce rozsvítí neonem nebo zableskne glitchem. Styl a barvu najdeš níže.</string>
-    <string name="swipe_glow_hint">Styl a barvu animace najdeš ve Vzhledu.</string>
     <string name="about_title">fAZT!</string>
     <string name="about_tagline">Rychlá soukromá klávesnice</string>
     <string name="about_p1">Rychlá česko-anglická klávesnice s psaním tahem prstu přes písmena. Učí se tvoje slova a opravy.</string>
@@ -250,7 +246,6 @@
     <string name="about_p3">Vzhled i rozložení kláves si přizpůsobíš podle sebe. Funguje bez internetu, bez reklam a bez telemetrie.</string>
     <string name="about_p4">Data zůstávají v telefonu a můžeš je zálohovat do souboru.</string>
     <string name="voice_paused">Pozastaveno – klepni na ▶ a mluv dál</string>
-    <string name="voice_resume">Pokračovat v diktování</string>
     <string name="tab_main">Hlavní</string>
     <string name="tab_waiting">Waiting ...</string>
     <string name="tab_locked">Zamčeno</string>
@@ -259,7 +254,7 @@
     <string name="sec_effects">Klávesy a efekty</string>
     <string name="hint_color">Barva nápovědy</string>
     <string name="hint_size">Velikost nápovědy</string>
-    <string name="tap_effect_label">Styl efektu</string>
+    <string name="tap_effect_label">Efekt při klepnutí</string>
     <string name="tap_effect_neon">Neon</string>
     <string name="tap_effect_glitch">Glitch</string>
     <string name="color_done">Hotovo</string>
@@ -294,4 +289,11 @@
     <string name="key_macro_title">Makro na klávese</string>
     <string name="key_macro_none">Bez makra</string>
     <string name="key_macro_empty">Nejdřív si vytvoř makro v Makra a zkratky</string>
+    <string name="effect_none">Bez efektu</string>
+    <string name="anim_none">Bez animace</string>
+    <string name="key_macro_place_title">Kdy se makro vloží?</string>
+    <string name="key_macro_on_click">Na klik</string>
+    <string name="key_macro_on_hold">Na podržení</string>
+    <string name="key_editor_macro_click">Klik: %1$s</string>
+    <string name="key_editor_macro_hold">Podržení: %1$s</string>
 </resources>
