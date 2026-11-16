@@ -92,7 +92,15 @@ class SettingsActivity : SettingsScreen() {
     // ------------------------------------------------------------------ obsah
 
     private fun build(container: LinearLayout) {
-        val heading = title(container, getString(R.string.app_name), back = false)
+        // Misto textoveho nadpisu obrazek loga (pomer stran 10:3), zarovnany vlevo.
+        val heading = android.widget.ImageView(this)
+        heading.setImageResource(R.drawable.logo)
+        heading.scaleType = android.widget.ImageView.ScaleType.FIT_START
+        heading.adjustViewBounds = true
+        heading.contentDescription = getString(R.string.app_name)
+        val hlp = LinearLayout.LayoutParams(dp(220f), dp(66f))
+        hlp.bottomMargin = dp(4f)
+        container.addView(heading, hlp)
         if (animateTitle) {
             // Nadpis vyjede zprava za okrajem obrazovky a doleti na sve misto (jen pri vytvoreni obrazovky).
             animateTitle = false

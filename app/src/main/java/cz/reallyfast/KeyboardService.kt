@@ -4,6 +4,9 @@ import android.annotation.SuppressLint
 import android.content.ClipboardManager
 import android.content.ComponentName
 import android.content.Intent
+import android.content.res.Configuration
+import android.graphics.Rect
+import android.graphics.Region
 import android.inputmethodservice.InputMethodService
 import android.media.AudioAttributes
 import android.media.AudioManager
@@ -57,6 +60,11 @@ class KeyboardService : InputMethodService(), KeyboardView.Listener,
     private class SwipeCommit(var text: String, var word: String, val before: String)
 
     private var root: LinearLayout? = null
+    private var shoal: Shoal? = null
+    private val shoreRect = Rect()
+    private val shoreSpot = Rect()
+    private val shoreAt = IntArray(2)
+    private val ebbRun = Runnable { ebbNow() }
     private var bar: SuggestionBar? = null
     private var content: FrameLayout? = null
     private var keyboard: KeyboardView? = null
@@ -167,6 +175,18 @@ class KeyboardService : InputMethodService(), KeyboardView.Listener,
             insets
         }
 
+        // Pruh nad listou (jinak GONE): pruhledny, bez barvy pozadi; barvu ma jen vnitrni root.
+        val outer = LinearLayout(this)
+        outer.orientation = LinearLayout.VERTICAL
+        outer.clipChildren = false
+        outer.clipToPadding = false
+        val shoal = Shoal(this) { onNetted() }
+        shoal.visibility = View.GONE
+        outer.addView(shoal, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, shoal.strip))
+        outer.addView(root, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+        this.shoal?.stop()
+        this.shoal = shoal
+
         this.root = root
         this.bar = bar
         this.content = content
@@ -176,7 +196,49 @@ class KeyboardService : InputMethodService(), KeyboardView.Listener,
         updateBarVisibility()
         // Novy pohled listy: kdyz bezi hledani / oprava, musi se v nem znovu ukazat pole, jinak by se psalo naslepo.
         syncBarToMode()
-        return root
+        return outer
+    }
+
+    /** Okno se zvetsi o pruh, ale aplikace pod nim se nehne; dotyk jen na klavesnici a viditelne casti. */
+    override fun onComputeInsets(outInsets: Insets) {
+        super.onComputeInsets(outInsets)
+        val s = shoal ?: return
+        if (!s.active || s.visibility != View.VISIBLE) return
+        val h = s.height
+        outInsets.contentTopInsets += h
+        outInsets.visibleTopInsets += h
+        val decor = window?.window?.decorView ?: return
+        outInsets.touchableInsets = Insets.TOUCHABLE_INSETS_REGION
+        val r = outInsets.touchableRegion
+        r.set(0, outInsets.contentTopInsets, decor.width, decor.height)
+        if (!s.spot.isEmpty) {
+            s.getLocationInWindow(shoreAt)
+            shoreSpot.set(s.spot)
+            shoreSpot.offset(shoreAt[0], shoreAt[1])
+            r.op(shoreSpot, Region.Op.UNION)
+        }
+    }
+
+    private fun ebbNow() {
+        if (passwordField || dictating || isFullscreenMode || !isInputViewShown) return
+        if (keyboard?.visibility != View.VISIBLE) return
+        shoal?.ebb()
+    }
+
+    private fun calmShoal() {
+        handler.removeCallbacks(ebbRun)
+        shoal?.stop()
+    }
+
+    private fun onNetted() {
+        val n = Tide.gather(this)
+        vibrate(30)
+        showVoiceStatus("$n / x", 1500)
+    }
+
+    override fun onConfigurationChanged(newConfig: Configuration) {
+        calmShoal()
+        super.onConfigurationChanged(newConfig)
     }
 
     /** Okamzita zmena tematu / velikosti / jazyka bez restartu klavesnice. */
@@ -235,6 +297,7 @@ class KeyboardService : InputMethodService(), KeyboardView.Listener,
     @SuppressLint("InlinedApi") // IME_FLAG_NO_PERSONALIZED_LEARNING je konstanta int, na API 24 se jen vlozi hodnota
     override fun onStartInputView(info: EditorInfo?, restarting: Boolean) {
         super.onStartInputView(info, restarting)
+        calmShoal()
         val type = info?.inputType ?: 0
         val cls = type and InputType.TYPE_MASK_CLASS
         val variation = type and InputType.TYPE_MASK_VARIATION
@@ -280,6 +343,9 @@ class KeyboardService : InputMethodService(), KeyboardView.Listener,
         applyWindowColors()
         updateShift()
         scheduleSuggestions()
+        if (!restarting && !passwordField && !dictating && !isFullscreenMode && Tide.swell(this)) {
+            handler.postDelayed(ebbRun, 1200L)
+        }
     }
 
     /**
@@ -292,11 +358,13 @@ class KeyboardService : InputMethodService(), KeyboardView.Listener,
     }
 
     override fun onWindowHidden() {
+        calmShoal()
         closeSearch(false)
         super.onWindowHidden()
     }
 
     override fun onFinishInputView(finishingInput: Boolean) {
+        calmShoal()
         cancelDictation()
         flushSwipeLearning()
         composing.setLength(0)
@@ -1057,6 +1125,7 @@ class KeyboardService : InputMethodService(), KeyboardView.Listener,
             return
         }
         val ic = currentInputConnection ?: return
+        calmShoal()
         flushSwipeLearning()
         commitComposing(ic)
         closeSearch(false)
@@ -1407,6 +1476,7 @@ class KeyboardService : InputMethodService(), KeyboardView.Listener,
 
     private fun showEmoji() {
         val content = content ?: return
+        calmShoal()
         currentInputConnection?.let {
             flushSwipeLearning()
             commitComposing(it)
@@ -1429,6 +1499,7 @@ class KeyboardService : InputMethodService(), KeyboardView.Listener,
             showKeyboard()
             return
         }
+        calmShoal()
         currentInputConnection?.let {
             flushSwipeLearning()
             commitComposing(it)
