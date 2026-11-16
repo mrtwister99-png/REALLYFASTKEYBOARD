@@ -366,11 +366,11 @@ class KeyboardService : InputMethodService(), KeyboardView.Listener,
         }
     }
 
-    /** Potvrzeni ulozeni slova: dve kratke vibrace (i kdyz je vibrace klaves vypnuta). */
+    /** Potvrzeni ulozeni slova: dve vyrazne vibrace, druha delsi (i kdyz je vibrace klaves vypnuta). */
     private fun vibrateSaved() {
         val v = vibrator ?: return
         try {
-            val pattern = longArrayOf(0, 25, 70, 25)
+            val pattern = longArrayOf(0, 70, 90, 120)
             if (Build.VERSION.SDK_INT >= 26) {
                 v.vibrate(VibrationEffect.createWaveform(pattern, -1))
             } else {

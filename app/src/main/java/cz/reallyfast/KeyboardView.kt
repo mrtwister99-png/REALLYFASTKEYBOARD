@@ -202,8 +202,14 @@ class KeyboardView(context: Context) : View(context) {
         private const val PASSED_FADE_MS = 500f
         // Styl "slovo": pismena vzletnou z klaves, slozi slovo, chvili drzi a vybledou.
         private const val FLY_MS = 450L
-        private const val FLY_HOLD_MS = 500L
-        private const val FLY_FADE_MS = 250L
+        // Po slozeni slovo vyskoci na 1.5x a problikne (POP), pomalu se vrati na 100 % (SETTLE), pak zmizi.
+        private const val FLY_POP_MS = 130L
+        private const val FLY_SETTLE_MS = 650L
+        private const val FLY_HOLD_MS = FLY_POP_MS + FLY_SETTLE_MS
+        private const val FLY_FADE_MS = 300L
+        private const val FLY_POP_SCALE = 1.5f
+        private const val FLY_FLASH = 0xFFFFE600.toInt()
+        private const val FLY_FLASH_ALT = 0xFFFF2D55.toInt()
         private const val FILL_IN_MS = 450L
         private const val FILL_HOLD_MS = 150L
         private const val FILL_OUT_MS = 300L
@@ -619,6 +625,8 @@ class KeyboardView(context: Context) : View(context) {
     private var flyStart = 0L
     private var flyStartSize = 0f
     private var flyEndSize = 0f
+    private var flyPopScale = FLY_POP_SCALE
+    private var flyFlash = FLY_FLASH
     private val flyFill = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         textAlign = Paint.Align.CENTER
         typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
@@ -1244,7 +1252,7 @@ class KeyboardView(context: Context) : View(context) {
     /**
      * Styl "slovo": pismena leti najednou z klaves (ease-out, rostou) na vodorovny stred, do urovne nad
      * horni radou (listy navrhu / radku nahledu; bez presahu nad pohled na horni okraj), kde ve spravnem
-     * poradi sklada slovo. To chvili drzi a pak vybledne. Bez alokace.
+     * poradi sklada slovo. To vyskoci na 1.5x a problikne vyraznou barvou, pomalu se vrati a vybledne. Bez alokace.
      */
     private fun drawFly(canvas: Canvas, now: Long) {
         if (flyCount == 0) return
@@ -1254,16 +1262,30 @@ class KeyboardView(context: Context) : View(context) {
         val e = 1f - (1f - f) * (1f - f)
         val fade = if (t < FLY_MS + FLY_HOLD_MS) 1f else 1f - (t - FLY_MS - FLY_HOLD_MS) / FLY_FADE_MS.toFloat()
         val alpha = (255f * fade).toInt().coerceIn(0, 255)
-        val size = flyStartSize + (flyEndSize - flyStartSize) * e
+        // Faze po dopadu: rychle zvetseni + probliknuti, pak pomaly navrat na 100 %.
+        var pop = 0f
+        if (t > FLY_MS) {
+            val pt = t - FLY_MS
+            pop = if (pt < FLY_POP_MS) {
+                pt / FLY_POP_MS.toFloat()
+            } else {
+                val r = min(1f, (pt - FLY_POP_MS) / FLY_SETTLE_MS.toFloat())
+                (1f - r) * (1f - r)
+            }
+        }
+        val scale = 1f + (flyPopScale - 1f) * pop
+        val size = (flyStartSize + (flyEndSize - flyStartSize) * e) * scale
         flyFill.textSize = size
         flyOutline.textSize = size
         flyOutline.strokeWidth = size * 0.14f
-        flyFill.color = (glowColor and 0x00FFFFFF) or (alpha shl 24)
+        val body = if (pop > 0f) Theme.blend(glowColor, flyFlash, pop) else glowColor
+        flyFill.color = (body and 0x00FFFFFF) or (alpha shl 24)
         flyOutline.color = ((alpha * 0.6f).toInt().coerceIn(0, 255) shl 24)
         val landY = if (overflowTop > 0) -overflowTop / 2f else flyEndSize * 0.75f
         val dy = -(flyFill.ascent() + flyFill.descent()) / 2f
         for (j in 0 until flyCount) {
-            val x = flyFromX[j] + (flyToX[j] - flyFromX[j]) * e
+            val tx = width / 2f + (flyToX[j] - width / 2f) * scale
+            val x = flyFromX[j] + (tx - flyFromX[j]) * e
             val y = flyFromY[j] + (landY - flyFromY[j]) * e + dy
             canvas.drawText(flyChars, j, 1, x, y, flyOutline)
             canvas.drawText(flyChars, j, 1, x, y, flyFill)
@@ -1292,6 +1314,9 @@ class KeyboardView(context: Context) : View(context) {
             total = maxTotal
         }
         flyEndSize = endSize
+        // Zvetsene slovo se musi vejit na sirku; barva probliknuti musi byt jina nez barva slova.
+        flyPopScale = if (total > 0f) min(FLY_POP_SCALE, max(1f, width * 0.98f / total)) else FLY_POP_SCALE
+        flyFlash = if (Theme.luminance(glowColor) > 0.6f) FLY_FLASH_ALT else FLY_FLASH
         var x = (width - total) / 2f
         for (j in 0 until n) {
             flyToX[j] = x + flyWidths[j] / 2f
