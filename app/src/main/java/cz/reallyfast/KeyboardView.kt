@@ -177,11 +177,11 @@ class KeyboardView(context: Context) : View(context) {
         private const val GLOW_SIDE_BTT = 2
         private const val GLOW_SIDE_TTB = 3
         // Styl "postupne": pismeno i startuje v i * STEP, plynule se rozsviti za RISE a zustane svitit;
-        // po rozsviceni posledniho a prodleve HOLD zhasnou vsechna naraz behem FADE.
-        private const val BLINK_STEP_MS = 400L
-        private const val BLINK_RISE_MS = 750L
-        private const val BLINK_HOLD_MS = 500L
-        private const val BLINK_FADE_MS = 350L
+        // po rozsviceni posledniho a prodleve HOLD zhasnou vsechna naraz behem FADE (kratke casy = svizny prubeh).
+        private const val BLINK_STEP_MS = 280L
+        private const val BLINK_RISE_MS = 520L
+        private const val BLINK_HOLD_MS = 400L
+        private const val BLINK_FADE_MS = 300L
         const val HINT_MIN = -1f
         const val HINT_MAX = 2f
         // Efekt "glitch": 2-4 zablesky (55 ms svit, 45 ms pauza) dvou obrysu klavesy; nahodne hodnoty se losuji pri klepnuti.
@@ -208,6 +208,9 @@ class KeyboardView(context: Context) : View(context) {
         private const val FILL_HOLD_MS = 150L
         private const val FILL_OUT_MS = 300L
         private const val DEMO_POPUP_MS = 700L
+        private const val DEMO_TRAIL_MS = 700L
+        private const val DEMO_TRAIL_STEPS = 12
+        private const val DEMO_TRAIL_POINTS = 36
         private const val DEMO_ALTS_MS = 900L
         private const val DEMO_PRESS_STEP_MS = 230L
         private const val WHITE = 0xFFFFFFFF.toInt()
@@ -297,9 +300,9 @@ class KeyboardView(context: Context) : View(context) {
     private fun textOn(c: Int) = if (Theme.luminance(c) > 0.6f) 0xFF15151A.toInt() else WHITE
 
     // Barvy bubliny nad klavesou a listy znaku pri podrzeni (pocita applyAppearance, ne onDraw).
-    private var popupFill = theme.popup
+    private var popupFill = Theme.autoPopup(theme.key)
     private var popupFg = theme.text
-    private var altsFill = theme.popup
+    private var altsFill = Theme.autoPopup(theme.key)
     private var altsFg = theme.text
     private var altsSelFill = theme.accent
     private var altsSelFg = theme.onAccent
@@ -466,6 +469,9 @@ class KeyboardView(context: Context) : View(context) {
         drawShadow = s.keyShadow
         drawHints = s.keyHints
         drawTrailEnabled = s.swipeTrail
+        trailCol = Theme.parse(s.trailColor, 0) and 0x00FFFFFF
+        if (s.trailColor.isEmpty() || trailCol == 0) trailCol = theme.accent and 0x00FFFFFF
+        textCol2 = Theme.parse(s.textColor2, 0)
         glowEnabled = s.swipeGlow
         neonEnabled = s.keyGlow
         showPreview = s.keyPopup
@@ -517,16 +523,16 @@ class KeyboardView(context: Context) : View(context) {
         // Prazdna barva = automaticka (podle motivu), jinak vlastni barva s automatickym kontrastem textu.
         val pc = Theme.parse(s.popupColor, 0)
         if (s.popupColor.isEmpty() || pc == 0) {
-            popupFill = theme.popup
-            popupFg = theme.text
+            popupFill = Theme.autoPopup(theme.key)
+            popupFg = textOn(popupFill)
         } else {
             popupFill = pc
             popupFg = textOn(pc)
         }
         val ac = Theme.parse(s.altsColor, 0)
         if (s.altsColor.isEmpty() || ac == 0) {
-            altsFill = theme.popup
-            altsFg = theme.text
+            altsFill = Theme.autoPopup(theme.key)
+            altsFg = textOn(altsFill)
         } else {
             altsFill = ac
             altsFg = textOn(ac)
@@ -565,6 +571,9 @@ class KeyboardView(context: Context) : View(context) {
         // Prechod klavesy je vystredeny na stred klavesy (onDraw posune platno), pozadi pokryva cely pohled.
         val gh = max(1f, rowH - 2f * padY)
         keyShader = if (keyCol2 != 0) LinearGradient(0f, -gh / 2f, 0f, gh / 2f, theme.key, keyCol2, Shader.TileMode.CLAMP) else null
+        // Prechod znaku: od horniho okraje pismene k dolnimu (vyska ~0,72 velikosti), vystredeny na nulu jako prechod klavesy.
+        val gl = labelSize * 0.36f
+        textShader = if (textCol2 != 0 && gl > 0f) LinearGradient(0f, -gl, 0f, gl, theme.text, textCol2, Shader.TileMode.CLAMP) else null
         bgShader = if (bgCol2 != 0 && height > 0) {
             LinearGradient(0f, 0f, 0f, height.toFloat(), theme.background, bgCol2, Shader.TileMode.CLAMP)
         } else null
@@ -682,6 +691,10 @@ class KeyboardView(context: Context) : View(context) {
     private var previewEndedAt = 0L
     private var trailCount = 0
     private var trailEndedAt = 0L
+    private var trailHeld = false // ukazka stopy v nastaveni: stopa nebledne, dokud se nenakresli cela
+    private var trailCol = theme.accent and 0x00FFFFFF
+    private var textCol2 = 0
+    private var textShader: Shader? = null
 
     private fun startPreview(k: Key) {
         if (!showPreview || !popupAllowed || k.kind != KIND_CHAR) return
@@ -1071,7 +1084,7 @@ class KeyboardView(context: Context) : View(context) {
                     GLOW_SIDE_LTR -> clip.set(rect.left, rect.top, rect.left + w * fillProgress, rect.bottom)
                     GLOW_SIDE_RTL -> clip.set(rect.right - w * fillProgress, rect.top, rect.right, rect.bottom)
                     GLOW_SIDE_BTT -> clip.set(rect.left, rect.bottom - h * fillProgress, rect.right, rect.bottom)
-                    else -> clip.set(rect.left, rect.top, rect.right, rect.top + h * fillProgress)
+                    GLOW_SIDE_TTB -> clip.set(rect.left, rect.top, rect.right, rect.top + h * fillProgress)
                 }
                 fill.color = (glowColor and 0x00FFFFFF) or ((255f * fillAlpha).toInt().coerceIn(0, 255) shl 24)
                 canvas.save()
@@ -1080,11 +1093,12 @@ class KeyboardView(context: Context) : View(context) {
                 canvas.restore()
             }
 
-            var fg = when {
+            val baseFg = when {
                 accentKey -> theme.onAccent
                 k.isDigit && digitTextCol != 0 -> digitTextCol
                 else -> theme.text
             }
+            var fg = baseFg
             if (paintA > 0f && !accentKey) fg = Theme.blend(fg, textOn(paintCols[pIdx]), paintA)
             if (k.passed) {
                 fg = if (passedTextCol != 0) passedTextCol else Theme.blend(fg, theme.onAccent, 0.55f)
@@ -1131,12 +1145,25 @@ class KeyboardView(context: Context) : View(context) {
                         textPaint.color = (fg and 0x00FFFFFF) or ((255f * flyLabel).toInt().coerceIn(0, 255) shl 24)
                     }
                     textPaint.textSize = labelSize
+                    // Prechod barvy znaku jen kdyz zadny docasny efekt nemeni barvu znaku.
+                    val grad = textShader != null && fg == baseFg && !accentKey && !(k.isDigit && digitTextCol != 0) &&
+                        !(flyCount > 0 && flyLabel < 1f && isFlying(ki))
                     val n = labelChars(k.label, upper)
                     val shift = if (!hinted) 0f else labelSize * 0.06f * (1f - 2f * hintY.coerceIn(0f, 1f))
                     // Poloha znaku: 0,5 / 0,5 = uprostred; jinak se stred pohybuje tam, kde se znak jeste vejde do klavesy.
                     val offX = if (labelX == 0.5f) 0f else (labelX - 0.5f) * 2f * max(0f, hw - labelSize * 0.3f - 2f * density)
                     val offY = if (labelY == 0.5f) 0f else (labelY - 0.5f) * 2f * max(0f, hh - labelSize * 0.36f - 2f * density)
-                    canvas.drawText(charBuf, 0, n, cx + offX, cy + offY + shift - (textPaint.ascent() + textPaint.descent()) / 2f, textPaint)
+                    if (grad) {
+                        // Shader je vystredeny na nulu: platno se posune na stred znaku.
+                        canvas.save()
+                        canvas.translate(0f, cy + offY + shift)
+                        textPaint.shader = textShader
+                        canvas.drawText(charBuf, 0, n, cx + offX, -(textPaint.ascent() + textPaint.descent()) / 2f, textPaint)
+                        textPaint.shader = null
+                        canvas.restore()
+                    } else {
+                        canvas.drawText(charBuf, 0, n, cx + offX, cy + offY + shift - (textPaint.ascent() + textPaint.descent()) / 2f, textPaint)
+                    }
                     textPaint.typeface = baseFace
                 }
                 KIND_SPACE -> {
@@ -1457,7 +1484,7 @@ class KeyboardView(context: Context) : View(context) {
      */
     private fun drawTrail(canvas: Canvas, now: Long): Boolean {
         if (!drawTrailEnabled || trailCount < 2) return false
-        val fade = if (touchMode == T_SWIPE) 1f else {
+        val fade = if (touchMode == T_SWIPE || trailHeld) 1f else {
             if (!animate) return false
             1f - (now - trailEndedAt) / TRAIL_FADE_MS
         }
@@ -1467,7 +1494,7 @@ class KeyboardView(context: Context) : View(context) {
         }
         val first = max(0, trailCount - TRAIL_POINTS)
         val span = (trailCount - first).toFloat()
-        val rgb = theme.accent and 0x00FFFFFF
+        val rgb = trailCol
         stroke.style = Paint.Style.STROKE
         var px = samples[first * 3]
         var py = samples[first * 3 + 1]
@@ -1730,6 +1757,42 @@ class KeyboardView(context: Context) : View(context) {
         previewKey = null
         startPreview(k)
         handler.postAtTime({ endPreview() }, demoToken, SystemClock.uptimeMillis() + DEMO_POPUP_MS)
+        invalidate()
+    }
+
+    /** Ukazka stopy za prstem (nahled v nastaveni): na ~0,7 s se nakresli cara pres par pismen a pak vybledne. */
+    fun demoTrail() {
+        if (preview && previewTouch) return
+        val a = demoLetter('a') ?: return
+        val b = demoLetter('h') ?: return
+        val c = demoLetter('o') ?: return
+        handler.removeCallbacksAndMessages(demoToken)
+        // Lomena cara a -> h -> o do bufferu vzorku (stejny jako u skutecneho tahu).
+        val half = DEMO_TRAIL_POINTS / 2
+        for (i in 0 until DEMO_TRAIL_POINTS) {
+            val from = if (i < half) a else b
+            val to = if (i < half) b else c
+            val t = (if (i < half) i else i - half) / (half - 1f)
+            val fx = from.vx + from.vw / 2f
+            val fy = from.y + from.h / 2f
+            samples[i * 3] = fx + (to.vx + to.vw / 2f - fx) * t
+            samples[i * 3 + 1] = fy + (to.y + to.h / 2f - fy) * t
+            samples[i * 3 + 2] = 0f
+        }
+        sampleCount = 0
+        touchMode = T_NONE
+        trailHeld = true
+        trailCount = 2
+        val start = SystemClock.uptimeMillis()
+        for (step in 1..DEMO_TRAIL_STEPS) {
+            val n = max(2, DEMO_TRAIL_POINTS * step / DEMO_TRAIL_STEPS)
+            handler.postAtTime({ trailCount = n; invalidate() }, demoToken, start + DEMO_TRAIL_MS * step / DEMO_TRAIL_STEPS)
+        }
+        handler.postAtTime({
+            trailHeld = false
+            trailEndedAt = SystemClock.uptimeMillis()
+            invalidate()
+        }, demoToken, start + DEMO_TRAIL_MS + 1L)
         invalidate()
     }
 

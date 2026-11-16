@@ -32,7 +32,6 @@ class TypingActivity : SettingsScreen() {
         box = section(container, getString(R.string.sec_swipe))
         switchRow(box, R.string.swipe_enabled, "swipe_enabled")
         sliderRow(box, R.string.swipe_sensitivity, "swipe_sensitivity", 50, 150, 100) { String.format(Locale.getDefault(), "%.2f", it / 100f) }
-        switchRow(box, R.string.swipe_trail, "swipe_trail")
         switchRow(box, R.string.swipe_adapt, "swipe_adapt")
         buttonRow(box, getString(R.string.swipe_adapt_reset), danger) {
             confirmDanger(getString(R.string.swipe_adapt_reset_confirm), getString(R.string.swipe_adapt_reset_do)) {

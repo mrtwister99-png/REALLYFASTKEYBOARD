@@ -349,7 +349,8 @@ abstract class SettingsScreen : BaseScreen() {
     private fun autoColor(key: String): Int {
         val t = Theme.from(RustBridge.settings)
         return when (key) {
-            "popup_color", "alts_color" -> t.popup
+            "popup_color", "alts_color" -> Theme.autoPopup(t.key)
+            "trail_color" -> t.accent
             "hint_color" -> t.hint
             "tap_text_color" -> t.accent
             "digit_key_color", "key_color2" -> t.key

@@ -94,7 +94,7 @@
     <string name="custom_key">Key color</string>
     <string name="custom_text">Text color</string>
     <string name="preview">Preview</string>
-    <string name="key_height">Key height</string>
+    <string name="key_height">Keyboard height</string>
     <string name="styles">Ready-made styles</string>
     <string name="key_radius">Key corner radius</string>
     <string name="key_popup">Letter bubble on key press</string>
@@ -271,6 +271,10 @@
     <string name="fly_effect">Word animation after swipe</string>
     <string name="fly_hint">After a swipe the letters of the word fly above the keyboard and form the word.</string>
     <string name="sec_extra_chars">Characters</string>
+    <string name="sec_extra_details">Dimensions and details</string>
+    <string name="trail_color">Trail color</string>
+    <string name="text_color2">Second character color</string>
+    <string name="text_color2_hint">Characters fade from top to bottom, from the text color to this color</string>
     <string name="label_pos">Position of the main character on the key</string>
     <string name="label_adjust">Adjust character position</string>
     <string name="hover_text_color">Character color under the finger while swiping</string>

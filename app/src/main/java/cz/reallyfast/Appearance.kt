@@ -251,6 +251,7 @@ class AppearanceActivity : SettingsScreen() {
             "key_popup", "popup_color" -> preview.demoPopup()
             "alts_color" -> preview.demoAlts()
             "animations" -> preview.demoPress()
+            "swipe_trail", "trail_color" -> preview.demoTrail()
             "glow_style", "glow_color" -> preview.glowWord("ahoj")
         }
     }
@@ -527,9 +528,19 @@ class AppearanceActivity : SettingsScreen() {
         paintPills()
     }
 
-    /** Druha zalozka: barvy cislic, prechody klaves a pozadi, zvlastni efekty a znaky na klavesach. */
+    /** Druha zalozka: rozmery a detaily, barvy cislic, prechody klaves a pozadi, zvlastni efekty a znaky na klavesach. */
     private fun buildExtra(tabBox: LinearLayout) {
-        var box = section(tabBox, getString(R.string.sec_extra_digits))
+        var box = section(tabBox, getString(R.string.sec_extra_details))
+        sliderRow(box, R.string.key_gap, "key_gap_dp", 1, 10, 1) { getString(R.string.unit_dp, it) }
+        sliderRow(box, R.string.row_gap, "row_gap_dp", 2, 16, 1) { getString(R.string.unit_dp, it) }
+        switchRow(box, R.string.key_popup, "key_popup", hintRes = R.string.key_popup_hint)
+        colorRow(box, R.string.popup_color, "popup_color", allowAuto = true)
+        switchRow(box, R.string.key_shadow, "key_shadow", hintRes = R.string.key_shadow_hint)
+        colorRow(box, R.string.alts_color, "alts_color", allowAuto = true)
+        sliderRow(box, R.string.hint_size, "hint_percent", 60, 180, 1) { getString(R.string.unit_percent, it) }
+        switchRow(box, R.string.animations, "animations", hintRes = R.string.animations_hint)
+
+        box = section(tabBox, getString(R.string.sec_extra_digits))
         colorRow(box, R.string.digit_text_color, "digit_text_color", allowAuto = true)
         colorRow(box, R.string.digit_key_color, "digit_key_color", allowAuto = true)
 
@@ -549,22 +560,27 @@ class AppearanceActivity : SettingsScreen() {
         hintText(box, getString(R.string.fly_hint))
 
         box = section(tabBox, getString(R.string.sec_extra_chars))
-        // Poloha hlavniho znaku: popisek a pod nim tlacitko, ktere zapne nastavovani nad klavesnici.
-        val labelRow = LinearLayout(this)
-        labelRow.orientation = LinearLayout.VERTICAL
-        labelRow.addView(label(getString(R.string.label_pos), 14f, dim).also { it.setPadding(0, dp(10f), 0, dp(2f)) }, rowParams())
-        val labelAdjust = buttonView(getString(R.string.label_adjust), accent) { if (adjusting) finishAdjust() else startAdjust(true) }
-        val llp = rowParams()
-        llp.topMargin = dp(5f)
-        llp.bottomMargin = dp(5f)
-        labelRow.addView(labelAdjust, llp)
-        labelAdjustButton = labelAdjust
-        box.addView(labelRow, rowParams())
+        colorRow(box, R.string.text_color2, "text_color2", allowAuto = true)
+        hintText(box, getString(R.string.text_color2_hint))
         colorRow(box, R.string.hover_text_color, "hover_text_color", allowAuto = true)
         colorRow(box, R.string.passed_text_color, "passed_text_color", allowAuto = true)
         colorRow(box, R.string.tap_text_color, "tap_text_color", allowAuto = true)
         sliderRow(box, R.string.label_weight, "label_weight", 100, 900, 1, 100) { it.toString() }
         sliderRow(box, R.string.digit_weight, "digit_weight", 100, 900, 1, 100) { it.toString() }
+    }
+
+    /** Tlacitko s popiskem, ktere zapne nastavovani polohy (znaku nebo napovedy) nad klavesnici. */
+    private fun adjustRow(box: LinearLayout, labelRes: Int, buttonRes: Int, forLabel: Boolean): TextView {
+        val col = LinearLayout(this)
+        col.orientation = LinearLayout.VERTICAL
+        col.addView(label(getString(labelRes), 14f, dim).also { it.setPadding(0, dp(10f), 0, dp(2f)) }, rowParams())
+        val button = buttonView(getString(buttonRes), accent) { if (adjusting) finishAdjust() else startAdjust(forLabel) }
+        val lp = rowParams()
+        lp.topMargin = dp(5f)
+        lp.bottomMargin = dp(5f)
+        col.addView(button, lp)
+        box.addView(col, rowParams())
+        return button
     }
 
     private fun buildMain(tabBox: LinearLayout) {
@@ -573,38 +589,23 @@ class AppearanceActivity : SettingsScreen() {
         presetRow(box)
         colorRow(box, R.string.custom_background, "custom_background")
         colorRow(box, R.string.custom_key, "custom_key")
-        colorRow(box, R.string.accent_color, "accent_color")
         colorRow(box, R.string.custom_text, "custom_text")
+        colorRow(box, R.string.accent_color, "accent_color")
 
         // Rozmery
         box = section(tabBox, getString(R.string.sec_dimensions))
         sliderRow(box, R.string.key_height, "key_height_dp", 48, 72, 1) { getString(R.string.unit_dp, it) }
-        sliderRow(box, R.string.key_gap, "key_gap_dp", 1, 10, 1) { getString(R.string.unit_dp, it) }
-        sliderRow(box, R.string.row_gap, "row_gap_dp", 2, 16, 1) { getString(R.string.unit_dp, it) }
         sliderRow(box, R.string.key_radius, "key_radius_dp", 2, 22, 1) { getString(R.string.unit_dp, it) }
         sliderRow(box, R.string.key_text_size, "key_text_percent", 70, 150, 1) { getString(R.string.unit_percent, it) }
+        labelAdjustButton = adjustRow(box, R.string.label_pos, R.string.label_adjust, true)
 
         // Klavesy a efekty
         box = section(tabBox, getString(R.string.sec_effects))
-        switchRow(box, R.string.key_popup, "key_popup", hintRes = R.string.key_popup_hint)
-        colorRow(box, R.string.popup_color, "popup_color", allowAuto = true)
-        switchRow(box, R.string.key_shadow, "key_shadow", hintRes = R.string.key_shadow_hint)
-        colorRow(box, R.string.alts_color, "alts_color", allowAuto = true)
         switchRow(box, R.string.key_hints, "key_hints")
         colorRow(box, R.string.hint_color, "hint_color", allowAuto = true)
-        sliderRow(box, R.string.hint_size, "hint_percent", 60, 180, 1) { getString(R.string.unit_percent, it) }
-        // Poloha male napovedy: popisek a pod nim tlacitko, ktere zapne nastavovani nad klavesnici.
-        val hintRow = LinearLayout(this)
-        hintRow.orientation = LinearLayout.VERTICAL
-        hintRow.addView(label(getString(R.string.layout_hint_pos), 14f, dim).also { it.setPadding(0, dp(10f), 0, dp(2f)) }, rowParams())
-        val adjust = buttonView(getString(R.string.hint_adjust), accent) { if (adjusting) finishAdjust() else startAdjust(false) }
-        val alp = rowParams()
-        alp.topMargin = dp(5f)
-        alp.bottomMargin = dp(5f)
-        hintRow.addView(adjust, alp)
-        hintAdjustButton = adjust
-        box.addView(hintRow, rowParams())
-        switchRow(box, R.string.animations, "animations", hintRes = R.string.animations_hint)
+        hintAdjustButton = adjustRow(box, R.string.layout_hint_pos, R.string.hint_adjust, false)
+        switchRow(box, R.string.swipe_trail, "swipe_trail")
+        colorRow(box, R.string.trail_color, "trail_color", allowAuto = true)
         // Zvlastni styly (Barvy, Slovo) se zapinaji na druhe zalozce; pri jejich aktivaci neni zadna volba vybrana.
         choiceRow(box, R.string.tap_effect_label, listOf("none", "neon", "glitch"),
             listOf(getString(R.string.effect_none), getString(R.string.tap_effect_neon), getString(R.string.tap_effect_glitch)),

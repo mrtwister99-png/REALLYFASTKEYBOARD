@@ -64,6 +64,8 @@ class Settings(val json: JSONObject) {
     val numberDivider: Boolean get() = json.optBoolean("number_divider", true)
     val keyTextPercent: Int get() = json.optInt("key_text_percent", 100).coerceIn(70, 150)
     /** Barvy cislic a druhe barvy klaves / pozadi: prazdny retezec = automaticky / vypnuto. */
+    val trailColor: String get() = json.optString("trail_color", "")
+    val textColor2: String get() = json.optString("text_color2", "")
     val digitTextColor: String get() = json.optString("digit_text_color", "")
     val digitKeyColor: String get() = json.optString("digit_key_color", "")
     val keyColor2: String get() = json.optString("key_color2", "")
@@ -162,6 +164,10 @@ class Theme(
                 (Color.blue(a) * u + Color.blue(b) * t).toInt(),
             )
         }
+
+        /** Automaticka barva bubliny a listy znaku: svetlejsi odstin tmave klavesy, tmavsi odstin svetle. */
+        fun autoPopup(key: Int): Int =
+            if (luminance(key) < 0.5f) blend(key, 0xFFFFFFFF.toInt(), 0.22f) else blend(key, 0xFF000000.toInt(), 0.18f)
 
         fun luminance(c: Int): Float =
             (0.299f * Color.red(c) + 0.587f * Color.green(c) + 0.114f * Color.blue(c)) / 255f

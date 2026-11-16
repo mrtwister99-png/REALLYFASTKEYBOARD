@@ -97,8 +97,8 @@
     <string name="custom_key">Barva kláves</string>
     <string name="custom_text">Barva textu</string>
     <string name="preview">Náhled</string>
-    <string name="key_height">Výška klávesy</string>
-    <string name="styles">Hotové styly</string>
+    <string name="key_height">Výška klávesnice</string>
+    <string name="styles">Připravené styly</string>
     <string name="key_radius">Zaoblení kláves</string>
     <string name="key_popup">Bublina s písmenem při stisku</string>
     <string name="key_hints">Nápovědy znaků na klávesách</string>
@@ -278,6 +278,10 @@
     <string name="fly_effect">Animace Slovo po tahu</string>
     <string name="fly_hint">Po tahu se písmena slova slétnou nad klávesnici a složí slovo.</string>
     <string name="sec_extra_chars">Znaky</string>
+    <string name="sec_extra_details">Rozměry a detaily</string>
+    <string name="trail_color">Barva stopy</string>
+    <string name="text_color2">Druhá barva znaků</string>
+    <string name="text_color2_hint">Znaky přecházejí shora dolů z barvy textu do této barvy</string>
     <string name="label_pos">Pozice hlavního znaku na klávese</string>
     <string name="label_adjust">Nastavit pozici znaku</string>
     <string name="hover_text_color">Barva znaku pod prstem při tahu</string>

@@ -118,6 +118,10 @@ pub struct Settings {
     pub clipboard_enabled: bool,
     pub clipboard_ttl_minutes: u32,
     // --- barvy klaves a pozadi navic ---
+    /// Barva cary za prstem pri swipe ("" = automaticka).
+    pub trail_color: String,
+    /// Druha barva znaku: prechod shora (barva textu) dolu (tato barva); "" = vypnuto.
+    pub text_color2: String,
     /// Barva znaku cislicovych klaves ("" = automaticka).
     pub digit_text_color: String,
     /// Barva cislicovych klaves ("" = automaticka).
@@ -214,6 +218,8 @@ impl Default for Settings {
             gesture_pinch_resize: true,
             clipboard_enabled: true,
             clipboard_ttl_minutes: 60,
+            trail_color: String::new(),
+            text_color2: String::new(),
             digit_text_color: String::new(),
             digit_key_color: String::new(),
             key_color2: String::new(),
@@ -406,6 +412,8 @@ impl Settings {
         fix_optional_color(&mut self.hover_text_color);
         self.label_weight = round_weight(self.label_weight);
         self.digit_weight = round_weight(self.digit_weight);
+        fix_optional_color(&mut self.trail_color);
+        fix_optional_color(&mut self.text_color2);
         fix_optional_color(&mut self.digit_text_color);
         fix_optional_color(&mut self.digit_key_color);
         fix_optional_color(&mut self.key_color2);
@@ -564,9 +572,18 @@ mod tests {
     }
 
     #[test]
+    fn trail_and_second_text_color() {
+        let s = Settings::default();
+        assert_eq!((s.trail_color.as_str(), s.text_color2.as_str()), ("", ""));
+        let s = Settings::from_json(r##"{"trail_color":"#ff8800","text_color2":"zzz"}"##).unwrap();
+        assert_eq!((s.trail_color.as_str(), s.text_color2.as_str()), ("#FF8800", ""));
+        assert_eq!(Settings::from_json(&s.to_json()).unwrap(), s);
+    }
+
+    #[test]
     fn key_glow_and_key_map_defaults() {
         let s = Settings::default();
-        assert!(s.key_glow);
+        assert!(s.key_glow && s.tap_effect == "neon");
         assert!(s.key_map.is_empty());
         let old = Settings::from_json(r#"{"theme":"light"}"#).unwrap();
         assert!(old.key_glow && old.key_map.is_empty());
