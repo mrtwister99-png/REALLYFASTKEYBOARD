@@ -31,6 +31,7 @@ Prstem nepouštěj displej a jeď přes písmena slova; po zvednutí se slovo na
 - Diakritika se doplní sama, takže tahem píšeš „prilis“ a vyjde „příliš“.
 - Slova, která klávesnice nezná, ji naučíš jednou klepáním; pak je rozpozná i tahem.
 - Citlivost se nastavuje v *Psaní*. Tahy lze úplně vypnout.
+- **Dvojklepnutí na napsané slovo** v liště návrhů otevře jeho opravu. Uložení (Enter) se změněným slovem ho opraví a přidá do osobního slovníku; uložení **beze změny** ho jen přidá do osobního slovníku (klávesnice ho pak neopravuje) a krátce zavibruje.
 - Pokud po tahu vybereš jinou alternativu nebo slovo hned smažeš, klávesnice si to zapamatuje a příště nabídne správné výš.
 
 ## 4. Návrhy a oprava

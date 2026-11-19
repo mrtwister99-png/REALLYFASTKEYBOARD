@@ -1,6 +1,6 @@
 # Plán: výkon a odlehčení (další krok)
 
-Stav k verzi 1.23.1. Hotová je „bezpečná dávka“ (jedna transakce v `learn()`, kompaktní JSON nastavení, úklid `wake`).
+Stav k verzi 1.23.2. Hotová je „bezpečná dávka“ (jedna transakce v `learn()`, kompaktní JSON nastavení, úklid `wake`).
 Zbylé body jsou větší zásahy. **Žádný z nich se nemá dělat naslepo**: nejdřív změřit na telefonu, pak měnit.
 
 ## 0. Měření (první krok, bez něj nic dalšího)

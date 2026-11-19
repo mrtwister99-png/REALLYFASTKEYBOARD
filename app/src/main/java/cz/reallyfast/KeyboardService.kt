@@ -1597,10 +1597,16 @@ class KeyboardService : InputMethodService(), KeyboardView.Listener,
         beginSearch(add = true, edit = true, target = ls, initial = ls.word)
     }
 
-    /** Enter v rezimu opravy: zmenene slovo prepise to ze swipe, nezmenene / prazdne nic nedela. */
+    /** Enter v rezimu opravy: zmenene slovo prepise to ze swipe, nezmenene se jen prida do slovniku, prazdne nic nedela. */
     private fun finishEditWord(target: SwipeCommit, query: String) {
-        if (query.isEmpty() || query == target.word) {
+        if (query.isEmpty()) {
             closeSearch(true)
+            return
+        }
+        if (query == target.word) {
+            // Nezmenene slovo: dvojklep + ulozit ho prida do osobniho slovniku (neopravuje se) a zavibruje.
+            closeSearch(true)
+            showAddWordResult(RustBridge.addUserWord(query), query)
             return
         }
         val ic = currentInputConnection ?: return closeSearch(true)

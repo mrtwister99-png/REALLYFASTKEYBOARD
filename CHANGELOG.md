@@ -2,6 +2,9 @@
 
 Jedna věta za verzi, nejnovější nahoře. Čísla verzí odpovídají commitům (`vX.Y: …`).
 
+## 1.23.2 – 2026-11-20
+Dvojklepnutí na napsané slovo v liště návrhů a uložení beze změny ho přidá do osobního slovníku a zavibruje.
+
 ## 1.23.1 – 2026-11-20
 Učení slova zapisuje do databáze v jedné transakci; nastavení se ukládá jako kompaktní JSON; `KeyboardView` po odpojení ruší naplánované překreslení; aktualizovaná dokumentace (README, uživatelská příručka, architektura, soukromí) a nový plán výkonu `docs/plan-vykon.md`.
 
