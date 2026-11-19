@@ -84,7 +84,6 @@ pub const OP_STYLE_LOAD: i32 = 50;
 
 /// Priznaky pro swipe / suggest.
 pub const FLAG_CAPITALIZE: i64 = 1;
-pub const FLAG_SENTENCE_START: i64 = 2;
 /// Uceni: slovo bylo napsano swipem (pouzije se k prizpusobeni swipe).
 pub const FLAG_FROM_SWIPE: i64 = 4;
 
@@ -311,22 +310,23 @@ impl Engine {
         if from_swipe && self.settings.swipe_adapt {
             self.adapt_swipe(&stored);
         }
-        match self.user.learn(&stored, prev, now) {
-            Some(l) => {
-                self.storage.put_word(&l.word, l.count, now);
-                if let Some((w1, w2, c)) = l.bigram {
-                    self.storage.put_bigram(&w1, &w2, c);
-                }
-                if let Some((ctx, w, c)) = self.user.learn_trigram(prev2, prev, &stored) {
-                    self.storage.put_trigram(&ctx, &w, c);
-                }
-                if let Some(c) = self.user.forgive(&stored) {
-                    self.storage.put_correction(&stored, "", c);
-                }
-                true
+        let Some(l) = self.user.learn(&stored, prev, now) else { return false };
+        // Slovo, bigram, trigram a oprava se zapisou v jedne transakci.
+        let user = &mut self.user;
+        let storage = &self.storage;
+        storage.batch(|| {
+            storage.put_word(&l.word, l.count, now);
+            if let Some((w1, w2, c)) = l.bigram {
+                storage.put_bigram(&w1, &w2, c);
             }
-            None => false,
-        }
+            if let Some((ctx, w, c)) = user.learn_trigram(prev2, prev, &stored) {
+                storage.put_trigram(&ctx, &w, c);
+            }
+            if let Some(c) = user.forgive(&stored) {
+                storage.put_correction(&stored, "", c);
+            }
+        });
+        true
     }
 
     /// Potvrzeny swipe: posune stredy klaves smerem k mistum, kudy uzivatel skutecne jezdi.
@@ -1367,7 +1367,7 @@ mod tests {
         assert_eq!(clips.as_array().unwrap().len(), 1);
 
         let s = String::from_utf8(dispatch(OP_CYCLE_LANGUAGE, b"", b"", 0)).unwrap();
-        assert!(s.contains("\"language\": \"cs\""));
+        assert!(s.contains("\"language\":\"cs\""));
         assert_eq!(dispatch(OP_DELETE_WORD_LEN, "ahoj světe".as_bytes(), b"", 0), b"5");
         assert_eq!(dispatch(OP_SHOULD_CAPITALIZE, b"Ahoj. ", b"", 0), b"1");
         assert_eq!(dispatch(OP_GESTURE, b"2,-200,0,100,140,150", b"", 0), b"1");

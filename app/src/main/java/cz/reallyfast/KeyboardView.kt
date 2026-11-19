@@ -3037,6 +3037,7 @@ class KeyboardView(context: Context) : View(context) {
     override fun getAccessibilityNodeProvider(): AccessibilityNodeProvider = nodeProvider
 
     override fun onDetachedFromWindow() {
+        handler.removeCallbacks(wake)
         cancelTouch()
         super.onDetachedFromWindow()
     }

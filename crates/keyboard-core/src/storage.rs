@@ -169,6 +169,17 @@ impl Storage {
         user
     }
 
+    /// Provede vic zapisu v jedne transakci (jeden fsync/WAL zapis misto nekolika). Bez databaze jen zavola `f`.
+    pub fn batch(&self, f: impl FnOnce()) {
+        let began = self.conn.as_ref().map(|c| c.execute_batch("BEGIN;").is_ok()).unwrap_or(false);
+        f();
+        if began {
+            if let Some(c) = &self.conn {
+                let _ = c.execute_batch("COMMIT;");
+            }
+        }
+    }
+
     pub fn put_trigram(&self, ctx: &str, word: &str, count: u32) {
         if let Some(conn) = &self.conn {
             let _ = conn.execute(

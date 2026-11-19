@@ -5,7 +5,7 @@ a velmi podrobným přizpůsobením vzhledu. Logika je v Rustu (`crates/keyboard
 (`InputMethodService`, Canvas, haptika). Žádný internet, žádná reklama, žádná telemetrie.
 Oprávnění: `VIBRATE` a `RECORD_AUDIO` (jen pro diktování).
 
-**Stav:** verze **1.21.1** (`versionName` v `app/build.gradle.kts`). Funkce a vzhled jsou hotové a pokryté testy
+**Stav:** verze **1.23.1** (`versionName` v `app/build.gradle.kts`). Funkce a vzhled jsou hotové a pokryté testy
 (182 testů Rustu + 14 testů JNI mostu v JVM). **Nic z toho nebylo vyzkoušeno na skutečném telefonu**: build, testy
 a logika jsou ověřené, ale vzhled na displeji, animace a gesta je potřeba projít ručně (viz [Známé limitace](#10-známé-limitace)).
 
@@ -26,7 +26,7 @@ Pokud máš v telefonu starší build „RustBoard“ (`cz.rustboard`), odinstal
 ## 1. Otevření v Android Studiu
 
 1. Android Studio → **File > Open** → vyber tuto složku (root projektu).
-2. Počkej na Gradle sync (Gradle 8.14.3, AGP 8.11.0, Kotlin 2.1.20, compileSdk 34, JDK 17+).
+2. Počkej na Gradle sync (Gradle 8.14.3, AGP 8.11.0, Kotlin 2.1.20, compileSdk 35, JDK 17+).
 3. Nic dalšího není potřeba: přeložené Rust knihovny jsou v `app/src/main/jniLibs/`
    a slovník v `app/src/main/assets/dictionary.bin`.
 
@@ -95,8 +95,9 @@ Nastavení vzhledu má **tři úrovně**, aby nikdo nemusel přemýšlet víc, n
 3. **Expert** (záložka *Waiting*): všechny druhé barvy (přechody kláves, znaků, pozadí, obrysu, stopy, efektu,
    písmen po tahu) a barvy podle toho, co dělá prst (po klepnutí, pod prstem, po přejetí) pro znaky i obrys.
 
-Přechody a „druhé barvy“ umí v některých řádcích i **duhu**. Dole je tlačítko *Uložit styl*, které uloží celý
-vzhled do vybraného slotu 1–5. Nahoře v nastavení je pořád živý náhled klávesnice ve skutečné velikosti.
+Přechody a „druhé barvy“ umí v některých řádcích i **duhu**. Pod záložkami je pořád vidět výběr stylů 1–5, nad náhledem vlevo šipka *Zpět* (vrací změny vzhledu
+krok za krokem) a vpravo *Uložit* (uloží celý vzhled do vybraného stylu); obě se rozsvítí až po změně. Dole je živý
+náhled klávesnice ve skutečné velikosti.
 Úplný seznam voleb je v [docs/settings.md](docs/settings.md).
 
 ## 6. Struktura
@@ -248,7 +249,7 @@ Podrobně v [docs/privacy.md](docs/privacy.md). Ve zkratce:
 - Split/floating klávesnice pro foldables není; rozložení se jen přizpůsobí šířce.
 - Obrázek makra má jen 4 varianty a maskot má malé rozlišení (107×88), na velkých klávesách může být měkčí.
 - Gradient znaků a výška přechodů je přibližná (počítá se z velikosti písma, ne z přesné výšky glyfu).
-- targetSdk 34 dle zadání – pro Google Play by bylo nutné zvýšit.
+- targetSdk 35. Pro Google Play je nutný vlastní release klíč (viz sestavení) a zásady ochrany soukromí.
 
 ## 11. Co dál
 
@@ -257,4 +258,5 @@ Podrobně v [docs/privacy.md](docs/privacy.md). Ve zkratce:
 - Větší korpus pro trigramy, případně malý neuronový jazykový model.
 - Šifrování osobního slovníku klíčem z Android Keystore.
 - Jednoruční režim, plovoucí klávesnice, více jazyků.
-- Pro Google Play: zvýšit targetSdk, zveřejnit [zásady ochrany soukromí](docs/privacy.md).
+- Pro Google Play: vytvořit release keystore (mimo repozitář) a zveřejnit [zásady ochrany soukromí](docs/privacy.md).
+- Výkon: postup a pořadí větších úprav je v [docs/plan-vykon.md](docs/plan-vykon.md).

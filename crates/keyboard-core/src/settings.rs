@@ -646,7 +646,7 @@ impl Settings {
     }
 
     pub fn to_json(&self) -> String {
-        serde_json::to_string_pretty(self).unwrap_or_else(|_| "{}".to_string())
+        serde_json::to_string(self).unwrap_or_else(|_| "{}".to_string())
     }
 
     pub fn uses_lang(&self, lang: &str) -> bool {

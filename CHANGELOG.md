@@ -2,6 +2,9 @@
 
 Jedna věta za verzi, nejnovější nahoře. Čísla verzí odpovídají commitům (`vX.Y: …`).
 
+## 1.23.1 – 2026-11-20
+Učení slova zapisuje do databáze v jedné transakci; nastavení se ukládá jako kompaktní JSON; `KeyboardView` po odpojení ruší naplánované překreslení; aktualizovaná dokumentace (README, uživatelská příručka, architektura, soukromí) a nový plán výkonu `docs/plan-vykon.md`.
+
 ## 1.23 – 2026-11-19
 Výběr stylu 1–5 je pod záložkami nahoře a při posouvání zůstává; nad náhledem vlevo šipka Zpět (vrací změny vzhledu krok za krokem) a vpravo Uložit (do vybraného stylu), obě se rozsvítí až po změně.
 

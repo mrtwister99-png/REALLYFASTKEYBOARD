@@ -73,8 +73,8 @@ vždy znovu přečte z odpovědi (`refreshers` v `SettingsScreen`), takže zobra
 - `reloadLayout()` → `OP_LAYOUT` vrátí geometrii kláves → `Key` objekty.
 - `applyAppearance()` přečte nastavení do polí (barvy, přepínače, `Theme`) a `updateMetrics()` z nich postaví shadery (přechody kláves, znaků, pozadí, obrysu).
   **Cokoli, co se může spočítat dopředu, se počítá tady, ne v `onDraw`.**
-- `onDraw` vykreslí pozadí, klávesy (barva klávesy + efekty: Neon, Glitch, Barvy, Duch, rozsvícení po tahu), obrys, znaky, nápovědy, stopu, bublinu,
-  animaci Slovo. Stavy kláves (`pressed`, `passed`, `tapAt`, `passedFadeAt`, `neonAt`, `ghostAt`) se mění v dotykové logice; v `onDraw` se jen čtou a časují.
+- `onDraw` vykreslí pozadí, klávesy (barva klávesy + efekty po klepnutí: Neon, Glitch, Barvy, Duch, Obvod, Výbuch, na znakových klávesách i na mezerníku; rozsvícení po tahu), obrys, znaky, nápovědy, stopu, bublinu,
+  animaci Slovo. Stavy kláves (`pressed`, `passed`, `tapAt`, `passedFadeAt`, `neonAt`, `ghostAt`, `orbitAt`, `popAt`) se mění v dotykové logice; v `onDraw` se jen čtou a časují.
   Dokud něco běží, `onDraw` nastaví `animating = true` a vyžádá další snímek.
 - `Theme` (v `Settings.kt`) počítá z nastavení všechny odvozené barvy (`keyPressed`, `popup`, `hint`, `barText` …). Barva textu nad klávesnicí (`barText`) se
   volí podle kontrastu s pozadím (WCAG).
@@ -84,11 +84,12 @@ vždy znovu přečte z odpovědi (`refreshers` v `SettingsScreen`), takže zobra
 
 - `SettingsActivity` (hlavní: aktivace, rozcestník, schránka, záloha), `AppearanceActivity` (`Appearance.kt`: Vzhled a rozložení), `TypingActivity`, `VoiceActivity`,
   `DictionaryActivity`, `MacrosActivity`, `AboutActivity`. Všechny dědí z `BaseScreen` (`Ui.kt`: barvy, dialogy, zpět); obrazovky s řádky voleb ze `SettingsScreen`, ostatní podobrazovky ze `SubScreen` (`Manage.kt`). Je to jen kód v Kotlinu, žádné layouty.
-- **`Appearance.kt`** má dvě záložky: `buildMain` (úroveň 1: základ; pod ním `buildAdvanced` = úroveň 2 ve sbalené kartě „Pokročilé“) a `buildExtra` (úroveň 3: záložka Waiting).
+- **`Appearance.kt`** má dvě záložky: `buildMain` (úroveň 1: základ; pod ním `buildAdvanced` = úroveň 2 ve sbalené kartě „Pokročilé“) a `buildExtra` (úroveň 3: záložka Waiting). Nadpis, záložky a výběr stylů 1–5 jsou připnuté nahoře mimo posuvnou část; nad náhledem je řádek Zpět / Uložit. Zpět drží historii snímků nastavení (`undoStack`, nejvýš 50 kroků, změny blíž než 700 ms tvoří jeden krok).
   Nahoře je živý náhled (`KeyboardView` v režimu `preview`), který ukazuje každou změnu; `onSettingUpdated` spouští krátké ukázky (`demoNeon`, `demoTrail`, …).
   Součástí je editor klávesy (bublina), nastavování polohy znaku a nápovědy, výběr kláves k prohození a přiřazení maker.
 - Stavební prvky: `switchRow`, `valueSwitchRow`, `sliderRow`, `choiceRow`, `colorRow` (s barevným kolem, volitelně „Výchozí“ a „Duha“, volitelně `dependsOn`),
   `buttonRow`, `navRow`, `confirmDialog`.
+- **Zápisy do SQLite**: `Engine::learn()` zapisuje slovo, bigram, trigram a opravu v jedné transakci (`Storage::batch`).
 - **Styly 1–5**: pole `style_slots` v nastavení; ukládání a načítání dělá Rust (`OP_STYLE_SAVE` / `OP_STYLE_LOAD`), takže seznam klíčů vzhledu (`STYLE_KEYS`) existuje jen na jednom místě.
   Klíče, které do stylu patří, se přidávají do `STYLE_KEYS` (jinak se nový vzhledový prvek do stylů neuloží).
 

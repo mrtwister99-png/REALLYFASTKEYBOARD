@@ -40,7 +40,7 @@ Mikrofon se zapíná jen při diktování. Diktování lze v nastavení vypnout 
 
 - Systémová záloha Androidu a přenos dat do jiného zařízení jsou pro aplikaci **vypnuté**.
 - Vlastní záloha do souboru vzniká **jen na tvoje vyžádání** a ukládá se tam, kam ji uložíš. Obsahuje nastavení, slovník, opravy, makra, hlasové povely,
-  přizpůsobení tahů a (je-li zapnutý) záznam tahů. Historie schránky v ní **není**. Soubor je čitelný text (JSON); chraň ho jako jakýkoli soubor s osobními daty.
+  přizpůsobení tahů a (je-li zapnutý) záznam tahů. Historie schránky v ní **není**. Soubor je čitelný text (JSON) a **není šifrovaný**; chraň ho jako jakýkoli soubor s osobními daty (aplikace na to upozorňuje i u tlačítka zálohy).
 
 ## Zabezpečení
 

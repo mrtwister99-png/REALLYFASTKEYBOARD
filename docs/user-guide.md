@@ -81,7 +81,7 @@ Diktování používá rozpoznávání řeči v telefonu. Bez staženého offlin
 
 ## 9. Vzhled
 
-Nastavení → **Vzhled a rozložení**. Nahoře je pořád **živý náhled** klávesnice, takže každá změna je vidět hned. Možností je hodně, proto jsou ve **třech úrovních**:
+Nastavení → **Vzhled a rozložení**. Dole je pořád **živý náhled** klávesnice, takže každá změna je vidět hned. Možností je hodně, proto jsou ve **třech úrovních**:
 
 1. **Základ** (záložka *Hlavní*): hotové styly, čtyři barvy, výška a zaoblení kláves, velikost znaků, přepínače (nápovědy, stopa za prstem, bublina, stín, animace, obrys
    speciálních kláves), **efekt při klepnutí** (žádný, Neon, Glitch, Barvy, Duch) a **animace po úspěšném tahu** (žádná, Postupně, Vybarvení, Slovo) s jejich barvami.
@@ -90,10 +90,11 @@ Nastavení → **Vzhled a rozložení**. Nahoře je pořád **živý náhled** k
 
 ### Moje styly 1–5
 
-Pod hotovými styly je pět čtverečků **1 2 3 4 5**. Všechny jsou předvyplněné, takže žádný není prázdný.
+Pod záložkami *Hlavní* a *Waiting* je pořád vidět pět čtverečků **1 2 3 4 5** (při posouvání zůstávají na místě). Všechny jsou předvyplněné, takže žádný není prázdný. Vybraný styl má silný obrys a pamatuje se i po zavření obrazovky.
 
 - **Klepnutí na číslo** styl vybere a načte (pokud aktuální vzhled není uložený v žádném stylu, aplikace se zeptá, zda ho zahodit, nebo styl jen vybrat).
-- Tlačítko **Uložit styl** úplně dole uloží **celý aktuální vzhled** (včetně pokročilých a expertních voleb) do vybraného stylu.
+- Tlačítko **Uložit** vpravo dole nad náhledem uloží **celý aktuální vzhled** (včetně pokročilých a expertních voleb) do vybraného stylu. Svítí, jen když se vzhled liší od uloženého stylu.
+- Šipka **Zpět** vlevo dole nad náhledem vrací změny vzhledu, klidně několik za sebou. Dokud nic nezměníš, je zešedlá. Vrací jen nastavení vzhledu, ne přeházení kláves ani makra.
 - Styly ukládají vzhled, ne jazyk, makra ani přemapování kláves. Jsou i v záloze.
 
 ### Úprava kláves
