@@ -148,7 +148,47 @@ class Theme(
     /** Barva pozadi dole (u prechodu druha barva): pod klavesnici a v navigacni liste. */
     val backgroundBottom: Int get() = if (background2 != 0) background2 else background
 
+    /** Text nad klavesnici (lista navrhu, radek nahledu): tmavy nebo svetly podle vetsiho kontrastu s pozadim. */
+    val barText: Int get() = if (contrast(BAR_DARK, background) >= contrast(BAR_LIGHT, background)) BAR_DARK else BAR_LIGHT
+
+    /** Tlumeny text a ikony nad klavesnici. */
+    val barDim: Int get() = blend(barText, background, 0.4f)
+
+    /** Zvyrazneni nad klavesnici: accent, jen kdyz je na pozadi citelny (kontrast >= 3), jinak barText. */
+    val barAccent: Int get() = if (contrast(accent, background) >= 3f) accent else barText
+
     companion object {
+        private const val BAR_DARK = 0xFF111113.toInt()
+        private const val BAR_LIGHT = 0xFFF5F5F7.toInt()
+
+        private fun channel(v: Int): Double {
+            val s = v / 255.0
+            return if (s <= 0.03928) s / 12.92 else Math.pow((s + 0.055) / 1.055, 2.4)
+        }
+
+        /** Relativni jas podle WCAG (0..1). */
+        fun relLuminance(c: Int): Float =
+            (0.2126 * channel(Color.red(c)) + 0.7152 * channel(Color.green(c)) + 0.0722 * channel(Color.blue(c))).toFloat()
+
+        /** Kontrast dvou barev podle WCAG (1..21). */
+        fun contrast(a: Int, b: Int): Float {
+            val la = relLuminance(a)
+            val lb = relLuminance(b)
+            return (maxOf(la, lb) + 0.05f) / (minOf(la, lb) + 0.05f)
+        }
+
+        /** Zvlastni hodnota barvy: duha (prechod pres vsechny odstiny) misto jedne barvy. */
+        const val RAINBOW = "rainbow"
+
+        /** Odstiny duhy shora dolu (cervena .. fialova). */
+        val RAINBOW_COLORS = intArrayOf(
+            0xFFFF3B30.toInt(), 0xFFFF9500.toInt(), 0xFFFFCC00.toInt(), 0xFF34C759.toInt(),
+            0xFF32ADE6.toInt(), 0xFF007AFF.toInt(), 0xFFAF52DE.toInt(),
+        )
+
+        /** Prechod z barvy `first` do duhy (pro shadery; vola se jen pri zmene nastaveni, ne v onDraw). */
+        fun rainbowFrom(first: Int): IntArray = IntArray(RAINBOW_COLORS.size + 1) { if (it == 0) first else RAINBOW_COLORS[it - 1] }
+
         fun parse(hex: String, fallback: Int): Int = try {
             Color.parseColor(hex)
         } catch (_: Throwable) {
@@ -205,7 +245,8 @@ class Theme(
 
         fun from(s: Settings): Theme {
             val accent = parse(s.accentColor, 0xFF0080FF.toInt())
-            val bg2 = parse(s.backgroundColor2, 0)
+            // Duha konci fialovou: ta je dole pod klavesnici a v navigacni liste.
+            val bg2 = if (s.backgroundColor2 == RAINBOW) RAINBOW_COLORS[RAINBOW_COLORS.size - 1] else parse(s.backgroundColor2, 0)
             return when (s.theme) {
                 "light" -> of(0xFFE6E8EC.toInt(), 0xFFFFFFFF.toInt(), 0xFF15151A.toInt(), accent, 0xFFCBCFD8.toInt(), bg2)
                 "oled_black" -> of(0xFF000000.toInt(), 0xFF17171A.toInt(), 0xFFF5F5F7.toInt(), accent, 0xFF0D0D0F.toInt(), bg2)

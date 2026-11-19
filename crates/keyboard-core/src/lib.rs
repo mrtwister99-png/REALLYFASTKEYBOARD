@@ -79,6 +79,8 @@ pub const OP_VOICE_LIST: i32 = 45;
 pub const OP_VOICE_SAVE: i32 = 46;
 pub const OP_VOICE_DELETE: i32 = 47;
 pub const OP_VOICE_SPLIT: i32 = 48;
+pub const OP_STYLE_SAVE: i32 = 49;
+pub const OP_STYLE_LOAD: i32 = 50;
 
 /// Priznaky pro swipe / suggest.
 pub const FLAG_CAPITALIZE: i64 = 1;
@@ -186,6 +188,25 @@ impl Engine {
             self.set_settings(s);
         }
         self.settings.to_json()
+    }
+
+    /// Ulozi soucasny vzhled do slotu stylu (0..STYLE_SLOTS); jiny index nic nemeni.
+    pub fn save_style(&mut self, slot: i64) {
+        let Some(i) = style_index(slot) else { return };
+        let mut s = self.settings.clone();
+        let snap = serde_json::Value::Object(s.style_snapshot());
+        if let Some(t) = s.style_slots.as_array_mut().and_then(|a| a.get_mut(i)) {
+            *t = snap;
+            self.set_settings(s);
+        }
+    }
+
+    /// Nacte vzhled ze slotu stylu; ostatni nastaveni zustane. Jiny index nic nemeni.
+    pub fn load_style(&mut self, slot: i64) {
+        let Some(i) = style_index(slot) else { return };
+        let Some(saved) = self.settings.style_slots.get(i).and_then(|v| v.as_object()).cloned() else { return };
+        let s = self.settings.with_style(&saved);
+        self.set_settings(s);
     }
 
     /// Spocita rozlozeni pro danou plochu. S `remember` si rozlozeni pismen zapamatuje
@@ -500,7 +521,7 @@ impl Engine {
         serde_json::to_string_pretty(&data).unwrap_or_else(|_| "{}".to_string())
     }
 
-    /// Obnova ze zalohy. Nastaveni se prepise (stejna validace jako `set_settings_json`),
+    /// Obnova ze zalohy. Nastaveni se prepise (stejna validace jako `set_settings_json`; sloty stylu jen kdyz jsou v zaloze),
     /// slovnik, opravy, makra a zaznam tahu se slouci, prizpusobeni swipe se nahradi (kdyz je v souboru).
     /// Vraci pocet prijatych slov slovniku, -1 pri neplatnem souboru.
     pub fn import_backup(&mut self, json: &str) -> i64 {
@@ -509,7 +530,11 @@ impl Engine {
             return -1;
         }
         if let Some(v) = data.settings.as_ref().filter(|v| v.is_object()) {
-            if let Some(s) = Settings::from_json(&v.to_string()) {
+            if let Some(mut s) = Settings::from_json(&v.to_string()) {
+                // Starsi zaloha bez slotu stylu: sloty v telefonu zustanou (u nove instalace vychozi).
+                if v.get("style_slots").is_none() {
+                    s.style_slots = self.settings.style_slots.clone();
+                }
                 self.set_settings(s);
             }
         }
@@ -617,6 +642,11 @@ static ENGINE: Mutex<Option<Engine>> = Mutex::new(None);
 fn engine() -> MutexGuard<'static, Option<Engine>> {
     // Otraveny zamek (panika v jinem vlakne) nesmi klavesnici vyradit.
     ENGINE.lock().unwrap_or_else(|e| e.into_inner())
+}
+
+/// Index slotu stylu z JNI cisla; mimo rozsah None.
+fn style_index(slot: i64) -> Option<usize> {
+    usize::try_from(slot).ok().filter(|&i| i < settings::STYLE_SLOTS)
 }
 
 fn bool_bytes(b: bool) -> Vec<u8> {
@@ -779,6 +809,14 @@ pub fn dispatch(op: i32, a: &[u8], b: &[u8], num: i64) -> Vec<u8> {
             s.cycle_language();
             e.set_settings(s).to_json().into_bytes()
         }
+        OP_STYLE_SAVE => {
+            e.save_style(num);
+            e.settings().to_json().into_bytes()
+        }
+        OP_STYLE_LOAD => {
+            e.load_style(num);
+            e.settings().to_json().into_bytes()
+        }
         OP_INFO => e.info().into_bytes(),
         _ => Vec::new(),
     }
@@ -790,6 +828,58 @@ mod tests {
     use layout::MODE_SYMBOLS;
 
     const NOW: i64 = 1_800_000_000_000;
+
+    #[test]
+    fn style_slots_save_load_and_backup() {
+        let mut e = Engine::with_storage(Storage::in_memory(), NOW);
+        let mut s = e.settings().clone();
+        s.theme = "custom".into();
+        s.custom_background = "#123456".into();
+        s.key_radius_dp = 20;
+        s.language = "en".into();
+        e.set_settings(s);
+        e.save_style(2);
+        let slot = e.settings().style_slots[2].clone();
+        assert_eq!(slot["custom_background"], "#123456");
+        assert_eq!(slot["key_radius_dp"], 20);
+        assert!(slot.get("language").is_none());
+        e.load_style(0);
+        assert_eq!(e.settings().theme.as_str(), "dark");
+        assert_eq!(e.settings().language, "en");
+        e.load_style(2);
+        assert_eq!((e.settings().custom_background.as_str(), e.settings().key_radius_dp), ("#123456", 20));
+        assert_eq!(e.settings().language, "en");
+        // spatny index nic nemeni
+        let before = e.settings().clone();
+        e.save_style(9);
+        e.load_style(-1);
+        assert_eq!(e.settings(), &before);
+        // nova zaloha sloty prenese
+        let json = e.export_backup(NOW);
+        let mut b = Engine::with_storage(Storage::in_memory(), NOW);
+        assert!(b.import_backup(&json) >= 0);
+        assert_eq!(b.settings().style_slots, e.settings().style_slots);
+    }
+
+    #[test]
+    fn old_backup_without_slots_keeps_current_slots() {
+        let mut e = Engine::with_storage(Storage::in_memory(), NOW);
+        let mut s = e.settings().clone();
+        s.key_radius_dp = 21;
+        e.set_settings(s);
+        e.save_style(4);
+        let saved = e.settings().style_slots.clone();
+        assert_ne!(saved, Settings::default().style_slots);
+        // zaloha ze starsi verze: nastaveni bez style_slots
+        let old = r#"{"app":"reallyFAST","version":1,"settings":{"theme":"light","key_radius_dp":5}}"#;
+        assert!(e.import_backup(old) >= 0);
+        assert_eq!(e.settings().theme.as_str(), "light");
+        assert_eq!(e.settings().style_slots, saved);
+        // nova instalace + stara zaloha -> vychozi sloty
+        let mut f = Engine::with_storage(Storage::in_memory(), NOW);
+        assert!(f.import_backup(old) >= 0);
+        assert_eq!(f.settings().style_slots, Settings::default().style_slots);
+    }
 
     fn engine_with_dict() -> Engine {
         let mut e = Engine::with_storage(Storage::in_memory(), NOW);

@@ -355,6 +355,7 @@ abstract class SettingsScreen : BaseScreen() {
             "tap_text_color" -> t.accent
             "digit_key_color", "key_color2" -> t.key
             "background_color2" -> t.background
+            "glow_color" -> t.accent
             else -> t.text
         }
     }
@@ -381,7 +382,7 @@ abstract class SettingsScreen : BaseScreen() {
     }
 
     /** Barevny radek: popisek a vpravo kulaty vzorek aktualni barvy; klepnuti otevre vyber barvy nahore. */
-    protected fun colorRow(box: LinearLayout, labelRes: Int, key: String, allowAuto: Boolean = false) {
+    protected fun colorRow(box: LinearLayout, labelRes: Int, key: String, allowAuto: Boolean = false, allowRainbow: Boolean = false) {
         val row = LinearLayout(this)
         row.gravity = Gravity.CENTER_VERTICAL
         row.minimumHeight = dp(52f)
@@ -392,7 +393,12 @@ abstract class SettingsScreen : BaseScreen() {
             val cur = shownColor(key)
             val d = GradientDrawable()
             d.shape = GradientDrawable.OVAL
-            if (cur.isEmpty()) {
+            if (cur == Theme.RAINBOW) {
+                // Duha: kruh s kruhovym prechodem vsech odstinu.
+                d.gradientType = GradientDrawable.SWEEP_GRADIENT
+                d.colors = Theme.RAINBOW_COLORS + Theme.RAINBOW_COLORS[0]
+                d.setStroke(dp(1.5f), 0x66FFFFFF)
+            } else if (cur.isEmpty()) {
                 // Automaticka barva: prazdny kruh s carkovanym obrysem.
                 d.setColor(0)
                 d.setStroke(dp(1.5f), 0x99FFFFFF.toInt(), dp(3f).toFloat(), dp(3f).toFloat())
@@ -404,10 +410,11 @@ abstract class SettingsScreen : BaseScreen() {
         }
         row.setOnClickListener {
             val cur = shownColor(key)
-            val initial = if (cur.isEmpty()) autoColor(key) else Theme.parse(cur, 0xFFFFFFFF.toInt())
+            val initial = if (cur.isEmpty() || cur == Theme.RAINBOW) autoColor(key) else Theme.parse(cur, 0xFFFFFFFF.toInt())
             showColorPicker(getString(labelRes), initial, allowAuto,
                 onCommit = { c -> if (!hex(c).equals(shownColor(key), ignoreCase = true)) writeColor(key, hex(c)) },
-                onAuto = { if (shownColor(key).isNotEmpty()) update(key, "") })
+                onAuto = { if (shownColor(key).isNotEmpty()) update(key, "") },
+                onRainbow = if (allowRainbow) ({ if (shownColor(key) != Theme.RAINBOW) update(key, Theme.RAINBOW) }) else null)
         }
         box.addView(row, rowParams())
         paint()
@@ -419,7 +426,7 @@ abstract class SettingsScreen : BaseScreen() {
      * barevne kolo, posuvnik jasu, vzorek a tlacitka. Hodnota se zapisuje (`onCommit`) po zvednuti
      * prstu z kola nebo posuvniku; "Vychozi" (jen s `allowAuto`) zavola `onAuto` a dialog zavre.
      */
-    private fun showColorPicker(titleText: String, initial: Int, allowAuto: Boolean, onCommit: (Int) -> Unit, onAuto: () -> Unit) {
+    private fun showColorPicker(titleText: String, initial: Int, allowAuto: Boolean, onCommit: (Int) -> Unit, onAuto: () -> Unit, onRainbow: (() -> Unit)? = null) {
         colorDialog?.dismiss()
         val dialog = Dialog(this)
         dialog.requestWindowFeature(Window.FEATURE_NO_TITLE)
@@ -470,6 +477,10 @@ abstract class SettingsScreen : BaseScreen() {
             val lp = LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT)
             lp.leftMargin = dp(8f)
             bottom.addView(b, lp)
+        }
+        if (onRainbow != null) dialogButton(getString(R.string.color_rainbow), Theme.RAINBOW_COLORS[1], false) {
+            dialog.dismiss()
+            onRainbow()
         }
         if (allowAuto) dialogButton(getString(R.string.color_default), dim, false) {
             dialog.dismiss()

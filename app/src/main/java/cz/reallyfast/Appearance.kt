@@ -49,6 +49,11 @@ class AppearanceActivity : SettingsScreen() {
 
     private lateinit var preview: KeyboardView
     private lateinit var previewBox: LinearLayout
+    private lateinit var pond: Shoal
+
+    // Vlastni styly (sloty 1-5).
+    private val slotViews = ArrayList<StyleSlotView>()
+    private var chosenSlot = -1
     private lateinit var rootView: View
     private lateinit var testButton: TextView
     private lateinit var testView: TextView
@@ -183,6 +188,11 @@ class AppearanceActivity : SettingsScreen() {
         // Slovo po tahu (styl "Slovo") pristane v urovni radku nahledu nad klavesnici: pohled smi kreslit nad sebe.
         box.clipChildren = false
         root.clipChildren = false
+        // Navsteva nad nahledem (tlacitko na druhe zalozce): pruh nad klavesnici nahledu, jinak GONE; nepocita se.
+        val pondView = Shoal(this) { Toast.makeText(this, Tide.tally(this), Toast.LENGTH_SHORT).show() }
+        pondView.visibility = View.GONE
+        box.addView(pondView, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, pondView.strip))
+        pond = pondView
         val kv = KeyboardView(this)
         kv.addOnLayoutChangeListener { _, _, top, _, _, _, _, _, _ -> kv.overflowTop = top - captionRow.top }
         kv.preview = true
@@ -213,6 +223,7 @@ class AppearanceActivity : SettingsScreen() {
         // Odejiti z obrazovky ukonci nastavovani napovedy (bez ulozeni) i zkusebni rezim.
         if (adjusting) finishAdjust()
         if (testMode) stopTest()
+        pond.stop()
         super.onPause()
     }
 
@@ -228,7 +239,9 @@ class AppearanceActivity : SettingsScreen() {
         val s = RustBridge.settings
         val theme = Theme.from(s)
         preview.theme = theme
-        testView.setTextColor(theme.text)
+        // Text v radku nad nahledem lezi na pozadi klavesnice: vzdy kontrastni k nemu.
+        testView.setTextColor(theme.barText)
+        captionView.setTextColor(theme.barDim)
         // Nejvyse 45 % obrazovky, aby zbylo misto na nastaveni.
         val real = keyboardKeysHeight(resources, s, dp(44f))
         preview.desiredHeight = minOf(real, (resources.displayMetrics.heightPixels * 0.45f).toInt())
@@ -240,6 +253,7 @@ class AppearanceActivity : SettingsScreen() {
         updatePreview()
         updateStatus()
         paintPills()
+        paintSlots()
         if (adjusting && !adjLabel) refreshHintRange()
     }
 
@@ -512,6 +526,11 @@ class AppearanceActivity : SettingsScreen() {
         container.addView(extraTab, rowParams())
         buildMain(mainTab)
         if (extraOpen) buildExtra(extraTab)
+        // Uplne dole pod obema zalozkami: ulozeni soucasneho vzhledu do vybraneho slotu stylu.
+        val saveStyle = buttonView(getString(R.string.style_save), accent) { saveSlot() }
+        val sslp = rowParams()
+        sslp.topMargin = dp(26f)
+        container.addView(saveStyle, sslp)
         applyPickMode()
         if (extraOpen && intent?.getBooleanExtra(Lantern.MOTH, false) == true) showTab(1)
         paintPills()
@@ -545,9 +564,9 @@ class AppearanceActivity : SettingsScreen() {
         colorRow(box, R.string.digit_key_color, "digit_key_color", allowAuto = true)
 
         box = section(tabBox, getString(R.string.sec_extra_gradients))
-        colorRow(box, R.string.key_color2, "key_color2", allowAuto = true)
+        colorRow(box, R.string.key_color2, "key_color2", allowAuto = true, allowRainbow = true)
         hintText(box, getString(R.string.key_color2_hint))
-        colorRow(box, R.string.background_color2, "background_color2", allowAuto = true)
+        colorRow(box, R.string.background_color2, "background_color2", allowAuto = true, allowRainbow = true)
         hintText(box, getString(R.string.background_color2_hint))
 
         box = section(tabBox, getString(R.string.sec_extra_effects))
@@ -558,9 +577,11 @@ class AppearanceActivity : SettingsScreen() {
         hintText(box, getString(R.string.paint_hint))
         valueSwitchRow(box, R.string.fly_effect, "glow_style", "fly", "blink", alsoOn = "swipe_glow")
         hintText(box, getString(R.string.fly_hint))
+        // Docasne pro zkouseni (pozdeji pryc): navsteva hned.
+        buttonRow(box, getString(R.string.yoda), accent) { knock() }
 
         box = section(tabBox, getString(R.string.sec_extra_chars))
-        colorRow(box, R.string.text_color2, "text_color2", allowAuto = true)
+        colorRow(box, R.string.text_color2, "text_color2", allowAuto = true, allowRainbow = true)
         hintText(box, getString(R.string.text_color2_hint))
         colorRow(box, R.string.hover_text_color, "hover_text_color", allowAuto = true)
         colorRow(box, R.string.passed_text_color, "passed_text_color", allowAuto = true)
@@ -587,6 +608,7 @@ class AppearanceActivity : SettingsScreen() {
         // Barvy
         var box = section(tabBox, getString(R.string.sec_colors))
         presetRow(box)
+        styleSlotRow(box)
         colorRow(box, R.string.custom_background, "custom_background")
         colorRow(box, R.string.custom_key, "custom_key")
         colorRow(box, R.string.custom_text, "custom_text")
@@ -616,7 +638,7 @@ class AppearanceActivity : SettingsScreen() {
             listOf(getString(R.string.anim_none), getString(R.string.glow_style_blink), getString(R.string.glow_style_fill)),
             { val j = RustBridge.settings.json; if (j.optBoolean("swipe_glow")) j.optString("glow_style") else "none" },
             { v -> if (v == "none") update("swipe_glow", false) else updateAll("swipe_glow" to true, "glow_style" to v) })
-        colorRow(box, R.string.glow_color, "glow_color")
+        colorRow(box, R.string.glow_color, "glow_color", allowRainbow = extraOpen)
 
         // Jazyk
         box = section(tabBox, getString(R.string.sec_language))
@@ -682,6 +704,87 @@ class AppearanceActivity : SettingsScreen() {
             }
         }
         updateStatus()
+    }
+
+    /** Navsteva hned: v otevrene klavesnici, jinak nad nahledem; kdyz neni videt ani nahled, pri pristim otevreni. */
+    private fun knock() {
+        if (Tide.knock?.invoke() == true) return
+        if (previewBox.visibility != View.VISIBLE || preview.visibility != View.VISIBLE) {
+            Tide.moon(this)
+            Toast.makeText(this, R.string.yoda_later, Toast.LENGTH_SHORT).show()
+            return
+        }
+        pond.visibility = View.VISIBLE
+        pond.ebb()
+    }
+
+    // ------------------------------------------------------------------ vlastni styly (sloty)
+
+    private fun slotJson(i: Int): JSONObject? = RustBridge.settings.json.optJSONArray("style_slots")?.optJSONObject(i)
+
+    /** Soucasny vzhled je ulozeny ve slotu `i` (vsechny klice slotu maji stejnou hodnotu). */
+    private fun slotMatches(i: Int): Boolean {
+        val slot = slotJson(i) ?: return false
+        val cur = RustBridge.settings.json
+        for (k in slot.keys()) if (cur.opt(k)?.toString() != slot.opt(k)?.toString()) return false
+        return true
+    }
+
+    private fun styleSlotRow(box: LinearLayout) {
+        box.addView(label(getString(R.string.style_slots), 15f).also { it.setPadding(0, dp(12f), 0, dp(8f)) }, rowParams())
+        val row = LinearLayout(this)
+        for (i in 0 until STYLE_SLOTS) {
+            val v = StyleSlotView(this, (i + 1).toString())
+            v.contentDescription = getString(R.string.style_slot_n, i + 1)
+            v.setOnClickListener { pickSlot(i) }
+            slotViews.add(v)
+            val lp = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
+            if (i > 0) lp.leftMargin = dp(8f)
+            row.addView(v, lp)
+        }
+        val lp = rowParams()
+        lp.bottomMargin = dp(6f)
+        box.addView(row, lp)
+        hintText(box, getString(R.string.style_slots_hint))
+        chosenSlot = (0 until STYLE_SLOTS).firstOrNull { slotMatches(it) } ?: -1
+        paintSlots()
+    }
+
+    private fun paintSlots() {
+        val a = accent
+        for ((i, v) in slotViews.withIndex()) {
+            v.colors = slotJson(i)?.let { Theme.from(Settings(it)) }
+            v.ring = a
+            v.chosen = i == chosenSlot
+        }
+    }
+
+    /** Klepnuti na slot: vybere ho a nacte; neulozeny soucasny vzhled se nejdriv potvrdi (nebo jen vybrat). */
+    private fun pickSlot(i: Int) {
+        chosenSlot = i
+        paintSlots()
+        if (slotMatches(i)) return
+        if ((0 until STYLE_SLOTS).none { slotMatches(it) }) {
+            confirmDialog(getString(R.string.style_load_unsaved, i + 1), getString(R.string.style_load),
+                getString(R.string.style_only_select), false) { loadSlot(i) }
+        } else {
+            loadSlot(i)
+        }
+    }
+
+    private fun loadSlot(i: Int) {
+        RustBridge.loadStyle(i)
+        Toast.makeText(this, getString(R.string.style_loaded, i + 1), Toast.LENGTH_SHORT).show()
+    }
+
+    private fun saveSlot() {
+        val i = chosenSlot
+        if (i !in 0 until STYLE_SLOTS) {
+            Toast.makeText(this, R.string.style_pick_first, Toast.LENGTH_SHORT).show()
+            return
+        }
+        RustBridge.saveStyle(i)
+        Toast.makeText(this, getString(R.string.style_saved, i + 1), Toast.LENGTH_SHORT).show()
     }
 
     private fun paintPills() {
@@ -1094,6 +1197,7 @@ class AppearanceActivity : SettingsScreen() {
     }
 
     private companion object {
+        const val STYLE_SLOTS = 5
         const val MAX_ALTS_EDIT = 5
 
         /** Mapy maker na klavesach (klik, podrzeni) a obrazku maker na klik; vsechny se rusi spolecne. */
@@ -1264,5 +1368,56 @@ private class HintPad(context: Context, private val onChange: (Float, Float) -> 
     private companion object {
         /** Cast polomeru (na ose), kterou zabira vnitrek klavesy. */
         const val INNER = 0.6f
+    }
+}
+
+/** Ctvercove tlacitko slotu stylu: pozadi, klavesa a cislo v barvach ulozeneho stylu; vybrany ma obrys v accent barve. */
+@SuppressLint("ViewConstructor")
+private class StyleSlotView(context: Context, private val number: String) : View(context) {
+    var colors: Theme? = null
+        set(value) {
+            field = value
+            invalidate()
+        }
+    var chosen = false
+        set(value) {
+            if (field != value) {
+                field = value
+                invalidate()
+            }
+        }
+    var ring = 0xFF0080FF.toInt()
+    private val d = resources.displayMetrics.density
+    private val paint = Paint(Paint.ANTI_ALIAS_FLAG)
+    private val rect = android.graphics.RectF()
+
+    override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
+        val w = MeasureSpec.getSize(widthMeasureSpec).takeIf { it > 0 } ?: (56f * d).toInt()
+        setMeasuredDimension(w, w)
+    }
+
+    override fun onDraw(canvas: Canvas) {
+        val c = colors ?: return
+        val w = width.toFloat()
+        val h = height.toFloat()
+        val r = 12f * d
+        paint.style = Paint.Style.FILL
+        paint.color = c.background
+        rect.set(d, d, w - d, h - d)
+        canvas.drawRoundRect(rect, r, r, paint)
+        val inset = w * 0.2f
+        paint.color = c.key
+        rect.set(inset, inset, w - inset, h - inset)
+        canvas.drawRoundRect(rect, 6f * d, 6f * d, paint)
+        paint.color = c.text
+        paint.textAlign = Paint.Align.CENTER
+        paint.textSize = h * 0.32f
+        paint.typeface = Typeface.DEFAULT_BOLD
+        canvas.drawText(number, w / 2f, h / 2f - (paint.ascent() + paint.descent()) / 2f, paint)
+        paint.style = Paint.Style.STROKE
+        paint.strokeWidth = (if (chosen) 3f else 1f) * d
+        paint.color = if (chosen) ring else 0x33FFFFFF
+        rect.set(1.5f * d, 1.5f * d, w - 1.5f * d, h - 1.5f * d)
+        canvas.drawRoundRect(rect, r, r, paint)
     }
 }

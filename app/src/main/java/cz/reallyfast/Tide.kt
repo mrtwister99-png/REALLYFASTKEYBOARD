@@ -12,6 +12,10 @@ object Tide {
     private const val LOW = (4 * 60 + 55) * 60_000L
     private const val HIGH = (7 * 60 + 30) * 60_000L
 
+    /** Klepani: nastavi bezici klavesnice; vraci true, kdyz vlna hned vyrazila. */
+    @Volatile
+    var knock: (() -> Boolean)? = null
+
     private fun pool(c: Context) = c.applicationContext.getSharedPreferences(POOL, Context.MODE_PRIVATE)
 
     private fun span(): Long = LOW + (Random.nextDouble() * (HIGH - LOW)).toLong()

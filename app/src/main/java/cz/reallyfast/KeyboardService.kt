@@ -65,6 +65,7 @@ class KeyboardService : InputMethodService(), KeyboardView.Listener,
     private val shoreSpot = Rect()
     private val shoreAt = IntArray(2)
     private val ebbRun = Runnable { ebbNow() }
+    private val knockHook: () -> Boolean = { knockNow() }
     private var bar: SuggestionBar? = null
     private var content: FrameLayout? = null
     private var keyboard: KeyboardView? = null
@@ -111,6 +112,7 @@ class KeyboardService : InputMethodService(), KeyboardView.Listener,
         super.onCreate()
         RustBridge.init(this)
         RustBridge.listeners.add(settingsListener)
+        Tide.knock = knockHook
         clipboard = getSystemService(CLIPBOARD_SERVICE) as? ClipboardManager
         clipboard?.addPrimaryClipChangedListener(clipListener)
         vibrator = if (Build.VERSION.SDK_INT >= 31) {
@@ -131,6 +133,7 @@ class KeyboardService : InputMethodService(), KeyboardView.Listener,
         recognizer = null
         RustBridge.listeners.remove(settingsListener)
         clipboard?.removePrimaryClipChangedListener(clipListener)
+        if (Tide.knock === knockHook) Tide.knock = null
         handler.removeCallbacksAndMessages(null)
         super.onDestroy()
     }
@@ -223,6 +226,16 @@ class KeyboardService : InputMethodService(), KeyboardView.Listener,
         if (passwordField || dictating || isFullscreenMode || !isInputViewShown) return
         if (keyboard?.visibility != View.VISIBLE) return
         shoal?.ebb()
+    }
+
+    /** Vlna hned (tlacitko v nastaveni), bez casovace; jen kdyz je klavesnice videt. */
+    private fun knockNow(): Boolean {
+        if (passwordField || dictating || isFullscreenMode || !isInputViewShown) return false
+        if (keyboard?.visibility != View.VISIBLE) return false
+        val s = shoal ?: return false
+        handler.removeCallbacks(ebbRun)
+        s.ebb()
+        return s.active
     }
 
     private fun calmShoal() {

@@ -25,7 +25,10 @@ import android.view.accessibility.AccessibilityManager
 import android.view.accessibility.AccessibilityNodeInfo
 import android.view.accessibility.AccessibilityNodeProvider
 import org.json.JSONObject
+import kotlin.math.PI
 import kotlin.math.abs
+import kotlin.math.cos
+import kotlin.math.sin
 import kotlin.math.hypot
 import kotlin.math.max
 import kotlin.math.min
@@ -191,7 +194,9 @@ class KeyboardView(context: Context) : View(context) {
         private const val GLITCH_PERIOD_MS = 100L
         private const val GLITCH_MIN_ANGLE = 30f
         private const val GLITCH_ANGLE_SPAN = 147f
-        private const val GLITCH_OFFSET = 0.6f
+        // Posun kopie: nahodne 4-22 % rozmeru klavesy -> kopie vzdy z vetsiny prekryva klavesu.
+        private const val GLITCH_MIN_SHIFT = 0.04f
+        private const val GLITCH_MAX_SHIFT = 0.22f
         // Efekt "barvy": klavesa drzi barvu 3,0-7,5 s a pak za 1,5 s vybledne; barva znaku po klepnuti drzi 2,5 s a vybledne za 0,4 s.
         private const val PAINT_SLOTS = 48
         private const val PAINT_MIN_MS = 3000
@@ -303,6 +308,19 @@ class KeyboardView(context: Context) : View(context) {
     private var glowColor = Theme.parse(RustBridge.settings.glowColor, 0xFF0080FF.toInt())
     private var glowText = textOn(glowColor)
 
+    // Duha v barve pismen po tahu: odstin se pocita bez alokace do `hsv`; `glowHit` = poradi pismene posledniho glowAmount.
+    private var glowRainbow = false
+    private var glowHit = -1
+    private val hsv = FloatArray(3)
+
+    /** Odstin duhy pro f 0..1 (cervena .. fialova), bez alokace. */
+    private fun rainbow(f: Float): Int {
+        hsv[0] = 280f * f.coerceIn(0f, 1f)
+        hsv[1] = 0.85f
+        hsv[2] = 1f
+        return Color.HSVToColor(hsv)
+    }
+
     private fun textOn(c: Int) = if (Theme.luminance(c) > 0.6f) 0xFF15151A.toInt() else WHITE
 
     // Barvy bubliny nad klavesou a listy znaku pri podrzeni (pocita applyAppearance, ne onDraw).
@@ -370,6 +388,9 @@ class KeyboardView(context: Context) : View(context) {
     private var digitKeyCol = 0
     private var keyCol2 = 0
     private var bgCol2 = 0
+    private var keyRainbow = false
+    private var bgRainbow = false
+    private var textRainbow = false
     private var keyShader: LinearGradient? = null
     private var bgShader: LinearGradient? = null
     // Prekryti stisku / neonu / zare pres prechod klavesy: barva a pruhlednost slozena z kroku `tint`.
@@ -478,6 +499,7 @@ class KeyboardView(context: Context) : View(context) {
         trailCol = Theme.parse(s.trailColor, 0) and 0x00FFFFFF
         if (s.trailColor.isEmpty() || trailCol == 0) trailCol = theme.accent and 0x00FFFFFF
         textCol2 = Theme.parse(s.textColor2, 0)
+        textRainbow = s.textColor2 == Theme.RAINBOW
         glowEnabled = s.swipeGlow
         neonEnabled = s.keyGlow
         showPreview = s.keyPopup
@@ -510,6 +532,8 @@ class KeyboardView(context: Context) : View(context) {
         digitKeyCol = Theme.parse(s.digitKeyColor, 0)
         keyCol2 = Theme.parse(s.keyColor2, 0)
         bgCol2 = Theme.parse(s.backgroundColor2, 0)
+        keyRainbow = s.keyColor2 == Theme.RAINBOW
+        bgRainbow = s.backgroundColor2 == Theme.RAINBOW
         hintScale = s.hintPercent / 100f
         val hc = Theme.parse(s.hintColor, 0)
         hintColor = if (s.hintColor.isEmpty() || hc == 0) theme.hint else hc
@@ -524,7 +548,8 @@ class KeyboardView(context: Context) : View(context) {
         }
         neon = Theme.parse(s.neonColor, 0xFF0080FF.toInt())
         neonText = textOn(neon)
-        glowColor = Theme.parse(s.glowColor, 0xFF0080FF.toInt())
+        glowRainbow = s.glowColor == Theme.RAINBOW
+        glowColor = if (glowRainbow) Theme.RAINBOW_COLORS[0] else Theme.parse(s.glowColor, 0xFF0080FF.toInt())
         glowText = textOn(glowColor)
         // Prazdna barva = automaticka (podle motivu), jinak vlastni barva s automatickym kontrastem textu.
         val pc = Theme.parse(s.popupColor, 0)
@@ -576,13 +601,25 @@ class KeyboardView(context: Context) : View(context) {
         labelSize = min(base, min(innerH * 0.70f, innerW * 0.85f))
         // Prechod klavesy je vystredeny na stred klavesy (onDraw posune platno), pozadi pokryva cely pohled.
         val gh = max(1f, rowH - 2f * padY)
-        keyShader = if (keyCol2 != 0) LinearGradient(0f, -gh / 2f, 0f, gh / 2f, theme.key, keyCol2, Shader.TileMode.CLAMP) else null
+        keyShader = when {
+            keyRainbow -> LinearGradient(0f, -gh / 2f, 0f, gh / 2f, Theme.rainbowFrom(theme.key), null, Shader.TileMode.CLAMP)
+            keyCol2 != 0 -> LinearGradient(0f, -gh / 2f, 0f, gh / 2f, theme.key, keyCol2, Shader.TileMode.CLAMP)
+            else -> null
+        }
         // Prechod znaku: od horniho okraje pismene k dolnimu (vyska ~0,72 velikosti), vystredeny na nulu jako prechod klavesy.
         val gl = labelSize * 0.36f
-        textShader = if (textCol2 != 0 && gl > 0f) LinearGradient(0f, -gl, 0f, gl, theme.text, textCol2, Shader.TileMode.CLAMP) else null
-        bgShader = if (bgCol2 != 0 && height > 0) {
-            LinearGradient(0f, 0f, 0f, height.toFloat(), theme.background, bgCol2, Shader.TileMode.CLAMP)
-        } else null
+        textShader = when {
+            gl <= 0f -> null
+            textRainbow -> LinearGradient(0f, -gl, 0f, gl, Theme.rainbowFrom(theme.text), null, Shader.TileMode.CLAMP)
+            textCol2 != 0 -> LinearGradient(0f, -gl, 0f, gl, theme.text, textCol2, Shader.TileMode.CLAMP)
+            else -> null
+        }
+        bgShader = when {
+            height <= 0 -> null
+            bgRainbow -> LinearGradient(0f, 0f, 0f, height.toFloat(), Theme.rainbowFrom(theme.background), null, Shader.TileMode.CLAMP)
+            bgCol2 != 0 -> LinearGradient(0f, 0f, 0f, height.toFloat(), theme.background, bgCol2, Shader.TileMode.CLAMP)
+            else -> null
+        }
     }
 
     /** Smisi barvu `x` v mire `t` do aktualni barvy klavesy; u prechodu navic sklada prekryti (ovA, ovR..B). */
@@ -676,8 +713,11 @@ class KeyboardView(context: Context) : View(context) {
         for (j in 0 until GLITCH_MAX_FLASHES) {
             val i = slot * GLITCH_MAX_FLASHES + j
             glitchAngle[i] = (GLITCH_MIN_ANGLE + random.nextFloat() * GLITCH_ANGLE_SPAN) * (if (random.nextBoolean()) 1f else -1f)
-            glitchDx[i] = (random.nextFloat() * 2f - 1f) * GLITCH_OFFSET
-            glitchDy[i] = (random.nextFloat() * 2f - 1f) * GLITCH_OFFSET
+            // Nahodna velikost posunu (procento rozmeru klavesy) a nahodny smer; losuje se jednou pri klepnuti.
+            val m = GLITCH_MIN_SHIFT + random.nextFloat() * (GLITCH_MAX_SHIFT - GLITCH_MIN_SHIFT)
+            val dir = random.nextFloat() * 2f * PI.toFloat()
+            glitchDx[i] = cos(dir) * m
+            glitchDy[i] = sin(dir) * m
         }
     }
 
@@ -1052,7 +1092,15 @@ class KeyboardView(context: Context) : View(context) {
             if (k.passed) keyColor = tint(keyColor, theme.accent, 0.55f)
             val glow = if (glowActive && !glowFill) glowAmount(ki, now) else 0f
             val fillSide = if (glowActive && glowFill) glowSide[ki] else -1
-            if (glow > 0f) keyColor = tint(keyColor, glowColor, glow)
+            // Duha: v postupnem stylu podle poradi pismene ve slove, ve vybarveni podle vodorovne polohy klavesy.
+            val gCol = when {
+                !glowRainbow -> glowColor
+                glow > 0f -> rainbow(if (glowCount > 1) glowHit / (glowCount - 1f) else 0f)
+                fillSide >= 0 -> rainbow(cx / max(1f, width.toFloat()))
+                else -> glowColor
+            }
+            val gText = if (glowRainbow) textOn(gCol) else glowText
+            if (glow > 0f) keyColor = tint(keyColor, gCol, glow)
             val neonA = if (k.neonAt != 0L) neonAmount(k, now) else 0f
             if (neonA > 0f) {
                 if (k.neonAt > 0L) animating = true
@@ -1094,7 +1142,7 @@ class KeyboardView(context: Context) : View(context) {
                     GLOW_SIDE_BTT -> clip.set(rect.left, rect.bottom - h * fillProgress, rect.right, rect.bottom)
                     GLOW_SIDE_TTB -> clip.set(rect.left, rect.top, rect.right, rect.top + h * fillProgress)
                 }
-                fill.color = (glowColor and 0x00FFFFFF) or ((255f * fillAlpha).toInt().coerceIn(0, 255) shl 24)
+                fill.color = (gCol and 0x00FFFFFF) or ((255f * fillAlpha).toInt().coerceIn(0, 255) shl 24)
                 canvas.save()
                 canvas.clipRect(clip)
                 canvas.drawRoundRect(rect, radius, radius, fill)
@@ -1122,8 +1170,8 @@ class KeyboardView(context: Context) : View(context) {
                     animating = true
                 }
             }
-            if (glow > 0f) fg = Theme.blend(fg, glowText, glow)
-            if (fillSide >= 0) fg = Theme.blend(fg, glowText, (fillProgress * fillAlpha).coerceIn(0f, 1f))
+            if (glow > 0f) fg = Theme.blend(fg, gText, glow)
+            if (fillSide >= 0) fg = Theme.blend(fg, gText,(fillProgress * fillAlpha).coerceIn(0f, 1f))
             if (neonA > 0f) fg = Theme.blend(fg, neonText, neonA)
             if (k.tapAt != 0L && tapTextCol != 0) {
                 val t = now - k.tapAt
@@ -1287,6 +1335,12 @@ class KeyboardView(context: Context) : View(context) {
             val tx = width / 2f + (flyToX[j] - width / 2f) * scale
             val x = flyFromX[j] + (tx - flyFromX[j]) * e
             val y = flyFromY[j] + (landY - flyFromY[j]) * e + dy
+            if (glowRainbow) {
+                // Duha: kazde pismeno slova jinym odstinem.
+                val c = rainbow(if (flyCount > 1) j / (flyCount - 1f) else 0f)
+                val b = if (pop > 0f) Theme.blend(c, flyFlash, pop) else c
+                flyFill.color = (b and 0x00FFFFFF) or (alpha shl 24)
+            }
             canvas.drawText(flyChars, j, 1, x, y, flyOutline)
             canvas.drawText(flyChars, j, 1, x, y, flyFill)
         }
@@ -1961,12 +2015,14 @@ class KeyboardView(context: Context) : View(context) {
      * (plynule, zpomalene) a zustane svitit; po prodleve zhasnou vsechna pismena spolecne.
      */
     private fun glowAmount(index: Int, now: Long): Float {
+        glowHit = -1
         val elapsed = now - glowStart
         val fadeT = elapsed - ((glowCount - 1) * BLINK_STEP_MS + BLINK_RISE_MS + BLINK_HOLD_MS)
         val fade = if (fadeT > 0L) 1f - fadeT / BLINK_FADE_MS.toFloat() else 1f
         if (fade <= 0f) return 0f
         for (j in 0 until glowCount) {
             if (glowSeq[j] != index) continue
+            glowHit = j
             val t = elapsed - j * BLINK_STEP_MS
             if (t <= 0L) return 0f
             val x = min(1f, t / BLINK_RISE_MS.toFloat())

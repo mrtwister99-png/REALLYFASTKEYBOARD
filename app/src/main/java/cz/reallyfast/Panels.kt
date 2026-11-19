@@ -235,10 +235,10 @@ class SuggestionBar(context: Context, private var theme: Theme, private val call
         clipButton.background = pressable(t.keyPressed, dp(10f).toFloat())
         addButton.background = pressable(t.keyPressed, dp(10f).toFloat())
         closeButton.background = pressable(t.keyPressed, dp(10f).toFloat())
-        clipButton.color = t.textDim
-        addButton.color = t.textDim
-        closeButton.color = t.textDim
-        queryView.setTextColor(t.text)
+        clipButton.color = t.barDim
+        addButton.color = t.barDim
+        closeButton.color = t.barDim
+        queryView.setTextColor(t.barText)
         status?.let { setStatus(it) } ?: setSuggestions(words, highlighted)
     }
 
@@ -255,7 +255,7 @@ class SuggestionBar(context: Context, private var theme: Theme, private val call
         tv.text = text
         tv.alpha = 1f
         tv.isClickable = false
-        tv.setTextColor(theme.accent)
+        tv.setTextColor(theme.barAccent)
         tv.contentDescription = text
     }
 
@@ -280,7 +280,7 @@ class SuggestionBar(context: Context, private var theme: Theme, private val call
                 tv.alpha = 1f
             }
             tv.isClickable = w != null
-            tv.setTextColor(if (i == highlight) theme.accent else theme.text)
+            tv.setTextColor(if (i == highlight) theme.barAccent else theme.barText)
             tv.contentDescription = w
         }
     }
@@ -293,14 +293,14 @@ class SuggestionBar(context: Context, private var theme: Theme, private val call
         normalRow.visibility = GONE
         searchRow.visibility = VISIBLE
         queryView.text = if (query.isEmpty()) hint else "$query▏"
-        queryView.setTextColor(if (query.isEmpty()) theme.textDim else theme.text)
+        queryView.setTextColor(if (query.isEmpty()) theme.barDim else theme.barText)
         resultsRow.removeAllViews()
         for (e in results) {
             val tv = TextView(context).apply {
                 text = e
                 gravity = Gravity.CENTER
                 setTextSize(TypedValue.COMPLEX_UNIT_SP, 22f)
-                setTextColor(theme.text)
+                setTextColor(theme.barText)
                 background = pressable(theme.keyPressed, dp(10f).toFloat())
                 setOnClickListener { callbacks.onSearchResultPicked(e) }
             }

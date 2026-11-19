@@ -35,6 +35,23 @@ class RustBridgeTest {
     private fun requireCore() = assumeTrue("Rust jadro pro hostitele neni k dispozici", ready)
 
     @Test
+    fun styleSlotsThroughBridge() {
+        requireCore()
+        val j = RustBridge.settings.edit()
+        j.put("key_radius_dp", 19)
+        RustBridge.setSettings(j)
+        RustBridge.saveStyle(3)
+        val slots = RustBridge.settings.json.getJSONArray("style_slots")
+        assertEquals(5, slots.length())
+        assertEquals(19, slots.getJSONObject(3).getInt("key_radius_dp"))
+        RustBridge.loadStyle(0)
+        assertEquals(10, RustBridge.settings.keyRadiusDp)
+        RustBridge.loadStyle(3)
+        assertEquals(19, RustBridge.settings.keyRadiusDp)
+        RustBridge.loadStyle(0)
+    }
+
+    @Test
     fun defaultSettingsAreCreated() {
         requireCore()
         val s = RustBridge.settings

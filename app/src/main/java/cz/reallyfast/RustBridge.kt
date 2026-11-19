@@ -65,6 +65,8 @@ object RustBridge {
     private const val OP_VOICE_SAVE = 46
     private const val OP_VOICE_DELETE = 47
     private const val OP_VOICE_SPLIT = 48
+    private const val OP_STYLE_SAVE = 49
+    private const val OP_STYLE_LOAD = 50
 
     const val FLAG_CAPITALIZE = 1
     const val FLAG_FROM_SWIPE = 4
@@ -230,6 +232,12 @@ object RustBridge {
     fun cycleLanguage() = settingsChanged(call(OP_CYCLE_LANGUAGE))
 
     fun pinch(scale: Float) = settingsChanged(call(OP_PINCH, scale.toString()))
+
+    /** Ulozi soucasny vzhled do slotu stylu 0..4 (Rust drzi sloty v nastaveni, takze jsou i v zaloze). */
+    fun saveStyle(slot: Int) = settingsChanged(call(OP_STYLE_SAVE, null, null, slot.toLong()))
+
+    /** Nacte vzhled ze slotu stylu 0..4; ostatni nastaveni zustane. */
+    fun loadStyle(slot: Int) = settingsChanged(call(OP_STYLE_LOAD, null, null, slot.toLong()))
 
     // ------------------------------------------------------------------ rozlozeni a psani
 

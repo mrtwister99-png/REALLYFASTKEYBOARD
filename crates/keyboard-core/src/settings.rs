@@ -3,6 +3,7 @@
 
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
+use std::sync::OnceLock;
 
 pub const LANGUAGES: [&str; 3] = ["cs", "en", "cs+en"];
 pub const LAYOUTS: [&str; 2] = ["qwertz", "qwerty"];
@@ -10,6 +11,32 @@ pub const KEY_PLACES: [&str; 3] = ["left", "right", "hidden"];
 pub const THEMES: [&str; 4] = ["dark", "light", "oled_black", "custom"];
 pub const GLOW_STYLES: [&str; 3] = ["blink", "fill", "fly"];
 pub const TAP_EFFECTS: [&str; 3] = ["neon", "glitch", "paint"];
+/// Zvlastni hodnota barvy "duha": povolena jen u druhych barev prechodu (klavesy, pozadi, znaky) a u barvy pismen po tahu.
+pub const RAINBOW: &str = "rainbow";
+/// Pocet slotu vlastnich stylu.
+pub const STYLE_SLOTS: usize = 5;
+/// Klice nastaveni, ktere tvori vzhled (ulozi se do slotu stylu). Jazyk, rozlozeni, cislicova rada,
+/// mapy klaves, makra, gesta, spodni rada ani chovani psani sem nepatri.
+pub const STYLE_KEYS: &[&str] = &[
+    "theme", "accent_color", "custom_background", "custom_key", "custom_text",
+    "key_height_dp", "key_radius_dp", "key_text_percent", "key_gap_dp", "row_gap_dp",
+    "key_label_x", "key_label_y", "key_hint_x", "key_hint_y", "key_hint_pos",
+    "key_popup", "key_hints", "key_shadow", "animations", "swipe_trail", "swipe_glow", "key_glow",
+    "hint_color", "hint_percent", "tap_effect", "neon_color", "glow_color", "glow_style",
+    "popup_color", "alts_color", "number_divider", "trail_color", "text_color2",
+    "digit_text_color", "digit_key_color", "key_color2", "background_color2",
+    "paint_color1", "paint_color2", "paint_color3",
+    "passed_text_color", "tap_text_color", "hover_text_color", "label_weight", "digit_weight",
+];
+/// Jeden slot stylu: klic nastaveni -> hodnota (jen klice ze STYLE_KEYS).
+pub type StyleSlot = serde_json::Map<String, serde_json::Value>;
+/// Vychozi sloty 2-5: pozadi, klavesy, text, accent podle hotovych stylu Midnight, Forest, Paper, Rose.
+const STYLE_SLOT_COLORS: [(&str, &str, &str, &str); 4] = [
+    ("#0B1220", "#1B2740", "#E6EDF7", "#60A5FA"),
+    ("#0F1A14", "#1E3328", "#E8F3EC", "#34D399"),
+    ("#E6E8EC", "#FFFFFF", "#15151A", "#2563EB"),
+    ("#1A1114", "#33202A", "#F8E9EE", "#FB7185"),
+];
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
@@ -152,10 +179,14 @@ pub struct Settings {
     pub key_macros_hold: BTreeMap<String, u32>,
     /// Obrazek na klavese s makrem na klik: puvodni znak pozice -> 0 (trol) nebo 1 (chocho).
     pub key_macro_faces: BTreeMap<String, u32>,
+    /// Vlastni styly (sloty 1-5): kazdy je objekt s klici STYLE_KEYS. Vzdy presne STYLE_SLOTS platnych slotu
+    /// (chybejici nebo neplatne se doplni vychozimi).
+    pub style_slots: serde_json::Value,
 }
 
-impl Default for Settings {
-    fn default() -> Self {
+impl Settings {
+    /// Vychozi hodnoty bez slotu stylu (sloty se z nich pocitaji, proto zvlast kvuli rekurzi).
+    fn base_default() -> Settings {
         Settings {
             settings_version: SETTINGS_VERSION,
             language: "cs+en".into(),
@@ -237,8 +268,67 @@ impl Default for Settings {
             key_macros: BTreeMap::new(),
             key_macros_hold: BTreeMap::new(),
             key_macro_faces: BTreeMap::new(),
+            style_slots: serde_json::Value::Array(Vec::new()),
         }
     }
+}
+
+impl Default for Settings {
+    fn default() -> Self {
+        let mut s = Settings::base_default();
+        s.style_slots = default_slots_value();
+        s
+    }
+}
+
+/// Vychozi sloty (spocitaji se jednou): 1 = vychozi vzhled, 2-5 = barvy hotovych stylu.
+fn default_style_slots() -> &'static [StyleSlot] {
+    static SLOTS: OnceLock<Vec<StyleSlot>> = OnceLock::new();
+    SLOTS.get_or_init(|| {
+        let mut base = Settings::base_default();
+        base.validate_fields();
+        let mut out = vec![base.style_snapshot()];
+        for (bg, key, text, accent) in STYLE_SLOT_COLORS {
+            let mut s = Settings::base_default();
+            s.theme = "custom".into();
+            s.custom_background = bg.into();
+            s.custom_key = key.into();
+            s.custom_text = text.into();
+            s.accent_color = accent.into();
+            s.neon_color = accent.into();
+            s.glow_color = accent.into();
+            s.validate_fields();
+            out.push(s.style_snapshot());
+        }
+        out
+    })
+}
+
+fn default_slots_value() -> serde_json::Value {
+    serde_json::Value::Array(default_style_slots().iter().cloned().map(serde_json::Value::Object).collect())
+}
+
+/// Presne STYLE_SLOTS slotu; kazdy = vychozi slot prepsany ulozenymi hodnotami, zvalidovany, jen klice STYLE_KEYS.
+fn normalize_slots(v: &serde_json::Value) -> serde_json::Value {
+    let defaults = default_style_slots();
+    let given = v.as_array();
+    serde_json::Value::Array(
+        (0..STYLE_SLOTS)
+            .map(|i| {
+                let d = &defaults[i];
+                let Some(raw) = given.and_then(|a| a.get(i)).and_then(|s| s.as_object()) else {
+                    return serde_json::Value::Object(d.clone());
+                };
+                match Settings::base_default().overlay(d).and_then(|t| t.overlay(raw)) {
+                    Some(mut t) => {
+                        t.validate_fields();
+                        serde_json::Value::Object(t.style_snapshot())
+                    }
+                    None => serde_json::Value::Object(d.clone()),
+                }
+            })
+            .collect(),
+    )
 }
 
 /// Zaokrouhli tloustku pisma na nejblizsi stovku a omezi na 100..900.
@@ -307,6 +397,24 @@ fn fix_optional_color(value: &mut String) {
     }
 }
 
+/// Jako `fix_optional_color`, navic povoli duhu (bez ohledu na velikost pismen).
+fn fix_optional_color_or_rainbow(value: &mut String) {
+    if value.eq_ignore_ascii_case(RAINBOW) {
+        *value = RAINBOW.to_string();
+    } else {
+        fix_optional_color(value);
+    }
+}
+
+/// Jako `fix_color`, navic povoli duhu.
+fn fix_color_or_rainbow(value: &mut String, default: &str) {
+    if value.eq_ignore_ascii_case(RAINBOW) {
+        *value = RAINBOW.to_string();
+    } else {
+        fix_color(value, default);
+    }
+}
+
 /// Stara pojmenovana poloha napovedy -> (x, y).
 fn legacy_hint_xy(pos: &str) -> (f32, f32) {
     let x = match pos {
@@ -319,9 +427,48 @@ fn legacy_hint_xy(pos: &str) -> (f32, f32) {
 }
 
 impl Settings {
-    /// Orizne hodnoty do povolenych rozsahu a nahradi neplatne volby vychozimi.
+    /// Orizne hodnoty do povolenych rozsahu a nahradi neplatne volby vychozimi (vcetne slotu stylu).
     pub fn validate(&mut self) {
-        let d = Settings::default();
+        self.validate_fields();
+        self.style_slots = normalize_slots(&self.style_slots);
+    }
+
+    /// Soucasny vzhled jako slot stylu (jen klice STYLE_KEYS).
+    pub fn style_snapshot(&self) -> StyleSlot {
+        let mut out = StyleSlot::new();
+        if let Ok(serde_json::Value::Object(all)) = serde_json::to_value(self) {
+            for k in STYLE_KEYS {
+                if let Some(v) = all.get(*k) {
+                    out.insert((*k).to_string(), v.clone());
+                }
+            }
+        }
+        out
+    }
+
+    /// Kopie s hodnotami ze slotu (jen klice STYLE_KEYS), bez validace; None, kdyz hodnota nema spravny typ.
+    fn overlay(&self, slot: &StyleSlot) -> Option<Settings> {
+        let mut all = match serde_json::to_value(self) {
+            Ok(serde_json::Value::Object(m)) => m,
+            _ => return None,
+        };
+        for k in STYLE_KEYS {
+            if let Some(v) = slot.get(*k) {
+                all.insert((*k).to_string(), v.clone());
+            }
+        }
+        serde_json::from_value(serde_json::Value::Object(all)).ok()
+    }
+
+    /// Nastaveni s vzhledem ze slotu; ostatni nastaveni (jazyk, mapy, makra...) i sloty zustanou.
+    pub fn with_style(&self, slot: &StyleSlot) -> Settings {
+        let mut s = self.overlay(slot).unwrap_or_else(|| self.clone());
+        s.validate();
+        s
+    }
+
+    fn validate_fields(&mut self) {
+        let d = Settings::base_default();
         if !LANGUAGES.contains(&self.language.as_str()) {
             self.language = d.language.clone();
         }
@@ -413,16 +560,16 @@ impl Settings {
         self.label_weight = round_weight(self.label_weight);
         self.digit_weight = round_weight(self.digit_weight);
         fix_optional_color(&mut self.trail_color);
-        fix_optional_color(&mut self.text_color2);
+        fix_optional_color_or_rainbow(&mut self.text_color2);
         fix_optional_color(&mut self.digit_text_color);
         fix_optional_color(&mut self.digit_key_color);
-        fix_optional_color(&mut self.key_color2);
-        fix_optional_color(&mut self.background_color2);
+        fix_optional_color_or_rainbow(&mut self.key_color2);
+        fix_optional_color_or_rainbow(&mut self.background_color2);
         fix_color(&mut self.paint_color1, &d.paint_color1);
         fix_color(&mut self.paint_color2, &d.paint_color2);
         fix_color(&mut self.paint_color3, &d.paint_color3);
         fix_color(&mut self.neon_color, &d.neon_color);
-        fix_color(&mut self.glow_color, &d.glow_color);
+        fix_color_or_rainbow(&mut self.glow_color, &d.glow_color);
         fix_color(&mut self.accent_color, &d.accent_color);
         fix_color(&mut self.custom_background, &d.custom_background);
         fix_color(&mut self.custom_key, &d.custom_key);
@@ -891,5 +1038,68 @@ mod tests {
         assert_eq!(s.tap_effect, "glitch");
         let s = Settings::from_json(r#"{"tap_effect":"glitch"}"#).unwrap();
         assert_eq!(s.tap_effect, "glitch");
+    }
+
+    #[test]
+    fn rainbow_second_colors_and_glow() {
+        let s = Settings::from_json(
+            r##"{"key_color2":"rainbow","background_color2":"RAINBOW","text_color2":"rainbow","glow_color":"Rainbow",
+                "neon_color":"rainbow","hint_color":"rainbow"}"##,
+        )
+        .unwrap();
+        assert_eq!(
+            (s.key_color2.as_str(), s.background_color2.as_str(), s.text_color2.as_str(), s.glow_color.as_str()),
+            ("rainbow", "rainbow", "rainbow", "rainbow")
+        );
+        // jinde duha neni povolena
+        assert_eq!((s.neon_color.as_str(), s.hint_color.as_str()), (DEFAULT_ACCENT, ""));
+        assert_eq!(Settings::from_json(&s.to_json()).unwrap(), s);
+    }
+
+    #[test]
+    fn style_keys_exist_and_default_slots_are_full() {
+        let all = serde_json::to_value(Settings::default()).unwrap();
+        for k in STYLE_KEYS {
+            assert!(all.get(*k).is_some(), "{k}");
+        }
+        let unique: std::collections::BTreeSet<_> = STYLE_KEYS.iter().collect();
+        assert_eq!(unique.len(), STYLE_KEYS.len());
+        let d = Settings::default();
+        let slots = d.style_slots.as_array().unwrap();
+        assert_eq!(slots.len(), STYLE_SLOTS);
+        for s in slots {
+            assert_eq!(s.as_object().unwrap().len(), STYLE_KEYS.len());
+        }
+        assert_eq!(slots[0]["theme"], "dark");
+        assert_eq!(slots[1]["custom_background"], "#0B1220");
+        assert!(slots[1..].iter().all(|s| s["theme"] == "custom"));
+        // stary soubor bez slotu -> vychozi sloty
+        assert_eq!(Settings::from_json(r#"{"theme":"light"}"#).unwrap().style_slots, d.style_slots);
+    }
+
+    #[test]
+    fn style_slots_are_normalized() {
+        let s = Settings::from_json(
+            r##"{"theme":"light","style_slots":[{"key_height_dp":999,"theme":"pink","language":"en",
+                "custom_key":"#abcdef","key_color2":"rainbow"},5,{"key_height_dp":"x"}]}"##,
+        )
+        .unwrap();
+        assert_eq!(s.theme, "light");
+        let slots = s.style_slots.as_array().unwrap();
+        let dv = Settings::default().style_slots;
+        let d = dv.as_array().unwrap();
+        assert_eq!(slots.len(), STYLE_SLOTS);
+        assert_ne!(slots[0]["key_height_dp"], 999);
+        assert_eq!(slots[0]["theme"], "dark");
+        assert_eq!(slots[0]["custom_key"], "#ABCDEF");
+        assert_eq!(slots[0]["key_color2"], "rainbow");
+        assert!(slots[0].get("language").is_none());
+        assert_eq!(slots[0].as_object().unwrap().len(), STYLE_KEYS.len());
+        assert_eq!(&slots[1..2], &d[1..2]);
+        assert_eq!(&slots[3..], &d[3..]);
+        assert_eq!(Settings::from_json(&s.to_json()).unwrap(), s);
+        // nesmysl misto pole -> vychozi sloty, zbytek nastaveni zustane
+        let s = Settings::from_json(r#"{"theme":"light","style_slots":"x"}"#).unwrap();
+        assert_eq!((s.theme.as_str(), &s.style_slots), ("light", &Settings::default().style_slots));
     }
 }
