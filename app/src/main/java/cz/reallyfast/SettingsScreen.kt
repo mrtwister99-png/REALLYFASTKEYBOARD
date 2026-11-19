@@ -356,6 +356,8 @@ abstract class SettingsScreen : BaseScreen() {
             "digit_key_color", "key_color2" -> t.key
             "background_color2" -> t.background
             "glow_color" -> t.accent
+            "neon_color2", "outline_color", "outline_color2", "outline_tap_color", "outline_hover_color",
+            "outline_passed_color" -> t.accent
             else -> t.text
         }
     }

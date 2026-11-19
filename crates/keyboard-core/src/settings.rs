@@ -11,7 +11,8 @@ pub const KEY_PLACES: [&str; 3] = ["left", "right", "hidden"];
 pub const THEMES: [&str; 4] = ["dark", "light", "oled_black", "custom"];
 pub const GLOW_STYLES: [&str; 3] = ["blink", "fill", "fly"];
 pub const TAP_EFFECTS: [&str; 3] = ["neon", "glitch", "paint"];
-/// Zvlastni hodnota barvy "duha": povolena jen u druhych barev prechodu (klavesy, pozadi, znaky) a u barvy pismen po tahu.
+/// Zvlastni hodnota barvy "duha": povolena jen u druhych barev prechodu (klavesy, pozadi, znaky, obrys),
+/// u druhe barvy efektu po klepnuti a u barvy pismen po tahu.
 pub const RAINBOW: &str = "rainbow";
 /// Pocet slotu vlastnich stylu.
 pub const STYLE_SLOTS: usize = 5;
@@ -27,6 +28,8 @@ pub const STYLE_KEYS: &[&str] = &[
     "digit_text_color", "digit_key_color", "key_color2", "background_color2",
     "paint_color1", "paint_color2", "paint_color3",
     "passed_text_color", "tap_text_color", "hover_text_color", "label_weight", "digit_weight",
+    "neon_color2", "outline_color", "outline_color2", "outline_tap_color", "outline_hover_color",
+    "outline_passed_color", "outline_width_dp",
 ];
 /// Jeden slot stylu: klic nastaveni -> hodnota (jen klice ze STYLE_KEYS).
 pub type StyleSlot = serde_json::Map<String, serde_json::Value>;
@@ -110,6 +113,9 @@ pub struct Settings {
     pub tap_effect: String,
     /// Barva neonu po klepnuti.
     pub neon_color: String,
+    /// Druha barva efektu po klepnuti ("" = jen jedna barva, "rainbow" = nahodny odstin duhy):
+    /// neon a glitch stridaji obe barvy, efekt "paint" ma vlastni barvy.
+    pub neon_color2: String,
     /// Barva pismen po uspesnem tahu.
     pub glow_color: String,
     /// Animace pismen po uspesnem tahu: "blink" (postupne zablikani) nebo "fill" (vybarveni klaves).
@@ -173,11 +179,23 @@ pub struct Settings {
     /// Tloustka pisma znaku (pismena) a cislic: 100..900 po 100 (400 = normalni).
     pub label_weight: u32,
     pub digit_weight: u32,
+    /// Obrys klaves ("" = bez staleho obrysu).
+    pub outline_color: String,
+    /// Druha barva obrysu: prechod shora (barva obrysu) dolu (tato barva); "" = vypnuto, "rainbow" = duha.
+    pub outline_color2: String,
+    /// Barva obrysu po klepnuti ("" = vypnuto).
+    pub outline_tap_color: String,
+    /// Barva obrysu klavesy pod prstem ("" = vypnuto).
+    pub outline_hover_color: String,
+    /// Barva obrysu klaves, pres ktere prst prejel pri tahu ("" = vypnuto).
+    pub outline_passed_color: String,
+    /// Tloustka obrysu v dp (1..6).
+    pub outline_width_dp: u32,
     /// Makro prirazene primo klavese: puvodni znak pozice -> id makra.
     pub key_macros: BTreeMap<String, u32>,
     /// Makro prirazene podrzeni klavesy (klavesa si drzi znak i vzhled): puvodni znak pozice -> id makra.
     pub key_macros_hold: BTreeMap<String, u32>,
-    /// Obrazek na klavese s makrem na klik: puvodni znak pozice -> 0 (trol) nebo 1 (chocho).
+    /// Obrazek na klavese s makrem na klik: puvodni znak pozice -> 0 (trol), 1 (chocho), 2 (dollo) nebo 3 (maskot); plati pro makro na klik i na podrzeni.
     pub key_macro_faces: BTreeMap<String, u32>,
     /// Vlastni styly (sloty 1-5): kazdy je objekt s klici STYLE_KEYS. Vzdy presne STYLE_SLOTS platnych slotu
     /// (chybejici nebo neplatne se doplni vychozimi).
@@ -230,6 +248,7 @@ impl Settings {
             hint_percent: 100,
             tap_effect: "neon".into(),
             neon_color: DEFAULT_ACCENT.into(),
+            neon_color2: String::new(),
             glow_color: DEFAULT_ACCENT.into(),
             glow_style: "blink".into(),
             key_gap_dp: 5,
@@ -265,6 +284,12 @@ impl Settings {
             hover_text_color: String::new(),
             label_weight: 400,
             digit_weight: 400,
+            outline_color: String::new(),
+            outline_color2: String::new(),
+            outline_tap_color: String::new(),
+            outline_hover_color: String::new(),
+            outline_passed_color: String::new(),
+            outline_width_dp: 2,
             key_macros: BTreeMap::new(),
             key_macros_hold: BTreeMap::new(),
             key_macro_faces: BTreeMap::new(),
@@ -344,8 +369,8 @@ pub const MAX_KEY_ALTS: usize = 64;
 pub const MAX_ALTS_LEN: usize = 12;
 /// Nejvyse tolik klaves s prirazenym makrem.
 pub const MAX_KEY_MACROS: usize = 16;
-/// Pocet obrazku na klavese s makrem na klik.
-pub const MACRO_FACES: u32 = 2;
+/// Pocet obrazku makra na klavese (trol, chocho, dollo, maskot); musi sedet s Appearance.MACRO_FACES.
+pub const MACRO_FACES: u32 = 4;
 pub const HINT_POSITIONS: [&str; 6] =
     ["top_right", "top_left", "top_center", "bottom_right", "bottom_left", "bottom_center"];
 
@@ -569,6 +594,13 @@ impl Settings {
         fix_color(&mut self.paint_color2, &d.paint_color2);
         fix_color(&mut self.paint_color3, &d.paint_color3);
         fix_color(&mut self.neon_color, &d.neon_color);
+        fix_optional_color_or_rainbow(&mut self.neon_color2);
+        fix_optional_color(&mut self.outline_color);
+        fix_optional_color_or_rainbow(&mut self.outline_color2);
+        fix_optional_color(&mut self.outline_tap_color);
+        fix_optional_color(&mut self.outline_hover_color);
+        fix_optional_color(&mut self.outline_passed_color);
+        self.outline_width_dp = self.outline_width_dp.clamp(1, 6);
         fix_color_or_rainbow(&mut self.glow_color, &d.glow_color);
         fix_color(&mut self.accent_color, &d.accent_color);
         fix_color(&mut self.custom_background, &d.custom_background);
@@ -1019,9 +1051,9 @@ mod tests {
         let keys: Vec<(&str, u32)> = s.key_macros_hold.iter().map(|(k, v)| (k.as_str(), *v)).collect();
         assert_eq!(keys, vec![("a", 3), ("d", 7)]);
         assert_eq!(s.key_macros.len(), 1);
-        let s = Settings::from_json(r#"{"key_macro_faces":{"a":0,"b":1,"c":2,"dd":1}}"#).unwrap();
+        let s = Settings::from_json(r#"{"key_macro_faces":{"a":0,"b":1,"c":2,"d":3,"e":4,"dd":1}}"#).unwrap();
         let faces: Vec<(&str, u32)> = s.key_macro_faces.iter().map(|(k, v)| (k.as_str(), *v)).collect();
-        assert_eq!(faces, vec![("a", 0), ("b", 1)]);
+        assert_eq!(faces, vec![("a", 0), ("b", 1), ("c", 2), ("d", 3)]);
         let many: BTreeMap<String, u32> = (0..40u32).map(|i| (char::from_u32(0x100 + i).unwrap().to_string(), i + 1)).collect();
         let faces: BTreeMap<String, u32> = (0..40u32).map(|i| (char::from_u32(0x100 + i).unwrap().to_string(), i % 2)).collect();
         let mut s = Settings { key_macros_hold: many, key_macro_faces: faces, ..Settings::default() };
@@ -1101,5 +1133,48 @@ mod tests {
         // nesmysl misto pole -> vychozi sloty, zbytek nastaveni zustane
         let s = Settings::from_json(r#"{"theme":"light","style_slots":"x"}"#).unwrap();
         assert_eq!((s.theme.as_str(), &s.style_slots), ("light", &Settings::default().style_slots));
+    }
+
+    #[test]
+    fn neon_color2_and_outline() {
+        let s = Settings::default();
+        assert_eq!(s.neon_color2, "");
+        assert_eq!(
+            (s.outline_color.as_str(), s.outline_color2.as_str(), s.outline_tap_color.as_str(),
+             s.outline_hover_color.as_str(), s.outline_passed_color.as_str(), s.outline_width_dp),
+            ("", "", "", "", "", 2)
+        );
+        let s = Settings::from_json(
+            r##"{"neon_color2":"Rainbow","outline_color":"#ff0000","outline_color2":"rainbow","outline_tap_color":"rainbow",
+                "outline_hover_color":"#00ff00","outline_passed_color":"bad","outline_width_dp":99}"##,
+        )
+        .unwrap();
+        assert_eq!(s.neon_color2, "rainbow");
+        assert_eq!((s.outline_color.as_str(), s.outline_color2.as_str()), ("#FF0000", "rainbow"));
+        assert_eq!(
+            (s.outline_tap_color.as_str(), s.outline_hover_color.as_str(), s.outline_passed_color.as_str()),
+            ("", "#00FF00", "")
+        );
+        assert_eq!(s.outline_width_dp, 6);
+        assert_eq!(Settings::from_json(&s.to_json()).unwrap(), s);
+        let s = Settings::from_json(r##"{"neon_color2":"#abcdef","outline_color":"rainbow","outline_width_dp":0}"##).unwrap();
+        assert_eq!((s.neon_color2.as_str(), s.outline_color.as_str(), s.outline_width_dp), ("#ABCDEF", "", 1));
+        let old = Settings::from_json(r#"{"theme":"light"}"#).unwrap();
+        assert_eq!((old.neon_color2.as_str(), old.outline_color.as_str(), old.outline_width_dp), ("", "", 2));
+    }
+
+    #[test]
+    fn outline_and_effect_color2_are_style_keys() {
+        for k in ["neon_color2", "outline_color", "outline_color2", "outline_tap_color", "outline_hover_color",
+                  "outline_passed_color", "outline_width_dp"] {
+            assert!(STYLE_KEYS.contains(&k), "{k}");
+        }
+        let mut s = Settings::default();
+        s.outline_color = "#123456".into();
+        s.neon_color2 = "rainbow".into();
+        let slot = s.style_snapshot();
+        assert_eq!(slot["outline_color"], "#123456");
+        let back = Settings::default().with_style(&slot);
+        assert_eq!((back.outline_color.as_str(), back.neon_color2.as_str()), ("#123456", "rainbow"));
     }
 }

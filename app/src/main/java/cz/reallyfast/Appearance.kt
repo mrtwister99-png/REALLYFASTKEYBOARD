@@ -188,18 +188,24 @@ class AppearanceActivity : SettingsScreen() {
         // Slovo po tahu (styl "Slovo") pristane v urovni radku nahledu nad klavesnici: pohled smi kreslit nad sebe.
         box.clipChildren = false
         root.clipChildren = false
-        // Navsteva nad nahledem (tlacitko na druhe zalozce): pruh nad klavesnici nahledu, jinak GONE; nepocita se.
-        val pondView = Shoal(this) { Toast.makeText(this, Tide.tally(this), Toast.LENGTH_SHORT).show() }
-        pondView.visibility = View.GONE
-        box.addView(pondView, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, pondView.strip))
-        pond = pondView
         val kv = KeyboardView(this)
         kv.addOnLayoutChangeListener { _, _, top, _, _, _, _, _, _ -> kv.overflowTop = top - captionRow.top }
         kv.preview = true
         kv.swipeAllowed = false
         kv.voiceAllowed = false
         box.addView(kv, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
-        root.addView(box, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+        // Navsteva nad celym nahledem (i nad radkem s TEST), stejne jako v klavesnici: pruhledny pruh nad
+        // nahledem, jinak GONE; nepocita se. Dolni cast hlavy zakryje nahled (kresli se az po pruhu).
+        val dock = LinearLayout(this)
+        dock.orientation = LinearLayout.VERTICAL
+        dock.clipChildren = false
+        dock.clipToPadding = false
+        val pondView = Shoal(this) { Toast.makeText(this, Tide.tally(this), Toast.LENGTH_SHORT).show() }
+        pondView.visibility = View.GONE
+        dock.addView(pondView, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, pondView.strip))
+        dock.addView(box, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+        root.addView(dock, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+        pond = pondView
         preview = kv
         previewBox = box
         rootView = root
@@ -260,11 +266,12 @@ class AppearanceActivity : SettingsScreen() {
     override fun onSettingUpdated(key: String, value: Any) {
         // Zmena, kterou neni na staticke klavesnici videt, se ukaze kratkou ukazkou v nahledu.
         when (key) {
-            "neon_color", "tap_effect", "tap_text_color" -> preview.demoNeon()
+            "neon_color", "neon_color2", "tap_effect", "tap_text_color", "outline_tap_color" -> preview.demoNeon()
             "paint_color1", "paint_color2", "paint_color3" -> preview.demoPaint()
             "key_popup", "popup_color" -> preview.demoPopup()
             "alts_color" -> preview.demoAlts()
-            "animations" -> preview.demoPress()
+            "animations", "outline_hover_color" -> preview.demoPress()
+            "outline_passed_color" -> preview.demoPassed()
             "swipe_trail", "trail_color" -> preview.demoTrail()
             "glow_style", "glow_color" -> preview.glowWord("ahoj")
         }
@@ -275,6 +282,7 @@ class AppearanceActivity : SettingsScreen() {
         val editing = editor != null
         previewBox.visibility = if (imeVisible && !editing) View.GONE else View.VISIBLE
         preview.visibility = if (imeVisible && editing) View.GONE else View.VISIBLE
+        if (previewBox.visibility != View.VISIBLE || preview.visibility != View.VISIBLE) pond.stop()
     }
 
     /** Radek nahledu: pri uprave klavesy tri tlacitka, jinak napsany text a TEST. */
@@ -569,7 +577,19 @@ class AppearanceActivity : SettingsScreen() {
         colorRow(box, R.string.background_color2, "background_color2", allowAuto = true, allowRainbow = true)
         hintText(box, getString(R.string.background_color2_hint))
 
+        box = section(tabBox, getString(R.string.sec_extra_outline))
+        colorRow(box, R.string.outline_color, "outline_color", allowAuto = true)
+        colorRow(box, R.string.outline_color2, "outline_color2", allowAuto = true, allowRainbow = true)
+        hintText(box, getString(R.string.outline_color2_hint))
+        sliderRow(box, R.string.outline_width, "outline_width_dp", 1, 6, 1) { getString(R.string.unit_dp, it) }
+        colorRow(box, R.string.outline_tap_color, "outline_tap_color", allowAuto = true)
+        colorRow(box, R.string.outline_hover_color, "outline_hover_color", allowAuto = true)
+        colorRow(box, R.string.outline_passed_color, "outline_passed_color", allowAuto = true)
+        hintText(box, getString(R.string.outline_hint))
+
         box = section(tabBox, getString(R.string.sec_extra_effects))
+        colorRow(box, R.string.neon_color2, "neon_color2", allowAuto = true, allowRainbow = true)
+        hintText(box, getString(R.string.neon_color2_hint))
         valueSwitchRow(box, R.string.paint_effect, "tap_effect", "paint", "neon", alsoOn = "key_glow")
         colorRow(box, R.string.paint_color1, "paint_color1")
         colorRow(box, R.string.paint_color2, "paint_color2")
@@ -1097,14 +1117,41 @@ class AppearanceActivity : SettingsScreen() {
         AlertDialog.Builder(this)
             .setTitle(R.string.key_macro_place_title)
             .setItems(arrayOf(getString(R.string.key_macro_on_click), getString(R.string.key_macro_on_hold))) { _, which ->
-                writeKeyMacro(key, id, hold = which == 1)
+                pickMacroFace(key, id, hold = which == 1)
             }
             .setNegativeButton(R.string.cancel, null)
             .show()
     }
 
+    /** Vyber obrazku makra (4 obrazky): u makra na klik je na klavese cely, u makra na podrzeni jako maly obrazek v rohu. */
+    private fun pickMacroFace(key: KeyboardView.Key, id: Long, hold: Boolean) {
+        val row = LinearLayout(this)
+        row.gravity = Gravity.CENTER
+        row.setPadding(dp(12f), dp(16f), dp(12f), dp(4f))
+        val dialog = AlertDialog.Builder(this)
+            .setTitle(R.string.key_macro_face_title)
+            .setView(row)
+            .setNegativeButton(R.string.cancel, null)
+            .create()
+        for ((i, res) in MACRO_FACE_IMAGES.withIndex()) {
+            val img = android.widget.ImageView(this)
+            img.setImageResource(res)
+            img.scaleType = android.widget.ImageView.ScaleType.FIT_CENTER
+            img.contentDescription = getString(R.string.key_macro_face_n, i + 1)
+            img.setOnClickListener {
+                dialog.dismiss()
+                writeKeyMacro(key, id, hold, i)
+            }
+            val lp = LinearLayout.LayoutParams(0, dp(64f), 1f)
+            lp.leftMargin = dp(4f)
+            lp.rightMargin = dp(4f)
+            row.addView(img, lp)
+        }
+        dialog.show()
+    }
+
     /** Zapise makro klavese (`id` 0 = smazat obe makra klavesy i s obrazkem) a zavre editor. */
-    private fun writeKeyMacro(key: KeyboardView.Key, id: Long, hold: Boolean) {
+    private fun writeKeyMacro(key: KeyboardView.Key, id: Long, hold: Boolean, face: Int = 0) {
         closeEditor()
         val src = srcString(key)
         val j = RustBridge.settings.edit()
@@ -1117,8 +1164,8 @@ class AppearanceActivity : SettingsScreen() {
                 j.getJSONObject("key_macros_hold").put(src, id)
             } else {
                 j.getJSONObject("key_macros").put(src, id)
-                j.getJSONObject("key_macro_faces").put(src, Random.nextInt(2))
             }
+            j.getJSONObject("key_macro_faces").put(src, face.coerceIn(0, MACRO_FACES - 1))
         }
         RustBridge.setSettings(j)
     }
@@ -1199,6 +1246,12 @@ class AppearanceActivity : SettingsScreen() {
     private companion object {
         const val STYLE_SLOTS = 5
         const val MAX_ALTS_EDIT = 5
+
+        /** Obrazky makra na vyber (poradi = index v `key_macro_faces` a v KeyboardView.faceBitmaps). */
+        val MACRO_FACE_IMAGES = intArrayOf(R.drawable.trol, R.drawable.chocho, R.drawable.dollo, R.drawable.maskot)
+
+        /** Pocet obrazku makra; musi sedet s MACRO_FACES v settings.rs. */
+        val MACRO_FACES = MACRO_FACE_IMAGES.size
 
         /** Mapy maker na klavesach (klik, podrzeni) a obrazku maker na klik; vsechny se rusi spolecne. */
         val MACRO_MAPS = arrayOf("key_macros", "key_macros_hold", "key_macro_faces")

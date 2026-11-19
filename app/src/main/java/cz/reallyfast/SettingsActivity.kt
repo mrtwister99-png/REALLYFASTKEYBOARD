@@ -1,6 +1,14 @@
 package cz.reallyfast
 
+import android.animation.Animator
+import android.animation.AnimatorListenerAdapter
+import android.animation.ValueAnimator
 import android.app.AlertDialog
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
+import android.view.View
+import android.widget.FrameLayout
+import android.widget.ImageView
 import android.content.Intent
 import android.os.Bundle
 import android.provider.Settings as SystemSettings
@@ -32,6 +40,9 @@ class SettingsActivity : SettingsScreen() {
         const val TITLE_MS = 900L
         const val TITLE_BRAKE_AT = 0.7f
 
+        /** Po doleteni se logo1 a logo2 stridaji nad zakladem po 1 s, dokola. */
+        const val LOGO_FLIP_MS = 1000L
+
         /**
          * Nadpis: prvnich 70 % drahy rovnomerne, zbytek zpomaluje (kvadraticky) az do klidu; casy jsou zvolene tak,
          * aby na styku rychlost navazovala (rovnomerna cast zabere ~54 % casu).
@@ -50,6 +61,21 @@ class SettingsActivity : SettingsScreen() {
     private var animateTitle = false
     private var statusView: TextView? = null
     private var swipeLogButton: TextView? = null
+    private var logoTop: ImageView? = null
+    private var logoAlt: ImageView? = null
+    private var logoSlide: ValueAnimator? = null
+    private var logoFlips = 0
+    private val logoFlip = object : Runnable {
+        override fun run() {
+            val a = logoTop ?: return
+            val b = logoAlt ?: return
+            logoFlips++
+            val second = logoFlips % 2 == 1
+            a.visibility = if (second) View.INVISIBLE else View.VISIBLE
+            b.visibility = if (second) View.VISIBLE else View.INVISIBLE
+            a.postDelayed(this, LOGO_FLIP_MS)
+        }
+    }
 
     // ------------------------------------------------------------------ zivotni cyklus
 
@@ -80,8 +106,26 @@ class SettingsActivity : SettingsScreen() {
 
     override fun onResume() {
         super.onResume()
+        // Po navratu na obrazovku se stridani loga znovu rozbehne (pokud uz neprobiha vjezd).
+        if (logoSlide == null) logoTop?.let {
+            logoFlips = 0
+            it.removeCallbacks(logoFlip)
+            it.postDelayed(logoFlip, LOGO_FLIP_MS)
+        }
         updateStatus()
         updateSwipeLogButton()
+    }
+
+    override fun onPause() {
+        stopLogo()
+        super.onPause()
+    }
+
+    override fun onDestroy() {
+        stopLogo()
+        logoTop = null
+        logoAlt = null
+        super.onDestroy()
     }
 
     override fun onWindowFocusChanged(hasFocus: Boolean) {
@@ -92,26 +136,56 @@ class SettingsActivity : SettingsScreen() {
     // ------------------------------------------------------------------ obsah
 
     private fun build(container: LinearLayout) {
-        // Misto textoveho nadpisu obrazek loga (pomer stran 10:3), zarovnany vlevo.
-        val heading = android.widget.ImageView(this)
-        heading.setImageResource(R.drawable.logo)
-        heading.scaleType = android.widget.ImageView.ScaleType.FIT_START
-        heading.adjustViewBounds = true
-        heading.contentDescription = getString(R.string.app_name)
-        val hlp = LinearLayout.LayoutParams(dp(220f), dp(66f))
+        // Nadpis: zaklad stoji porad; logo1 a logo2 (stejne platno 1700x650) lezi presne nad nim ve stejnem
+        // FrameLayoutu (stejna velikost, FIT_XY, stejne zmenseni pri dekodovani).
+        val logoW = dp(220f)
+        val sample = logoSample(R.drawable.zaklad, logoW)
+        val base = logoBitmap(R.drawable.zaklad, sample)
+        val logoH = if (base != null && base.width > 0) logoW * base.height / base.width else logoW * 650 / 1700
+        val frame = FrameLayout(this)
+        frame.contentDescription = getString(R.string.app_name)
+        fun layer(bmp: Bitmap?): ImageView {
+            val v = ImageView(this)
+            v.scaleType = ImageView.ScaleType.FIT_XY
+            v.importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
+            if (bmp != null) v.setImageBitmap(bmp)
+            frame.addView(v, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
+            return v
+        }
+        layer(base)
+        val top = layer(logoBitmap(R.drawable.logo1, sample))
+        val alt = layer(logoBitmap(R.drawable.logo2, sample))
+        alt.visibility = View.INVISIBLE
+        logoTop = top
+        logoAlt = alt
+        val hlp = LinearLayout.LayoutParams(logoW, logoH)
         hlp.bottomMargin = dp(4f)
-        container.addView(heading, hlp)
+        container.addView(frame, hlp)
         if (animateTitle) {
-            // Nadpis vyjede zprava za okrajem obrazovky a doleti na sve misto (jen pri vytvoreni obrazovky).
+            // logo1 a logo2 vyjedou zprava za okrajem obrazovky a dolete nad zaklad; pak se stridaji (jen pri vytvoreni obrazovky).
             animateTitle = false
             val from = resources.displayMetrics.widthPixels.toFloat()
-            heading.translationX = from
-            android.animation.ObjectAnimator.ofFloat(heading, android.view.View.TRANSLATION_X, from, 0f).apply {
-                duration = TITLE_MS
-                interpolator = TITLE_SLIDE
-                startDelay = 60L
-                start()
+            top.translationX = from
+            alt.translationX = from
+            val a = ValueAnimator.ofFloat(from, 0f)
+            a.duration = TITLE_MS
+            a.interpolator = TITLE_SLIDE
+            a.startDelay = 60L
+            a.addUpdateListener {
+                val x = it.animatedValue as Float
+                top.translationX = x
+                alt.translationX = x
             }
+            a.addListener(object : AnimatorListenerAdapter() {
+                override fun onAnimationEnd(animation: Animator) {
+                    if (logoSlide !== animation) return
+                    logoSlide = null
+                    logoFlips = 0
+                    top.postDelayed(logoFlip, LOGO_FLIP_MS)
+                }
+            })
+            logoSlide = a
+            a.start()
         }
         container.addView(label(getString(R.string.settings_subtitle), 14f, dim))
 
@@ -149,7 +223,7 @@ class SettingsActivity : SettingsScreen() {
         // Podobrazovky nastaveni
         box = cardBox(container).also { (it.layoutParams as LinearLayout.LayoutParams).topMargin = dp(26f) }
         navRow(box, getString(R.string.appearance_open)) { startActivity(Intent(this, AppearanceActivity::class.java)) }
-        navRow(box, getString(R.string.macros_open)) { startActivity(Intent(this, MacrosActivity::class.java)) }
+        navRow(box, getString(R.string.macros_open), R.drawable.maskot) { startActivity(Intent(this, MacrosActivity::class.java)) }
         navRow(box, getString(R.string.dictionary_open)) { startActivity(Intent(this, DictionaryActivity::class.java)) }
         navRow(box, getString(R.string.voice_open)) { startActivity(Intent(this, VoiceActivity::class.java)) }
         navRow(box, getString(R.string.typing_open)) { startActivity(Intent(this, TypingActivity::class.java)) }
@@ -215,6 +289,39 @@ class SettingsActivity : SettingsScreen() {
 
     override fun onSettingUpdated(key: String, value: Any) {
         if (key == "clipboard_enabled") Lantern.flicker(this)
+    }
+
+    /** Zmenseni pri dekodovani (mocnina 2), aby obrazek nebyl zbytecne vetsi nez `targetW` px; stejne pro vsechny vrstvy. */
+    private fun logoSample(id: Int, targetW: Int): Int {
+        val o = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+        BitmapFactory.decodeResource(resources, id, o)
+        var sample = 1
+        while (o.outWidth > 0 && o.outWidth / (sample * 2) >= targetW) sample *= 2
+        return sample
+    }
+
+    private fun logoBitmap(id: Int, sample: Int): Bitmap? = try {
+        BitmapFactory.decodeResource(resources, id, BitmapFactory.Options().apply { inSampleSize = sample })
+    } catch (_: Throwable) {
+        null
+    }
+
+    /** Konec animace nadpisu bez uniku: animator i odlozene prepnuti pryc, logo1 zustane na miste nad zakladem. */
+    private fun stopLogo() {
+        val a = logoSlide
+        logoSlide = null
+        a?.removeAllListeners()
+        a?.removeAllUpdateListeners()
+        a?.cancel()
+        logoTop?.removeCallbacks(logoFlip)
+        logoTop?.let {
+            it.translationX = 0f
+            it.visibility = View.VISIBLE
+        }
+        logoAlt?.let {
+            it.translationX = 0f
+            it.visibility = View.INVISIBLE
+        }
     }
 
     private fun updateSwipeLogButton() {

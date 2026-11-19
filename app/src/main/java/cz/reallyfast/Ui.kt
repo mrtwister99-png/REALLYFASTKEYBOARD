@@ -243,10 +243,19 @@ abstract class BaseScreen : Activity() {
         confirmDialog(message, confirmLabel, getString(R.string.cancel), true, onConfirm = onConfirm)
 
     /** Radek, ktery otevira dalsi obrazovku (text + sipka vpravo). */
-    protected fun navRow(box: LinearLayout, s: CharSequence, onClick: () -> Unit) {
+    protected fun navRow(box: LinearLayout, s: CharSequence, icon: Int = 0, onClick: () -> Unit) {
         val row = LinearLayout(this)
         row.gravity = Gravity.CENTER_VERTICAL
         row.minimumHeight = dp(56f)
+        if (icon != 0) {
+            // Maly obrazek pred popiskem (maskot u Maker).
+            val img = android.widget.ImageView(this)
+            img.setImageResource(icon)
+            img.scaleType = android.widget.ImageView.ScaleType.FIT_CENTER
+            val ilp = LinearLayout.LayoutParams(dp(34f), dp(28f))
+            ilp.rightMargin = dp(12f)
+            row.addView(img, ilp)
+        }
         row.addView(label(s, 16f), LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
         row.addView(label("›", 24f, dim))
         row.setOnClickListener { onClick() }

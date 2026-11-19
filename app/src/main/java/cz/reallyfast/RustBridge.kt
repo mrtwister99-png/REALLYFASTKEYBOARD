@@ -315,11 +315,15 @@ object RustBridge {
         for (name in arrayOf("key_macros", "key_macros_hold")) {
             val o = j.optJSONObject(name) ?: continue
             val drop = o.keys().asSequence().filter { o.optLong(it) == id }.toList()
-            for (k in drop) {
-                o.remove(k)
-                if (name == "key_macros") faces?.remove(k)
-            }
+            for (k in drop) o.remove(k)
             if (drop.isNotEmpty()) changed = true
+        }
+        // Obrazek zustane jen klavese, ktera ma jeste nejake makro (na klik nebo na podrzeni).
+        if (faces != null) {
+            val click = j.optJSONObject("key_macros")
+            val hold = j.optJSONObject("key_macros_hold")
+            val stale = faces.keys().asSequence().filter { click?.has(it) != true && hold?.has(it) != true }.toList()
+            for (k in stale) faces.remove(k)
         }
         if (changed) setSettings(j)
     }

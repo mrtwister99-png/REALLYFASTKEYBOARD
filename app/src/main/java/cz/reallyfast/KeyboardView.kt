@@ -62,6 +62,8 @@ class KeyboardView(context: Context) : View(context) {
 
         /** Zacatek doznivani neonu po klepnuti; 0 = nesviti, -1 = klavesa je drzena (naplno). */
         var neonAt = 0L
+        /** Barva neonu tohoto klepnuti (stridani dvou barev / duha); 0 = barva efektu. Nastavuje se pri stisku. */
+        var neonCol = 0
         var changedAt = 0L
 
         /** Cas posledniho klepnuti (pro barvu znaku po klepnuti); 0 = zadne. */
@@ -391,6 +393,21 @@ class KeyboardView(context: Context) : View(context) {
     private var keyRainbow = false
     private var bgRainbow = false
     private var textRainbow = false
+    // Druha barva efektu po klepnuti (0 = vypnuto) a prepinac stridani; barva se vybira pri klepnuti, ne v onDraw.
+    private var neon2 = 0
+    private var neon2Rainbow = false
+    private var neonFlip = false
+    // Obrys klaves (0 = bez obrysu / bez zmeny); prechod obrysu se stavi jen pri zmene (updateMetrics).
+    private var outlineOn = false
+    private var outlineCol = 0
+    private var outlineCol2 = 0
+    private var outlineRainbow = false
+    private var outlineTapCol = 0
+    private var outlineHoverCol = 0
+    private var outlinePassedCol = 0
+    private var outlineW = 2f * density
+    private var outlineShader: LinearGradient? = null
+    private val outlinePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE }
     private var keyShader: LinearGradient? = null
     private var bgShader: LinearGradient? = null
     // Prekryti stisku / neonu / zare pres prechod klavesy: barva a pruhlednost slozena z kroku `tint`.
@@ -548,6 +565,16 @@ class KeyboardView(context: Context) : View(context) {
         }
         neon = Theme.parse(s.neonColor, 0xFF0080FF.toInt())
         neonText = textOn(neon)
+        neon2 = Theme.parse(s.neonColor2, 0)
+        neon2Rainbow = s.neonColor2 == Theme.RAINBOW
+        outlineCol = Theme.parse(s.outlineColor, 0)
+        outlineCol2 = Theme.parse(s.outlineColor2, 0)
+        outlineRainbow = s.outlineColor2 == Theme.RAINBOW
+        outlineTapCol = Theme.parse(s.outlineTapColor, 0)
+        outlineHoverCol = Theme.parse(s.outlineHoverColor, 0)
+        outlinePassedCol = Theme.parse(s.outlinePassedColor, 0)
+        outlineW = s.outlineWidthDp * density
+        outlineOn = outlineCol != 0 || outlineTapCol != 0 || outlineHoverCol != 0 || outlinePassedCol != 0
         glowRainbow = s.glowColor == Theme.RAINBOW
         glowColor = if (glowRainbow) Theme.RAINBOW_COLORS[0] else Theme.parse(s.glowColor, 0xFF0080FF.toInt())
         glowText = textOn(glowColor)
@@ -606,6 +633,12 @@ class KeyboardView(context: Context) : View(context) {
             keyCol2 != 0 -> LinearGradient(0f, -gh / 2f, 0f, gh / 2f, theme.key, keyCol2, Shader.TileMode.CLAMP)
             else -> null
         }
+        outlineShader = when {
+            outlineCol == 0 -> null
+            outlineRainbow -> LinearGradient(0f, -gh / 2f, 0f, gh / 2f, Theme.rainbowFrom(outlineCol), null, Shader.TileMode.CLAMP)
+            outlineCol2 != 0 -> LinearGradient(0f, -gh / 2f, 0f, gh / 2f, outlineCol, outlineCol2, Shader.TileMode.CLAMP)
+            else -> null
+        }
         // Prechod znaku: od horniho okraje pismene k dolnimu (vyska ~0,72 velikosti), vystredeny na nulu jako prechod klavesy.
         val gl = labelSize * 0.36f
         textShader = when {
@@ -623,6 +656,28 @@ class KeyboardView(context: Context) : View(context) {
     }
 
     /** Smisi barvu `x` v mire `t` do aktualni barvy klavesy; u prechodu navic sklada prekryti (ovA, ovR..B). */
+    /** Smichani dvou barev vcetne pruhlednosti; 0 = pruhledna (prechod z / do "zadneho obrysu"). Bez alokace. */
+    private fun mixArgb(a: Int, b: Int, t: Float): Int {
+        if (t <= 0f) return a
+        if (t >= 1f) return b
+        val a0 = if (a == 0) b and 0x00FFFFFF else a
+        val u = 1f - t
+        return Color.argb(
+            (Color.alpha(a0) * u + Color.alpha(b) * t).toInt(),
+            (Color.red(a0) * u + Color.red(b) * t).toInt(),
+            (Color.green(a0) * u + Color.green(b) * t).toInt(),
+            (Color.blue(a0) * u + Color.blue(b) * t).toInt(),
+        )
+    }
+
+    /** Barva dalsiho klepnuti: duha = nahodny odstin, dve barvy = stridani, jinak barva efektu. */
+    private fun nextNeon(): Int {
+        if (neon2Rainbow) return rainbow(random.nextFloat())
+        if (neon2 == 0) return neon
+        neonFlip = !neonFlip
+        return if (neonFlip) neon else neon2
+    }
+
     private fun tint(cur: Int, x: Int, t: Float): Int {
         if (gradKey && t > 0f) {
             val keep = 1f - t
@@ -692,6 +747,7 @@ class KeyboardView(context: Context) : View(context) {
     private val glitchAngle = FloatArray(GLITCH_SLOTS * GLITCH_MAX_FLASHES)
     private val glitchDx = FloatArray(GLITCH_SLOTS * GLITCH_MAX_FLASHES)
     private val glitchDy = FloatArray(GLITCH_SLOTS * GLITCH_MAX_FLASHES)
+    private val glitchCol = IntArray(GLITCH_SLOTS * GLITCH_MAX_FLASHES)
 
     private fun startGlitch(k: Key, at: Long) {
         var slot = -1
@@ -718,6 +774,7 @@ class KeyboardView(context: Context) : View(context) {
             val dir = random.nextFloat() * 2f * PI.toFloat()
             glitchDx[i] = cos(dir) * m
             glitchDy[i] = sin(dir) * m
+            glitchCol[i] = nextNeon()
         }
     }
 
@@ -775,12 +832,12 @@ class KeyboardView(context: Context) : View(context) {
     private val rect = RectF()
     /** Obrazek na klavese maker; dekoduje se jednou (null = nepodarilo se, kresli se blesk). */
     private val macroBitmap: Bitmap? = try {
-        BitmapFactory.decodeResource(resources, R.drawable.dollo)
+        BitmapFactory.decodeResource(resources, R.drawable.maskot)
     } catch (_: Throwable) {
         null
     }
-    /** Obrazky na klavese s makrem na klik (trol, chocho); dekoduji se jednou (null = nepodarilo se, kresli se znak). */
-    private val faceBitmaps: Array<Bitmap?> = arrayOf(R.drawable.trol, R.drawable.chocho).map { id ->
+    /** Obrazky na klavese s makrem na klik (trol, chocho, dollo, maskot); dekoduji se jednou (null = nepodarilo se, kresli se znak). */
+    private val faceBitmaps: Array<Bitmap?> = arrayOf(R.drawable.trol, R.drawable.chocho, R.drawable.dollo, R.drawable.maskot).map { id ->
         try {
             BitmapFactory.decodeResource(resources, id)
         } catch (_: Throwable) {
@@ -1102,12 +1159,13 @@ class KeyboardView(context: Context) : View(context) {
             val gText = if (glowRainbow) textOn(gCol) else glowText
             if (glow > 0f) keyColor = tint(keyColor, gCol, glow)
             val neonA = if (k.neonAt != 0L) neonAmount(k, now) else 0f
+            val nc = if (k.neonCol != 0) k.neonCol else neon
             if (neonA > 0f) {
                 if (k.neonAt > 0L) animating = true
-                keyColor = tint(keyColor, neon, neonA)
+                keyColor = tint(keyColor, nc, neonA)
                 // Svetelny okraj: o 3 dp vetsi obrys pod klavesou, jedna plocha bez blur.
                 val g = 3f * density
-                fill.color = (neon and 0x00FFFFFF) or ((90f * neonA).toInt().coerceIn(0, 255) shl 24)
+                fill.color = (nc and 0x00FFFFFF) or ((90f * neonA).toInt().coerceIn(0, 255) shl 24)
                 rect.set(cx - hw - g, cy - hh - g, cx + hw + g, cy + hh + g)
                 canvas.drawRoundRect(rect, radius + g, radius + g, fill)
             }
@@ -1149,6 +1207,67 @@ class KeyboardView(context: Context) : View(context) {
                 canvas.restore()
             }
 
+            // Doznivani barvy po projeti tahem a po klepnuti: spolecne pro znak i obrys (bez alokace).
+            var passedFade = 0f
+            if (!k.passed && k.passedFadeAt != 0L) {
+                val f = (now - k.passedFadeAt) / PASSED_FADE_MS
+                if (f >= 1f) {
+                    k.passedFadeAt = 0L
+                } else {
+                    passedFade = 1f - f
+                    animating = true
+                }
+            }
+            var tapF = 0f
+            if (k.tapAt != 0L) {
+                val t = now - k.tapAt
+                if (t < TAP_TEXT_MS) {
+                    tapF = 1f
+                    wakeIn = min(wakeIn, TAP_TEXT_MS - t)
+                } else {
+                    val f = (t - TAP_TEXT_MS) / TAP_TEXT_FADE_MS
+                    if (f >= 1f) {
+                        k.tapAt = 0L
+                    } else {
+                        tapF = 1f - f
+                        animating = true
+                    }
+                }
+            }
+            if (outlineOn) {
+                // Obrys: zakladni barva (pripadne prechod), po projeti, po klepnuti, pod prstem (posledni vyhrava).
+                var oc = outlineCol
+                if (k.passed && outlinePassedCol != 0) {
+                    oc = outlinePassedCol
+                } else if (passedFade > 0f && outlinePassedCol != 0) {
+                    oc = mixArgb(oc, outlinePassedCol, passedFade)
+                }
+                if (tapF > 0f && outlineTapCol != 0) oc = mixArgb(oc, outlineTapCol, tapF)
+                val over = (k.pressed && !k.passed) || (k.passed && k === hoverKey)
+                if (over && outlineHoverCol != 0) oc = outlineHoverCol
+                if (oc != 0) {
+                    val ins = outlineW / 2f
+                    val r = max(0f, radius - ins)
+                    outlinePaint.strokeWidth = outlineW
+                    val os = outlineShader
+                    if (os != null && oc == outlineCol && !dimKey) {
+                        // Prechod obrysu: shader je vystredeny na nulu, platno se posune na stred klavesy.
+                        canvas.save()
+                        canvas.translate(0f, cy)
+                        rect.set(cx - hw + ins, -hh + ins, cx + hw - ins, hh - ins)
+                        outlinePaint.color = WHITE
+                        outlinePaint.shader = os
+                        canvas.drawRoundRect(rect, r, r, outlinePaint)
+                        outlinePaint.shader = null
+                        canvas.restore()
+                    } else {
+                        outlinePaint.color = if (dimKey) mixArgb(oc, theme.background, 0.7f) else oc
+                        rect.set(cx - hw + ins, cy - hh + ins, cx + hw - ins, cy + hh - ins)
+                        canvas.drawRoundRect(rect, r, r, outlinePaint)
+                    }
+                }
+            }
+
             val baseFg = when {
                 accentKey -> theme.onAccent
                 k.isDigit && digitTextCol != 0 -> digitTextCol
@@ -1160,36 +1279,17 @@ class KeyboardView(context: Context) : View(context) {
                 fg = if (passedTextCol != 0) passedTextCol else Theme.blend(fg, theme.onAccent, 0.55f)
                 // Klavesa pod prstem ma vlastni barvu (je-li zadana), projete klavesy drzi barvu "po projeti".
                 if (hoverTextCol != 0 && k === hoverKey) fg = hoverTextCol
-            } else if (k.passedFadeAt != 0L && passedTextCol != 0) {
+            } else if (passedFade > 0f && passedTextCol != 0) {
                 // Po skonceni tahu barva znaku po projeti vybledne zpet.
-                val f = (now - k.passedFadeAt) / PASSED_FADE_MS
-                if (f >= 1f) {
-                    k.passedFadeAt = 0L
-                } else {
-                    fg = Theme.blend(fg, passedTextCol, 1f - f)
-                    animating = true
-                }
+                fg = Theme.blend(fg, passedTextCol, passedFade)
             }
             if (glow > 0f) fg = Theme.blend(fg, gText, glow)
             if (fillSide >= 0) fg = Theme.blend(fg, gText,(fillProgress * fillAlpha).coerceIn(0f, 1f))
-            if (neonA > 0f) fg = Theme.blend(fg, neonText, neonA)
-            if (k.tapAt != 0L && tapTextCol != 0) {
-                val t = now - k.tapAt
-                if (t < TAP_TEXT_MS) {
-                    fg = tapTextCol
-                    wakeIn = min(wakeIn, TAP_TEXT_MS - t)
-                } else {
-                    val f = (t - TAP_TEXT_MS) / TAP_TEXT_FADE_MS
-                    if (f >= 1f) {
-                        k.tapAt = 0L
-                    } else {
-                        fg = Theme.blend(fg, tapTextCol, 1f - f)
-                        animating = true
-                    }
-                }
-            }
+            if (neonA > 0f) fg = Theme.blend(fg, if (k.neonCol != 0) textOn(k.neonCol) else neonText, neonA)
+            if (tapF > 0f && tapTextCol != 0) fg = if (tapF >= 1f) tapTextCol else Theme.blend(fg, tapTextCol, tapF)
             if (dimKey) fg = Theme.blend(fg, theme.background, 0.7f)
             val face = if (k.macro != null) faceBitmaps[k.macroFace] else null
+            val badge = if (k.macro == null && k.holdMacro != null && k.kind == KIND_CHAR) faceBitmaps[k.macroFace] else null
             when (k.kind) {
                 KIND_CHAR -> if (face != null) {
                     drawMacroImage(canvas, face, cx, cy, hw, hh, dimKey, 0.85f)
@@ -1221,6 +1321,8 @@ class KeyboardView(context: Context) : View(context) {
                         canvas.drawText(charBuf, 0, n, cx + offX, cy + offY + shift - (textPaint.ascent() + textPaint.descent()) / 2f, textPaint)
                     }
                     textPaint.typeface = baseFace
+                    // Makro na podrzeni: maly obrazek makra v pravem hornim rohu klavesy.
+                    if (badge != null) drawMacroImage(canvas, badge, cx + hw * 0.55f, cy - hh * 0.5f, hw * 0.4f, hh * 0.4f, dimKey, 0.8f)
                 }
                 KIND_SPACE -> {
                     textPaint.color = theme.textDim
@@ -1431,7 +1533,7 @@ class KeyboardView(context: Context) : View(context) {
             canvas.restore()
             val ox = cx + glitchDx[j] * hw * 2f
             val oy = cy + glitchDy[j] * hh * 2f
-            stroke.color = neon
+            stroke.color = glitchCol[j]
             rect.set(ox - hw, oy - hh, ox + hw, oy + hh)
             canvas.drawRoundRect(rect, keyRadius, keyRadius, stroke)
         }
@@ -1935,10 +2037,17 @@ class KeyboardView(context: Context) : View(context) {
     /** Horni okraj nabidky variant (souradnice pohledu), kdyz je zobrazena pro `key`; jinak horni okraj klavesy. */
     fun stripTopFor(key: Key): Float = if (altsDemo && popupKey === key) popupTop else key.y
 
+    /** Ukazka barvy po projeti tahem (nahled v nastaveni): par pismen vybledne z barvy po projeti. */
+    fun demoPassed() {
+        val now = SystemClock.uptimeMillis()
+        for (c in "aho") demoLetter(c)?.passedFadeAt = now
+        invalidate()
+    }
+
     /** Ukazka neonu po klepnuti (nahled v nastaveni): par pismenovych klaves se rozsviti a doznivaji. */
     fun demoNeon() {
         val now = SystemClock.uptimeMillis()
-        if (tapTextCol != 0) for (c in "ahoj") demoLetter(c)?.tapAt = now
+        if (tapTextCol != 0 || outlineTapCol != 0) for (c in "ahoj") demoLetter(c)?.tapAt = now
         if (neonEnabled) {
             if (paintEffect) {
                 demoPaint()
@@ -1946,7 +2055,7 @@ class KeyboardView(context: Context) : View(context) {
                 var n = 0
                 for (k in keys) {
                     if (k.isLetter && n < 4 && k.code.toChar() in "ahoj") {
-                        if (glitchEffect) startGlitch(k, now + n * 140L) else k.neonAt = now
+                        if (glitchEffect) startGlitch(k, now + n * 140L) else { k.neonCol = nextNeon(); k.neonAt = now }
                         n++
                     }
                 }
@@ -2186,9 +2295,16 @@ class KeyboardView(context: Context) : View(context) {
         if (down) {
             // Neon svici po dobu stisku i bez animaci; doznivani po pusteni jen s animacemi.
             if (neonEnabled && k.kind == KIND_CHAR) {
-                if (paintEffect) paintKey(k, now) else if (glitchEffect) startGlitch(k, now) else k.neonAt = -1L
+                if (paintEffect) {
+                    paintKey(k, now)
+                } else if (glitchEffect) {
+                    startGlitch(k, now)
+                } else {
+                    k.neonCol = nextNeon()
+                    k.neonAt = -1L
+                }
             }
-            if (tapTextCol != 0 && k.kind == KIND_CHAR) k.tapAt = now
+            if ((tapTextCol != 0 || outlineTapCol != 0) && k.kind == KIND_CHAR) k.tapAt = now
         } else if (k.neonAt == -1L) {
             k.neonAt = if (animate) now else 0L
         }
@@ -2223,7 +2339,7 @@ class KeyboardView(context: Context) : View(context) {
         val endAt = SystemClock.uptimeMillis()
         for (k in keys) {
             // Projete klavesy po konci tahu doznivaji (casova znacka je predalokovana v klavese).
-            if (k.passed && touchMode == T_SWIPE && passedTextCol != 0) k.passedFadeAt = endAt
+            if (k.passed && touchMode == T_SWIPE && (passedTextCol != 0 || outlinePassedCol != 0)) k.passedFadeAt = endAt
             k.passed = false
         }
         hoverKey = null

@@ -238,6 +238,17 @@
     <string name="style_load">Načíst</string>
     <string name="style_only_select">Jen vybrat</string>
     <string name="yoda">Yoda</string>
+    <string name="sec_extra_outline">Obrys kláves</string>
+    <string name="outline_color">Barva obrysu</string>
+    <string name="outline_color2">Druhá barva obrysu</string>
+    <string name="outline_color2_hint">Obrys přechází shora dolů z barvy obrysu do této barvy</string>
+    <string name="outline_width">Tloušťka obrysu</string>
+    <string name="outline_tap_color">Barva obrysu po klepnutí</string>
+    <string name="outline_hover_color">Barva obrysu pod prstem</string>
+    <string name="outline_passed_color">Barva obrysu po přejetí prstem</string>
+    <string name="outline_hint">Bez barvy obrysu mají klávesy obrys jen při klepnutí, pod prstem a po přejetí (jsou-li tyto barvy zadané).</string>
+    <string name="neon_color2">Druhá barva efektu</string>
+    <string name="neon_color2_hint">Neon a Glitch střídají obě barvy (duha = náhodný odstín). Efekt Barvy má vlastní barvy 1–3.</string>
     <string name="yoda_later">Návštěva přijde hned při příštím otevření klávesnice</string>
     <string name="number_divider">Oddělovač</string>
     <string name="number_divider_hint">Čárka mezi číslicemi a písmeny</string>
@@ -310,6 +321,8 @@
     <string name="anim_none">Bez animace</string>
     <string name="key_macro_place_title">Kdy se makro vloží?</string>
     <string name="key_macro_on_click">Na klik</string>
+    <string name="key_macro_face_title">Obrázek makra</string>
+    <string name="key_macro_face_n">Obrázek %1$d</string>
     <string name="key_macro_on_hold">Na podržení</string>
     <string name="key_editor_macro_click">Klik: %1$s</string>
     <string name="key_editor_macro_hold">Podržení: %1$s</string>

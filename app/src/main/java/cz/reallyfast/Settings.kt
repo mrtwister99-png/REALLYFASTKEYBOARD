@@ -50,6 +50,9 @@ class Settings(val json: JSONObject) {
     /** Efekt po klepnuti: "neon", "glitch" nebo "paint". */
     val tapEffect: String get() = json.optString("tap_effect", "neon")
     val neonColor: String get() = json.optString("neon_color", "#0080FF")
+
+    /** Druha barva efektu po klepnuti: prazdny retezec = jen jedna barva, "rainbow" = nahodny odstin. */
+    val neonColor2: String get() = json.optString("neon_color2", "")
     val glowColor: String get() = json.optString("glow_color", "#0080FF")
     val glowStyle: String get() = json.optString("glow_style", "blink")
     val keyGapDp: Int get() = json.optInt("key_gap_dp", 5).coerceIn(1, 10)
@@ -84,13 +87,21 @@ class Settings(val json: JSONObject) {
     val labelWeight: Int get() = (json.optInt("label_weight", 400) / 100 * 100).coerceIn(100, 900)
     val digitWeight: Int get() = (json.optInt("digit_weight", 400) / 100 * 100).coerceIn(100, 900)
 
+    /** Obrys klaves: prazdny retezec = bez obrysu / bez zmeny barvy obrysu; druha barva muze byt "rainbow". */
+    val outlineColor: String get() = json.optString("outline_color", "")
+    val outlineColor2: String get() = json.optString("outline_color2", "")
+    val outlineTapColor: String get() = json.optString("outline_tap_color", "")
+    val outlineHoverColor: String get() = json.optString("outline_hover_color", "")
+    val outlinePassedColor: String get() = json.optString("outline_passed_color", "")
+    val outlineWidthDp: Int get() = json.optInt("outline_width_dp", 2).coerceIn(1, 6)
+
     /** Makra prirazena klavesam: puvodni kod pozice (`Key.src`) -> id makra. Sestavi se jednou pro kazde nastaveni. */
     val keyMacros: SparseIntArray by lazy { intMap("key_macros") }
 
     /** Makra na podrzeni klavesy (klavesa si drzi znak i vzhled): stejny tvar jako `keyMacros`. */
     val keyMacrosHold: SparseIntArray by lazy { intMap("key_macros_hold") }
 
-    /** Obrazek na klavese s makrem na klik: kod pozice -> 0 (trol) nebo 1 (chocho); chybejici = 0. */
+    /** Obrazek na klavese s makrem na klik: kod pozice -> 0 (trol), 1 (chocho), 2 (dollo) nebo 3 (maskot); chybejici = 0. */
     val keyMacroFaces: SparseIntArray by lazy { intMap("key_macro_faces", allowZero = true) }
 
     private fun intMap(key: String, allowZero: Boolean = false): SparseIntArray {
