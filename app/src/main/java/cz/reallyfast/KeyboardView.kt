@@ -1144,7 +1144,7 @@ class KeyboardView(context: Context) : View(context) {
             val accentKey = marked || k.kind == KIND_ENTER || (k.kind == KIND_SHIFT && shiftState == SHIFT_CAPS)
             var paintA = 0f
             var pIdx = -1
-            if (paintLive && k.kind == KIND_CHAR) {
+            if (paintLive && (k.kind == KIND_CHAR || k.kind == KIND_SPACE)) {
                 var slot = -1
                 for (i in 0 until PAINT_SLOTS) if (paintIdx[i] >= 0 && paintSrc[i] == k.src) {
                     slot = i
@@ -1470,7 +1470,13 @@ class KeyboardView(context: Context) : View(context) {
                 KIND_SPACE -> {
                     textPaint.color = theme.textDim
                     textPaint.textSize = min(rowH * 0.24f, 13f * fontScale * density)
+                    if (popTime >= 0L) {
+                        canvas.save()
+                        canvas.scale(popS, popS, cx, cy)
+                        textPaint.alpha = (textPaint.alpha * popA).toInt().coerceIn(0, 255)
+                    }
                     canvas.drawText(k.label, cx, cy - (textPaint.ascent() + textPaint.descent()) / 2f, textPaint)
+                    if (popTime >= 0L) canvas.restore()
                 }
                 KIND_MODE -> {
                     textPaint.color = fg
@@ -2467,7 +2473,7 @@ class KeyboardView(context: Context) : View(context) {
         k.changedAt = now
         if (down) {
             // Neon svici po dobu stisku i bez animaci; doznivani po pusteni jen s animacemi.
-            if (neonEnabled && k.kind == KIND_CHAR) {
+            if (neonEnabled && (k.kind == KIND_CHAR || k.kind == KIND_SPACE)) {
                 if (paintEffect) {
                     paintKey(k, now)
                 } else if (glitchEffect) {
@@ -2488,7 +2494,7 @@ class KeyboardView(context: Context) : View(context) {
                     k.neonAt = -1L
                 }
             }
-            if ((tapTextCol != 0 || outlineTapCol != 0) && k.kind == KIND_CHAR) {
+            if ((tapTextCol != 0 || outlineTapCol != 0) && (k.kind == KIND_CHAR || k.kind == KIND_SPACE)) {
                 // Dve barvy po klepnuti se pri kazdem klepnuti stridaji.
                 tapSecond = !tapSecond
                 k.tapTxt = if (tapTextCol2 != 0 && tapSecond) tapTextCol2 else tapTextCol
