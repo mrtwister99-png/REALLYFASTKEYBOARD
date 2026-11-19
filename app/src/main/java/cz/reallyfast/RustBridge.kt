@@ -304,28 +304,28 @@ object RustBridge {
     }
 
     /**
-     * Smaze makro i jeho prirazeni klavesam (`key_macros`, `key_macros_hold`; u makra na klik i jeho obrazek),
+     * Smaze makro, jeho prirazeni klavesam (`key_macros`, `key_macros_hold`) i jeho obrazek (`macro_faces`),
      * aby na klavese nezustal obrazek bez funkce.
      */
     fun deleteMacro(id: Long) {
         call(OP_MACRO_DELETE, null, null, id)
         val j = settings.edit()
-        val faces = j.optJSONObject("key_macro_faces")
-        var changed = false
+        var changed = j.optJSONObject("macro_faces")?.remove(id.toString()) != null
         for (name in arrayOf("key_macros", "key_macros_hold")) {
             val o = j.optJSONObject(name) ?: continue
             val drop = o.keys().asSequence().filter { o.optLong(it) == id }.toList()
             for (k in drop) o.remove(k)
             if (drop.isNotEmpty()) changed = true
         }
-        // Obrazek zustane jen klavese, ktera ma jeste nejake makro (na klik nebo na podrzeni).
-        if (faces != null) {
-            val click = j.optJSONObject("key_macros")
-            val hold = j.optJSONObject("key_macros_hold")
-            val stale = faces.keys().asSequence().filter { click?.has(it) != true && hold?.has(it) != true }.toList()
-            for (k in stale) faces.remove(k)
-        }
         if (changed) setSettings(j)
+    }
+
+    /** Zapise obrazek makra (0..3, viz `macro_faces`). */
+    fun setMacroFace(id: Long, face: Int) {
+        val j = settings.edit()
+        val o = j.optJSONObject("macro_faces") ?: JSONObject().also { j.put("macro_faces", it) }
+        o.put(id.toString(), face)
+        setSettings(j)
     }
 
     /** Text makra pro napsanou zkratku; prazdny retezec, kdyz zadna nesedi. */

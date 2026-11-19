@@ -980,7 +980,7 @@ class KeyboardView(context: Context) : View(context) {
     }
 
     /**
-     * Prida klavesam makra z `key_macros` (klik, s obrazkem z `key_macro_faces`) a `key_macros_hold` (podrzeni);
+     * Prida klavesam makra z `key_macros` (klik, s obrazkem makra z `macro_faces`) a `key_macros_hold` (podrzeni);
      * makro, ktere uz neexistuje, klavesu nechava obycejnou.
      * Vola se jen pri nacteni rozlozeni (to bezi pri kazde zmene nastaveni i pri zobrazeni klavesnice), ne pri
      * kresleni ani klepnuti.
@@ -997,13 +997,15 @@ class KeyboardView(context: Context) : View(context) {
             }
         } else {
             val list = RustBridge.macros()
-            val faces = s.keyMacroFaces
+            val faces = s.macroFaces
             for (k in keys) {
                 val id = if (k.kind == KIND_CHAR) map.get(k.src, 0) else 0
                 val holdId = if (k.kind == KIND_CHAR) hold.get(k.src, 0) else 0
                 k.macro = if (id > 0) list.firstOrNull { it.id == id.toLong() } else null
                 k.holdMacro = if (holdId > 0) list.firstOrNull { it.id == holdId.toLong() } else null
-                k.macroFace = faces.get(k.src, 0).coerceIn(0, faceBitmaps.size - 1)
+                // Obrazek patri makru (zvoleny pri jeho tvorbe), na klik i na podrzeni.
+                val shown = k.macro ?: k.holdMacro
+                k.macroFace = if (shown == null) 0 else faces.get(shown.id.toInt(), 0).coerceIn(0, faceBitmaps.size - 1)
             }
         }
     }

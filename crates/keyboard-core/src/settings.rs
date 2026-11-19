@@ -206,8 +206,8 @@ pub struct Settings {
     pub key_macros: BTreeMap<String, u32>,
     /// Makro prirazene podrzeni klavesy (klavesa si drzi znak i vzhled): puvodni znak pozice -> id makra.
     pub key_macros_hold: BTreeMap<String, u32>,
-    /// Obrazek na klavese s makrem na klik: puvodni znak pozice -> 0 (trol), 1 (chocho), 2 (dollo) nebo 3 (maskot); plati pro makro na klik i na podrzeni.
-    pub key_macro_faces: BTreeMap<String, u32>,
+    /// Obrazek makra (zvoleny pri tvorbe makra): id makra -> 0 (trol), 1 (chocho), 2 (dollo) nebo 3 (maskot); plati vsude, kde se makro na klavese ukaze (klik i podrzeni).
+    pub macro_faces: BTreeMap<String, u32>,
     /// Vlastni styly (sloty 1-5): kazdy je objekt s klici STYLE_KEYS. Vzdy presne STYLE_SLOTS platnych slotu
     /// (chybejici nebo neplatne se doplni vychozimi).
     pub style_slots: serde_json::Value,
@@ -308,7 +308,7 @@ impl Settings {
             outline_tap_color2: String::new(),
             key_macros: BTreeMap::new(),
             key_macros_hold: BTreeMap::new(),
-            key_macro_faces: BTreeMap::new(),
+            macro_faces: BTreeMap::new(),
             style_slots: serde_json::Value::Array(Vec::new()),
         }
     }
@@ -385,8 +385,10 @@ pub const MAX_KEY_ALTS: usize = 64;
 pub const MAX_ALTS_LEN: usize = 12;
 /// Nejvyse tolik klaves s prirazenym makrem.
 pub const MAX_KEY_MACROS: usize = 16;
-/// Pocet obrazku makra na klavese (trol, chocho, dollo, maskot); musi sedet s Appearance.MACRO_FACES.
+/// Pocet obrazku makra (trol, chocho, dollo, maskot); musi sedet s MacroFaces.COUNT v Kotlinu.
 pub const MACRO_FACES: u32 = 4;
+/// Nejvyse tolik maker ma v nastaveni zvoleny obrazek.
+pub const MAX_MACRO_FACES: usize = 256;
 pub const HINT_POSITIONS: [&str; 6] =
     ["top_right", "top_left", "top_center", "bottom_right", "bottom_left", "bottom_center"];
 
@@ -557,10 +559,10 @@ impl Settings {
             .filter(|(k, v)| single_char(k).is_some() && *v > 0)
             .take(MAX_KEY_MACROS)
             .collect();
-        self.key_macro_faces = std::mem::take(&mut self.key_macro_faces)
+        self.macro_faces = std::mem::take(&mut self.macro_faces)
             .into_iter()
-            .filter(|(k, v)| single_char(k).is_some() && *v < MACRO_FACES)
-            .take(MAX_KEY_MACROS)
+            .filter(|(k, v)| k.parse::<u64>().is_ok() && *v < MACRO_FACES)
+            .take(MAX_MACRO_FACES)
             .collect();
         self.hint_percent = self.hint_percent.clamp(60, 180);
         self.key_map = std::mem::take(&mut self.key_map)
@@ -1066,20 +1068,21 @@ mod tests {
     #[test]
     fn hold_macros_and_macro_faces() {
         let s = Settings::default();
-        assert!(s.key_macros_hold.is_empty() && s.key_macro_faces.is_empty());
+        assert!(s.key_macros_hold.is_empty() && s.macro_faces.is_empty());
         let s = Settings::from_json(r#"{"key_macros_hold":{"a":3,"bb":4,"c":0," ":5,"d":7},"key_macros":{"a":1}}"#).unwrap();
         let keys: Vec<(&str, u32)> = s.key_macros_hold.iter().map(|(k, v)| (k.as_str(), *v)).collect();
         assert_eq!(keys, vec![("a", 3), ("d", 7)]);
         assert_eq!(s.key_macros.len(), 1);
-        let s = Settings::from_json(r#"{"key_macro_faces":{"a":0,"b":1,"c":2,"d":3,"e":4,"dd":1}}"#).unwrap();
-        let faces: Vec<(&str, u32)> = s.key_macro_faces.iter().map(|(k, v)| (k.as_str(), *v)).collect();
-        assert_eq!(faces, vec![("a", 0), ("b", 1), ("c", 2), ("d", 3)]);
+        // obrazek patri makru (klic = id makra): neciselne klice a hodnoty mimo rozsah se zahodi
+        let s = Settings::from_json(r#"{"macro_faces":{"1":0,"2":1,"3":2,"4":3,"5":4,"x":1}}"#).unwrap();
+        let faces: Vec<(&str, u32)> = s.macro_faces.iter().map(|(k, v)| (k.as_str(), *v)).collect();
+        assert_eq!(faces, vec![("1", 0), ("2", 1), ("3", 2), ("4", 3)]);
         let many: BTreeMap<String, u32> = (0..40u32).map(|i| (char::from_u32(0x100 + i).unwrap().to_string(), i + 1)).collect();
-        let faces: BTreeMap<String, u32> = (0..40u32).map(|i| (char::from_u32(0x100 + i).unwrap().to_string(), i % 2)).collect();
-        let mut s = Settings { key_macros_hold: many, key_macro_faces: faces, ..Settings::default() };
+        let faces: BTreeMap<String, u32> = (0..300u32).map(|i| (i.to_string(), i % 2)).collect();
+        let mut s = Settings { key_macros_hold: many, macro_faces: faces, ..Settings::default() };
         s.validate();
         assert_eq!(s.key_macros_hold.len(), MAX_KEY_MACROS);
-        assert_eq!(s.key_macro_faces.len(), MAX_KEY_MACROS);
+        assert_eq!(s.macro_faces.len(), MAX_MACRO_FACES);
         let back = Settings::from_json(&s.to_json()).unwrap();
         assert_eq!(back, s);
     }

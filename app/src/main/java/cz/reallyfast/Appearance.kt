@@ -1161,41 +1161,14 @@ class AppearanceActivity : SettingsScreen() {
         AlertDialog.Builder(this)
             .setTitle(R.string.key_macro_place_title)
             .setItems(arrayOf(getString(R.string.key_macro_on_click), getString(R.string.key_macro_on_hold))) { _, which ->
-                pickMacroFace(key, id, hold = which == 1)
+                writeKeyMacro(key, id, hold = which == 1)
             }
             .setNegativeButton(R.string.cancel, null)
             .show()
     }
 
-    /** Vyber obrazku makra (4 obrazky): u makra na klik je na klavese cely, u makra na podrzeni jako maly obrazek v rohu. */
-    private fun pickMacroFace(key: KeyboardView.Key, id: Long, hold: Boolean) {
-        val row = LinearLayout(this)
-        row.gravity = Gravity.CENTER
-        row.setPadding(dp(12f), dp(16f), dp(12f), dp(4f))
-        val dialog = AlertDialog.Builder(this)
-            .setTitle(R.string.key_macro_face_title)
-            .setView(row)
-            .setNegativeButton(R.string.cancel, null)
-            .create()
-        for ((i, res) in MACRO_FACE_IMAGES.withIndex()) {
-            val img = android.widget.ImageView(this)
-            img.setImageResource(res)
-            img.scaleType = android.widget.ImageView.ScaleType.FIT_CENTER
-            img.contentDescription = getString(R.string.key_macro_face_n, i + 1)
-            img.setOnClickListener {
-                dialog.dismiss()
-                writeKeyMacro(key, id, hold, i)
-            }
-            val lp = LinearLayout.LayoutParams(0, dp(64f), 1f)
-            lp.leftMargin = dp(4f)
-            lp.rightMargin = dp(4f)
-            row.addView(img, lp)
-        }
-        dialog.show()
-    }
-
     /** Zapise makro klavese (`id` 0 = smazat obe makra klavesy i s obrazkem) a zavre editor. */
-    private fun writeKeyMacro(key: KeyboardView.Key, id: Long, hold: Boolean, face: Int = 0) {
+    private fun writeKeyMacro(key: KeyboardView.Key, id: Long, hold: Boolean) {
         closeEditor()
         val src = srcString(key)
         val j = RustBridge.settings.edit()
@@ -1209,7 +1182,6 @@ class AppearanceActivity : SettingsScreen() {
             } else {
                 j.getJSONObject("key_macros").put(src, id)
             }
-            j.getJSONObject("key_macro_faces").put(src, face.coerceIn(0, MACRO_FACES - 1))
         }
         RustBridge.setSettings(j)
     }
@@ -1291,14 +1263,9 @@ class AppearanceActivity : SettingsScreen() {
         const val STYLE_SLOTS = 5
         const val MAX_ALTS_EDIT = 5
 
-        /** Obrazky makra na vyber (poradi = index v `key_macro_faces` a v KeyboardView.faceBitmaps). */
-        val MACRO_FACE_IMAGES = intArrayOf(R.drawable.trol, R.drawable.chocho, R.drawable.dollo, R.drawable.maskot)
-
-        /** Pocet obrazku makra; musi sedet s MACRO_FACES v settings.rs. */
-        val MACRO_FACES = MACRO_FACE_IMAGES.size
 
         /** Mapy maker na klavesach (klik, podrzeni) a obrazku maker na klik; vsechny se rusi spolecne. */
-        val MACRO_MAPS = arrayOf("key_macros", "key_macros_hold", "key_macro_faces")
+        val MACRO_MAPS = arrayOf("key_macros", "key_macros_hold")
         const val BLUE = 0xFF3B82F6.toInt()
         const val ORANGE = 0xFFF59E0B.toInt()
         const val GREEN = 0xFF22C55E.toInt()

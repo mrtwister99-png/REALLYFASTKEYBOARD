@@ -110,8 +110,13 @@ class Settings(val json: JSONObject) {
     /** Makra na podrzeni klavesy (klavesa si drzi znak i vzhled): stejny tvar jako `keyMacros`. */
     val keyMacrosHold: SparseIntArray by lazy { intMap("key_macros_hold") }
 
-    /** Obrazek na klavese s makrem na klik: kod pozice -> 0 (trol), 1 (chocho), 2 (dollo) nebo 3 (maskot); chybejici = 0. */
-    val keyMacroFaces: SparseIntArray by lazy { intMap("key_macro_faces", allowZero = true) }
+    /** Obrazek makra: id makra -> 0 (trol), 1 (chocho), 2 (dollo) nebo 3 (maskot); chybejici = 0. */
+    val macroFaces: SparseIntArray by lazy {
+        val out = SparseIntArray()
+        val o = json.optJSONObject("macro_faces")
+        if (o != null) for (k in o.keys()) k.toIntOrNull()?.let { out.put(it, o.optInt(k, 0)) }
+        out
+    }
 
     private fun intMap(key: String, allowZero: Boolean = false): SparseIntArray {
         val out = SparseIntArray()

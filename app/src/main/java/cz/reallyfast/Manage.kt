@@ -199,6 +199,14 @@ class DictionaryActivity : SubScreen() {
     }
 }
 
+/** Obrazky makra na vyber (poradi = index v `macro_faces` i v KeyboardView.faceBitmaps). */
+object MacroFaces {
+    val IMAGES = intArrayOf(R.drawable.trol, R.drawable.chocho, R.drawable.dollo, R.drawable.maskot)
+
+    /** Pocet obrazku; musi sedet s MACRO_FACES v settings.rs. */
+    val COUNT = IMAGES.size
+}
+
 /**
  * Makra: vlastni textove bloky. Vkladaji se tlacitkem s bleskem na klavesnici,
  * nebo napsanim zkratky a mezery.
@@ -271,6 +279,38 @@ class MacrosActivity : SubScreen() {
             if (i > 0) lp.topMargin = dp(10f)
             form.addView(v, lp)
         }
+        // Obrazek makra (pod zkratkou): ukaze se na klavese, kam makro prirazime; u noveho makra je predvybrany nahodny.
+        form.addView(label(getString(R.string.key_macro_face_title), 13f, dim).also { it.setPadding(0, dp(14f), 0, dp(6f)) }, rowParams())
+        var face = if (existing != null) RustBridge.settings.macroFaces.get(existing.id.toInt(), 0).coerceIn(0, MacroFaces.COUNT - 1)
+        else kotlin.random.Random.nextInt(MacroFaces.COUNT)
+        val faceRow = LinearLayout(this)
+        val faceViews = ArrayList<android.widget.ImageView>()
+        fun paintFaces() {
+            for ((i, v) in faceViews.withIndex()) {
+                v.background = android.graphics.drawable.GradientDrawable().apply {
+                    cornerRadius = dp(10f).toFloat()
+                    setColor(0)
+                    setStroke(dp(if (i == face) 3f else 1f), if (i == face) accent else 0x33FFFFFF)
+                }
+            }
+        }
+        for ((i, res) in MacroFaces.IMAGES.withIndex()) {
+            val img = android.widget.ImageView(this)
+            img.setImageResource(res)
+            img.scaleType = android.widget.ImageView.ScaleType.FIT_CENTER
+            img.setPadding(dp(4f), dp(4f), dp(4f), dp(4f))
+            img.contentDescription = getString(R.string.key_macro_face_n, i + 1)
+            img.setOnClickListener {
+                face = i
+                paintFaces()
+            }
+            faceViews.add(img)
+            val lp = LinearLayout.LayoutParams(0, dp(60f), 1f)
+            if (i > 0) lp.leftMargin = dp(6f)
+            faceRow.addView(img, lp)
+        }
+        paintFaces()
+        form.addView(faceRow, rowParams())
         val dialog = AlertDialog.Builder(this)
             .setTitle(if (existing == null) R.string.macro_new else R.string.macro_edit)
             .setView(form)
@@ -278,8 +318,17 @@ class MacrosActivity : SubScreen() {
                 val ok = RustBridge.saveMacro(
                     existing?.id ?: 0, name.text.toString(), body.text.toString(), shortcut.text.toString(),
                 )
-                if (!ok) Toast.makeText(this, R.string.macro_save_failed, Toast.LENGTH_LONG).show()
-                else Lantern.kindle(this, name.text.toString(), body.text.toString(), shortcut.text.toString())
+                if (!ok) {
+                    Toast.makeText(this, R.string.macro_save_failed, Toast.LENGTH_LONG).show()
+                } else {
+                    // Nove makro nema znamo id: je to to nejnovejsi se stejnym nazvem, textem a zkratkou.
+                    val all = RustBridge.macros()
+                    val id = existing?.id ?: all.filter {
+                        it.name == name.text.toString().trim() && it.text == body.text.toString()
+                    }.maxOfOrNull { it.id } ?: all.maxOfOrNull { it.id }
+                    if (id != null) RustBridge.setMacroFace(id, face)
+                    Lantern.kindle(this, name.text.toString(), body.text.toString(), shortcut.text.toString())
+                }
                 refresh()
             }
             .setNegativeButton(R.string.cancel, null)

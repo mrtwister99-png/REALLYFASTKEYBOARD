@@ -41,8 +41,9 @@ class SettingsActivity : SettingsScreen() {
         const val TITLE_MS = 900L
         const val TITLE_BRAKE_AT = 0.7f
 
-        /** Po doleteni se logo1 a logo2 stridaji nad zakladem po 1 s, dokola. */
+        /** Po doleteni se logo1 a logo2 stridaji nad zakladem po 1 s; po 10 prepnutich (10 s) zustane vzdy videt logo1. */
         const val LOGO_FLIP_MS = 1000L
+        const val LOGO_FLIPS = 10
 
         /**
          * Nadpis: prvnich 70 % drahy rovnomerne, zbytek zpomaluje (kvadraticky) az do klidu; casy jsou zvolene tak,
@@ -76,7 +77,7 @@ class SettingsActivity : SettingsScreen() {
             val second = logoFlips % 2 == 1
             a.visibility = if (second) View.INVISIBLE else View.VISIBLE
             b.visibility = if (second) View.VISIBLE else View.INVISIBLE
-            a.postDelayed(this, LOGO_FLIP_MS)
+            if (logoFlips < LOGO_FLIPS) a.postDelayed(this, LOGO_FLIP_MS)
         }
     }
 
