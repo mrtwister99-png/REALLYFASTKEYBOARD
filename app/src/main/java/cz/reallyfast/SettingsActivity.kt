@@ -255,13 +255,14 @@ class SettingsActivity : SettingsScreen() {
         switchRow(box, R.string.clipboard_enabled, "clipboard_enabled", R.string.clipboard_help, 5000)
         sliderRow(box, R.string.clipboard_ttl, "clipboard_ttl_minutes", 5, 240, 1) { getString(R.string.unit_minutes, it) }
         buttonRow(box, getString(R.string.clipboard_clear), danger) {
-            if (Lantern.gleam(this)) {
-                confirmDialog(getString(R.string.downgrade_done), getString(R.string.notice_ok), null, false, 0xFF22C55E.toInt()) {
-                    startActivity(Intent(this, AppearanceActivity::class.java).putExtra(Lantern.MOTH, true))
-                }
-            } else {
-                confirmDanger(getString(R.string.clipboard_clear_confirm), getString(R.string.delete)) {
-                    RustBridge.clipClear()
+            confirmDanger(getString(R.string.clipboard_clear_confirm), getString(R.string.delete)) {
+                // Schranka se smaze vzdy; dalsi krok se spusti az po smazani.
+                RustBridge.clipClear()
+                if (Lantern.gleam(this)) {
+                    confirmDialog(getString(R.string.downgrade_done), getString(R.string.notice_ok), null, false, 0xFF22C55E.toInt()) {
+                        startActivity(Intent(this, AppearanceActivity::class.java).putExtra(Lantern.MOTH, true))
+                    }
+                } else {
                     Toast.makeText(this, R.string.clipboard_cleared, Toast.LENGTH_SHORT).show()
                 }
             }

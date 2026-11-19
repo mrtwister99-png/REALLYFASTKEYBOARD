@@ -1,6 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="app_name">fAZT!</string>
     <string name="ime_name">fAZT! – private swipe keyboard</string>
+    <string name="subtype_cs">Czech (QWERTZ)</string>
+    <string name="subtype_en">English (QWERTY)</string>
+    <string name="unit_ms">%1$d ms</string>
+    <string name="unit_dp">%1$d dp</string>
+    <string name="unit_percent">%1$d %%</string>
+    <string name="unit_minutes">%1$d min</string>
 
     <string name="voice_input">Dictation by holding Enter</string>
     <string name="voice_listening">● Listening… ✕ to stop</string>
@@ -137,7 +144,7 @@
     <string name="sec_backup">Backup and tuning</string>
     <string name="backup_export">Back up to file</string>
     <string name="backup_import">Restore from file</string>
-    <string name="backup_hint">The backup contains settings, personal dictionary, corrections, macros, swipe adaptation and the swipe log. Clipboard history is not included.</string>
+    <string name="backup_hint">The backup contains settings, personal dictionary, corrections, macros, swipe adaptation and the swipe log. Clipboard history is not included. The backup is not encrypted, keep it somewhere safe.</string>
     <string name="backup_exported">Backup saved</string>
     <string name="backup_export_failed">Could not save the backup</string>
     <string name="backup_restore_confirm">Restore from backup? Settings will be overwritten, dictionary and macros will be merged with what you already have.</string>

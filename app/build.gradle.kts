@@ -13,8 +13,8 @@ android {
         applicationId = "cz.reallyfast"
         minSdk = 24
         targetSdk = 34
-        versionCode = 25
-        versionName = "1.21.1"
+        versionCode = 26
+        versionName = "1.21.3"
         ndk {
             // arm64-v8a = Galaxy S25 Ultra a vsechny dnesni telefony, x86_64 = emulator.
             abiFilters += listOf("arm64-v8a", "x86_64")
@@ -110,6 +110,9 @@ val cargoNdkBuild = tasks.register<Exec>("cargoNdkBuild") {
         commandLine(if (isWindows) listOf("cmd", "/c", "exit", "0") else listOf("true"))
     }
     doFirst {
+        if (!canBuildRust) {
+            logger.warn("reallyFAST!: VAROVANI - Rust se neprekladal (chybi cargo, cargo-ndk nebo NDK), pouzije se starsi libkeyboard_core.so z jniLibs")
+        }
         logger.lifecycle("reallyFAST!: prekladam keyboard-core pres cargo-ndk (NDK ${ndkDir?.name})")
     }
 }

@@ -236,17 +236,29 @@ abstract class SettingsScreen : BaseScreen() {
         }
         seek.progress = (current() - min) / step
         value.text = format(current())
+        var lastWrite = 0L
+        fun commit(v: Int) {
+            if (v == current()) return
+            if (scale == 1) update(key, v) else update(key, v.toDouble() / scale)
+        }
         seek.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
             override fun onProgressChanged(sb: SeekBar, progress: Int, fromUser: Boolean) {
                 val v = progress * step + min
                 value.text = format(v)
-                if (fromUser && v != current()) {
-                    if (scale == 1) update(key, v) else update(key, v.toDouble() / scale)
+                if (fromUser) {
+                    // Pri tahu se zapisuje nejvyse jednou za 100 ms, posledni hodnota az po pusteni.
+                    val now = SystemClock.uptimeMillis()
+                    if (now - lastWrite >= 100L) {
+                        lastWrite = now
+                        commit(v)
+                    }
                 }
             }
 
             override fun onStartTrackingTouch(sb: SeekBar) {}
-            override fun onStopTrackingTouch(sb: SeekBar) {}
+            override fun onStopTrackingTouch(sb: SeekBar) {
+                commit(sb.progress * step + min)
+            }
         })
         col.addView(seek, rowParams())
         box.addView(col, rowParams())

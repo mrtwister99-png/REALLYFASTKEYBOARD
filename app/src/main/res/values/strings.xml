@@ -140,7 +140,7 @@
     <string name="sec_backup">Záloha a ladění</string>
     <string name="backup_export">Zálohovat do souboru</string>
     <string name="backup_import">Obnovit ze souboru</string>
-    <string name="backup_hint">Záloha obsahuje nastavení, osobní slovník, opravy, makra, přizpůsobení swipe a záznam tahů. Historie schránky v ní není.</string>
+    <string name="backup_hint">Záloha obsahuje nastavení, osobní slovník, opravy, makra, přizpůsobení swipe a záznam tahů. Historie schránky v ní není. Záloha není šifrovaná, ukládej ji na bezpečné místo.</string>
     <string name="backup_exported">Záloha uložena</string>
     <string name="backup_export_failed">Zálohu se nepodařilo uložit</string>
     <string name="backup_restore_confirm">Obnovit ze zálohy? Nastavení se přepíše, slovník a makra se sloučí s tím, co už máš.</string>

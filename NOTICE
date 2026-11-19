@@ -1,0 +1,9 @@
+fAZT! (cz.reallyfast)
+
+Jadro klavesnice (crates/keyboard-core) je sireno pod GPL-2.0-or-later (viz LICENSE),
+protoze obsahuje slovnik odvozeny z Hunspell cs_CZ.
+
+Pouzite zdroje dat:
+- Hunspell cs_CZ (LibreOffice dictionaries), dictionaries/cs_CZ.dic a .aff - GPL-2.0
+- Frekvencni seznam lemmat CNK, dictionaries/czech_freq_15k.txt - CC BY 4.0
+- Leipzig Corpora ces_news_2020_300K a eng_news_2020_300K (Universitaet Leipzig) - CC BY 4.0
