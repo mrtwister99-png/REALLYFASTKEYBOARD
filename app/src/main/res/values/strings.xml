@@ -272,6 +272,12 @@
     <string name="swipe_adapt_reset_confirm">Smazat přizpůsobení swipe tvému stylu psaní? Klávesnice se začne učit od začátku.</string>
     <string name="swipe_adapt_reset_do">Zapomenout</string>
     <string name="layout_reset_do">Obnovit</string>
+    <string name="yes">Ano</string>
+    <string name="no">Ne</string>
+    <string name="swap_confirm_mode_enter_on">Prohodit klávesy ?123 a Enter?</string>
+    <string name="swap_confirm_mode_enter_off">Vrátit klávesy ?123 a Enter na původní místa?</string>
+    <string name="swap_confirm_shift_delete_on">Prohodit klávesy Shift a mazání?</string>
+    <string name="swap_confirm_shift_delete_off">Vrátit klávesy Shift a mazání na původní místa?</string>
     <string name="swap_mode_enter_on">Klávesy ?123 a Enter jsou prohozené</string>
     <string name="swap_mode_enter_off">Klávesy ?123 a Enter jsou zpět na svých místech</string>
     <string name="swap_shift_delete_on">Klávesy Shift a mazání jsou prohozené</string>

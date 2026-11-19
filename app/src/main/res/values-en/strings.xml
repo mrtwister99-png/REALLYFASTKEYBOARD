@@ -265,6 +265,12 @@
     <string name="swipe_adapt_reset_confirm">Clear the swipe adaptation to your typing style? The keyboard will start learning from scratch.</string>
     <string name="swipe_adapt_reset_do">Forget</string>
     <string name="layout_reset_do">Restore</string>
+    <string name="yes">Yes</string>
+    <string name="no">No</string>
+    <string name="swap_confirm_mode_enter_on">Swap the ?123 and Enter keys?</string>
+    <string name="swap_confirm_mode_enter_off">Put the ?123 and Enter keys back in place?</string>
+    <string name="swap_confirm_shift_delete_on">Swap the Shift and Backspace keys?</string>
+    <string name="swap_confirm_shift_delete_off">Put the Shift and Backspace keys back in place?</string>
     <string name="swap_mode_enter_on">\?123 and Enter keys swapped</string>
     <string name="swap_mode_enter_off">\?123 and Enter keys back in place</string>
     <string name="swap_shift_delete_on">Shift and Backspace keys swapped</string>

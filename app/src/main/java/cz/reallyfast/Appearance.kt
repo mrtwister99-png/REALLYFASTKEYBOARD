@@ -960,15 +960,23 @@ class AppearanceActivity : SettingsScreen() {
                 return
             }
             val on = !RustBridge.settings.json.optBoolean(swapKey)
-            val j = RustBridge.settings.edit()
-            j.put(swapKey, on)
-            RustBridge.setSettings(j)
-            val msg = if (swapKey == "swap_mode_enter") {
-                if (on) R.string.swap_mode_enter_on else R.string.swap_mode_enter_off
+            // Prohozeni specialnich klaves vzdy potvrdi uzivatel (Ano / Ne).
+            val ask = if (swapKey == "swap_mode_enter") {
+                if (on) R.string.swap_confirm_mode_enter_on else R.string.swap_confirm_mode_enter_off
             } else {
-                if (on) R.string.swap_shift_delete_on else R.string.swap_shift_delete_off
+                if (on) R.string.swap_confirm_shift_delete_on else R.string.swap_confirm_shift_delete_off
             }
-            Toast.makeText(this, msg, Toast.LENGTH_SHORT).show()
+            confirmDialog(getString(ask), getString(R.string.yes), getString(R.string.no), false) {
+                val j = RustBridge.settings.edit()
+                j.put(swapKey, on)
+                RustBridge.setSettings(j)
+                val msg = if (swapKey == "swap_mode_enter") {
+                    if (on) R.string.swap_mode_enter_on else R.string.swap_mode_enter_off
+                } else {
+                    if (on) R.string.swap_shift_delete_on else R.string.swap_shift_delete_off
+                }
+                Toast.makeText(this, msg, Toast.LENGTH_SHORT).show()
+            }
             return
         }
         if (pendingSrc >= 0) {

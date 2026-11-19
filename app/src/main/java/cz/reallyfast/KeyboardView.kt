@@ -1445,7 +1445,7 @@ class KeyboardView(context: Context) : View(context) {
         val y = (yT + (yB - yT) * hintY).coerceIn(k.y - padY, k.y + k.h + padY)
         if (text.isEmpty() && bitmap != null) {
             // Makro na podrzeni: maly obrazek makra na miste napovedy (hybe se spolu s ni).
-            val bh = labelSize * 0.95f * hintScale
+            val bh = labelSize * 0.5f * hintScale // stejne velke jako znak napovedy
             val bw = bh * bitmap.width / bitmap.height
             val by = y - bh * 0.35f
             rect.set(x - bw / 2f, by - bh / 2f, x + bw / 2f, by + bh / 2f)
