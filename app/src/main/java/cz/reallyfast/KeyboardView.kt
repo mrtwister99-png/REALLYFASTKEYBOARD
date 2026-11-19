@@ -66,6 +66,9 @@ class KeyboardView(context: Context) : View(context) {
         var neonCol = 0
         /** Cas klepnuti pro efekt Duch (dozvuk), 0 = zadny. */
         var ghostAt = 0L
+        /** Barva znaku / obrysu tohoto klepnuti (stridani dvou barev); 0 = zakladni barva. Nastavuje se pri stisku. */
+        var tapTxt = 0
+        var tapOut = 0
         var changedAt = 0L
 
         /** Cas posledniho klepnuti (pro barvu znaku po klepnuti); 0 = zadne. */
@@ -410,6 +413,12 @@ class KeyboardView(context: Context) : View(context) {
     private var outlineCol2 = 0
     private var outlineRainbow = false
     private var outlineTapCol = 0
+    private var outlineTapCol2 = 0
+    private var tapTextCol2 = 0
+    private var tapSecond = false
+    private var specialOutline = true
+    private var glowCol2 = 0
+    private var trailCol2 = 0
     private var outlineHoverCol = 0
     private var outlinePassedCol = 0
     private var outlineW = 2f * density
@@ -579,10 +588,15 @@ class KeyboardView(context: Context) : View(context) {
         outlineCol2 = Theme.parse(s.outlineColor2, 0)
         outlineRainbow = s.outlineColor2 == Theme.RAINBOW
         outlineTapCol = Theme.parse(s.outlineTapColor, 0)
+        outlineTapCol2 = Theme.parse(s.outlineTapColor2, 0)
+        tapTextCol2 = Theme.parse(s.tapTextColor2, 0)
+        specialOutline = s.specialOutline
+        glowCol2 = Theme.parse(s.glowColor2, 0)
+        trailCol2 = Theme.parse(s.trailColor2, 0) and 0x00FFFFFF
         outlineHoverCol = Theme.parse(s.outlineHoverColor, 0)
         outlinePassedCol = Theme.parse(s.outlinePassedColor, 0)
         outlineW = s.outlineWidthDp * density
-        outlineOn = outlineCol != 0 || outlineTapCol != 0 || outlineHoverCol != 0 || outlinePassedCol != 0
+        outlineOn = outlineCol != 0 || outlineTapCol != 0 || outlineHoverCol != 0 || outlinePassedCol != 0 || specialOutline
         glowRainbow = s.glowColor == Theme.RAINBOW
         glowColor = if (glowRainbow) Theme.RAINBOW_COLORS[0] else Theme.parse(s.glowColor, 0xFF0080FF.toInt())
         glowText = textOn(glowColor)
@@ -1159,12 +1173,15 @@ class KeyboardView(context: Context) : View(context) {
             val fillSide = if (glowActive && glowFill) glowSide[ki] else -1
             // Duha: v postupnem stylu podle poradi pismene ve slove, ve vybarveni podle vodorovne polohy klavesy.
             val gCol = when {
-                !glowRainbow -> glowColor
-                glow > 0f -> rainbow(if (glowCount > 1) glowHit / (glowCount - 1f) else 0f)
-                fillSide >= 0 -> rainbow(cx / max(1f, width.toFloat()))
+                glowRainbow && glow > 0f -> rainbow(if (glowCount > 1) glowHit / (glowCount - 1f) else 0f)
+                glowRainbow && fillSide >= 0 -> rainbow(cx / max(1f, width.toFloat()))
+                glowRainbow -> glowColor
+                // Druha barva: pismena slova plynule prechazeji z barvy 1 do barvy 2 (podle poradi / polohy).
+                glowCol2 != 0 && glow > 0f -> Theme.blend(glowColor, glowCol2, if (glowCount > 1) glowHit / (glowCount - 1f) else 0f)
+                glowCol2 != 0 && fillSide >= 0 -> Theme.blend(glowColor, glowCol2, (cx / max(1f, width.toFloat())).coerceIn(0f, 1f))
                 else -> glowColor
             }
-            val gText = if (glowRainbow) textOn(gCol) else glowText
+            val gText = if (glowRainbow || glowCol2 != 0) textOn(gCol) else glowText
             if (glow > 0f) keyColor = tint(keyColor, gCol, glow)
             val neonA = if (k.neonAt != 0L) neonAmount(k, now) else 0f
             val nc = if (k.neonCol != 0) k.neonCol else neon
@@ -1263,13 +1280,14 @@ class KeyboardView(context: Context) : View(context) {
             }
             if (outlineOn) {
                 // Obrys: zakladni barva (pripadne prechod), po projeti, po klepnuti, pod prstem (posledni vyhrava).
-                var oc = outlineCol
+                val special = specialOutline && (k.kind == KIND_SHIFT || k.kind == KIND_MODE || k.kind == KIND_BACKSPACE)
+                var oc = if (special) theme.accent else outlineCol
                 if (k.passed && outlinePassedCol != 0) {
                     oc = outlinePassedCol
                 } else if (passedFade > 0f && outlinePassedCol != 0) {
                     oc = mixArgb(oc, outlinePassedCol, passedFade)
                 }
-                if (tapF > 0f && outlineTapCol != 0) oc = mixArgb(oc, outlineTapCol, tapF)
+                if (tapF > 0f && outlineTapCol != 0) oc = mixArgb(oc, if (k.tapOut != 0) k.tapOut else outlineTapCol, tapF)
                 val over = (k.pressed && !k.passed) || (k.passed && k === hoverKey)
                 if (over && outlineHoverCol != 0) oc = outlineHoverCol
                 if (oc != 0) {
@@ -1313,10 +1331,12 @@ class KeyboardView(context: Context) : View(context) {
             if (glow > 0f) fg = Theme.blend(fg, gText, glow)
             if (fillSide >= 0) fg = Theme.blend(fg, gText,(fillProgress * fillAlpha).coerceIn(0f, 1f))
             if (neonA > 0f) fg = Theme.blend(fg, if (k.neonCol != 0) textOn(k.neonCol) else neonText, neonA)
-            if (tapF > 0f && tapTextCol != 0) fg = if (tapF >= 1f) tapTextCol else Theme.blend(fg, tapTextCol, tapF)
+            if (tapF > 0f && tapTextCol != 0) {
+                val ttc = if (k.tapTxt != 0) k.tapTxt else tapTextCol
+                fg = if (tapF >= 1f) ttc else Theme.blend(fg, ttc, tapF)
+            }
             if (dimKey) fg = Theme.blend(fg, theme.background, 0.7f)
             val face = if (k.macro != null) faceBitmaps[k.macroFace] else null
-            val badge = if (k.macro == null && k.holdMacro != null && k.kind == KIND_CHAR) faceBitmaps[k.macroFace] else null
             when (k.kind) {
                 KIND_CHAR -> if (face != null) {
                     drawMacroImage(canvas, face, cx, cy, hw, hh, dimKey, 0.85f)
@@ -1348,8 +1368,6 @@ class KeyboardView(context: Context) : View(context) {
                         canvas.drawText(charBuf, 0, n, cx + offX, cy + offY + shift - (textPaint.ascent() + textPaint.descent()) / 2f, textPaint)
                     }
                     textPaint.typeface = baseFace
-                    // Makro na podrzeni: maly obrazek makra v pravem hornim rohu klavesy.
-                    if (badge != null) drawMacroImage(canvas, badge, cx + hw * 0.55f, cy - hh * 0.5f, hw * 0.4f, hh * 0.4f, dimKey, 0.8f)
                 }
                 KIND_SPACE -> {
                     textPaint.color = theme.textDim
@@ -1380,6 +1398,11 @@ class KeyboardView(context: Context) : View(context) {
                 drawHint(canvas, k, hintText, if (k.changedAt == 0L) 0f else pressAmount(k, now), radius)
             }
         }
+        // Makro na podrzeni: obrazek makra na pozici napovedy (i kdyz jsou napovedy vypnute).
+        for (k in keys) {
+            if (k.kind != KIND_CHAR || k.macro != null || k.holdMacro == null) continue
+            drawHint(canvas, k, "", if (k.changedAt == 0L) 0f else pressAmount(k, now), radius, faceBitmaps[k.macroFace])
+        }
         if (drawGlitch(canvas, now)) animating = true
         if (drawTrail(canvas, now)) animating = true
         if (drawPreview(canvas, now)) animating = true
@@ -1400,7 +1423,7 @@ class KeyboardView(context: Context) : View(context) {
      * Mala napoveda v rohu klavesy. Poloha 0..1 je uvnitr klavesy, mimo ten rozsah se linearne
      * prodlouzi a zastavi nejdal na obrysu sousedni klavesy (okraj klavesy + cela mezera).
      */
-    private fun drawHint(canvas: Canvas, k: Key, text: String, p: Float, radius: Float) {
+    private fun drawHint(canvas: Canvas, k: Key, text: String, p: Float, radius: Float, bitmap: Bitmap? = null) {
         val scale = 1f - 0.04f * p
         val cx = k.vx + k.vw / 2f
         val cy = k.y + k.h / 2f
@@ -1418,6 +1441,16 @@ class KeyboardView(context: Context) : View(context) {
         val yB = cy + hh - labelSize * 0.22f - d
         val x = (xL + (xR - xL) * hintX).coerceIn(k.vx - padX, k.vx + k.vw + padX)
         val y = (yT + (yB - yT) * hintY).coerceIn(k.y - padY, k.y + k.h + padY)
+        if (text.isEmpty() && bitmap != null) {
+            // Makro na podrzeni: maly obrazek makra na miste napovedy (hybe se spolu s ni).
+            val bh = labelSize * 0.95f * hintScale
+            val bw = bh * bitmap.width / bitmap.height
+            val by = y - bh * 0.35f
+            rect.set(x - bw / 2f, by - bh / 2f, x + bw / 2f, by + bh / 2f)
+            bitmapPaint.alpha = 255
+            canvas.drawBitmap(bitmap, null, rect, bitmapPaint)
+            return
+        }
         canvas.drawText(text, x, y, textPaint)
     }
 
@@ -1467,6 +1500,10 @@ class KeyboardView(context: Context) : View(context) {
             if (glowRainbow) {
                 // Duha: kazde pismeno slova jinym odstinem.
                 val c = rainbow(if (flyCount > 1) j / (flyCount - 1f) else 0f)
+                val b = if (pop > 0f) Theme.blend(c, flyFlash, pop) else c
+                flyFill.color = (b and 0x00FFFFFF) or (alpha shl 24)
+            } else if (glowCol2 != 0) {
+                val c = Theme.blend(glowColor, glowCol2, if (flyCount > 1) j / (flyCount - 1f) else 0f)
                 val b = if (pop > 0f) Theme.blend(c, flyFlash, pop) else c
                 flyFill.color = (b and 0x00FFFFFF) or (alpha shl 24)
             }
@@ -1710,7 +1747,8 @@ class KeyboardView(context: Context) : View(context) {
             val f = (i - first) / span
             val x = samples[i * 3]
             val y = samples[i * 3 + 1]
-            stroke.color = rgb or ((200f * f * fade).toInt().coerceIn(0, 255) shl 24)
+            val segRgb = if (trailCol2 != 0) Theme.blend(trailCol2, rgb, f) and 0x00FFFFFF else rgb
+            stroke.color = segRgb or ((200f * f * fade).toInt().coerceIn(0, 255) shl 24)
             stroke.strokeWidth = (1.5f + 5f * f) * density
             canvas.drawLine(px, py, x, y, stroke)
             px = x
@@ -2334,7 +2372,13 @@ class KeyboardView(context: Context) : View(context) {
                     k.neonAt = -1L
                 }
             }
-            if ((tapTextCol != 0 || outlineTapCol != 0) && k.kind == KIND_CHAR) k.tapAt = now
+            if ((tapTextCol != 0 || outlineTapCol != 0) && k.kind == KIND_CHAR) {
+                // Dve barvy po klepnuti se pri kazdem klepnuti stridaji.
+                tapSecond = !tapSecond
+                k.tapTxt = if (tapTextCol2 != 0 && tapSecond) tapTextCol2 else tapTextCol
+                k.tapOut = if (outlineTapCol2 != 0 && tapSecond) outlineTapCol2 else outlineTapCol
+                k.tapAt = now
+            }
         } else if (k.neonAt == -1L) {
             k.neonAt = if (animate) now else 0L
         }

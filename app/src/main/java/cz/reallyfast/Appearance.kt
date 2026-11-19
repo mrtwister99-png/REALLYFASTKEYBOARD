@@ -267,14 +267,14 @@ class AppearanceActivity : SettingsScreen() {
     override fun onSettingUpdated(key: String, value: Any) {
         // Zmena, kterou neni na staticke klavesnici videt, se ukaze kratkou ukazkou v nahledu.
         when (key) {
-            "neon_color", "neon_color2", "tap_effect", "tap_text_color", "outline_tap_color" -> preview.demoNeon()
+            "neon_color", "neon_color2", "tap_effect", "tap_text_color", "tap_text_color2", "outline_tap_color", "outline_tap_color2" -> preview.demoNeon()
             "paint_color1", "paint_color2", "paint_color3" -> preview.demoPaint()
             "key_popup", "popup_color" -> preview.demoPopup()
             "alts_color" -> preview.demoAlts()
             "animations", "outline_hover_color" -> preview.demoPress()
             "outline_passed_color" -> preview.demoPassed()
-            "swipe_trail", "trail_color" -> preview.demoTrail()
-            "glow_style", "glow_color" -> preview.glowWord("ahoj")
+            "swipe_trail", "trail_color", "trail_color2" -> preview.demoTrail()
+            "glow_style", "glow_color", "glow_color2" -> preview.glowWord("ahoj")
         }
     }
 
@@ -561,7 +561,27 @@ class AppearanceActivity : SettingsScreen() {
      * u znaku i u obrysu, a docasne tlacitko Yoda. Zakladni a pokrocile volby jsou na prvni zalozce.
      */
     private fun buildExtra(tabBox: LinearLayout) {
-        val box = section(tabBox, getString(R.string.sec_extra_states))
+        // Vsechny druhe barvy: prechody (shora dolu), stridani pri klepnuti a konec stopy / prechod pismen po tahu.
+        var box = section(tabBox, getString(R.string.sec_second_colors))
+        colorRow(box, R.string.key_color2, "key_color2", allowAuto = true, allowRainbow = true)
+        hintText(box, getString(R.string.key_color2_hint))
+        colorRow(box, R.string.text_color2, "text_color2", allowAuto = true, allowRainbow = true)
+        hintText(box, getString(R.string.text_color2_hint))
+        colorRow(box, R.string.background_color2, "background_color2", allowAuto = true, allowRainbow = true)
+        hintText(box, getString(R.string.background_color2_hint))
+        colorRow(box, R.string.neon_color2, "neon_color2", allowAuto = true, allowRainbow = true)
+        hintText(box, getString(R.string.neon_color2_hint))
+        colorRow(box, R.string.trail_color2, "trail_color2", allowAuto = true)
+        hintText(box, getString(R.string.trail_color2_hint))
+        colorRow(box, R.string.glow_color2, "glow_color2", allowAuto = true)
+        hintText(box, getString(R.string.glow_color2_hint))
+        colorRow(box, R.string.tap_text_color2, "tap_text_color2", allowAuto = true)
+        colorRow(box, R.string.outline_color2, "outline_color2", allowAuto = true, allowRainbow = true)
+        hintText(box, getString(R.string.outline_color2_hint))
+        colorRow(box, R.string.outline_tap_color2, "outline_tap_color2", allowAuto = true)
+        hintText(box, getString(R.string.tap2_hint))
+
+        box = section(tabBox, getString(R.string.sec_extra_states))
         hintText(box, getString(R.string.states_hint)).setPadding(0, dp(10f), 0, dp(6f))
         colorRow(box, R.string.tap_text_color, "tap_text_color", allowAuto = true)
         colorRow(box, R.string.hover_text_color, "hover_text_color", allowAuto = true, dependsOn = "swipe_glow")
@@ -595,23 +615,11 @@ class AppearanceActivity : SettingsScreen() {
         colorRow(box, R.string.digit_text_color, "digit_text_color", allowAuto = true)
         colorRow(box, R.string.digit_key_color, "digit_key_color", allowAuto = true)
 
-        box = section(adv, getString(R.string.sec_extra_gradients))
-        colorRow(box, R.string.key_color2, "key_color2", allowAuto = true, allowRainbow = true)
-        hintText(box, getString(R.string.key_color2_hint))
-        colorRow(box, R.string.background_color2, "background_color2", allowAuto = true, allowRainbow = true)
-        hintText(box, getString(R.string.background_color2_hint))
-        colorRow(box, R.string.text_color2, "text_color2", allowAuto = true, allowRainbow = true)
-        hintText(box, getString(R.string.text_color2_hint))
-
         box = section(adv, getString(R.string.sec_extra_outline))
         colorRow(box, R.string.outline_color, "outline_color", allowAuto = true)
-        colorRow(box, R.string.outline_color2, "outline_color2", allowAuto = true, allowRainbow = true)
-        hintText(box, getString(R.string.outline_color2_hint))
         sliderRow(box, R.string.outline_width, "outline_width_dp", 1, 6, 1) { getString(R.string.unit_dp, it) }
 
         box = section(adv, getString(R.string.sec_extra_effects))
-        colorRow(box, R.string.neon_color2, "neon_color2", allowAuto = true, allowRainbow = true)
-        hintText(box, getString(R.string.neon_color2_hint))
         colorRow(box, R.string.paint_color1, "paint_color1")
         colorRow(box, R.string.paint_color2, "paint_color2")
         colorRow(box, R.string.paint_color3, "paint_color3")
@@ -654,6 +662,7 @@ class AppearanceActivity : SettingsScreen() {
         switchRow(box, R.string.swipe_trail, "swipe_trail")
         switchRow(box, R.string.key_popup, "key_popup", hintRes = R.string.key_popup_hint)
         switchRow(box, R.string.key_shadow, "key_shadow", hintRes = R.string.key_shadow_hint)
+        switchRow(box, R.string.special_outline, "special_outline", hintRes = R.string.special_outline_hint)
         switchRow(box, R.string.animations, "animations", hintRes = R.string.animations_hint)
         choiceRow(box, R.string.tap_effect_label, listOf("none", "neon", "glitch", "paint", "ghost"),
             listOf(

@@ -6,6 +6,7 @@ import android.animation.ValueAnimator
 import android.app.AlertDialog
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.view.Gravity
 import android.view.View
 import android.widget.FrameLayout
 import android.widget.ImageView
@@ -60,6 +61,8 @@ class SettingsActivity : SettingsScreen() {
 
     private var animateTitle = false
     private var statusView: TextView? = null
+    private var statusCard: LinearLayout? = null
+    private var statusBadge: TextView? = null
     private var swipeLogButton: TextView? = null
     private var logoTop: ImageView? = null
     private var logoAlt: ImageView? = null
@@ -197,10 +200,27 @@ class SettingsActivity : SettingsScreen() {
 
         // Aktivace
         var box = section(container, getString(R.string.sec_setup))
-        statusView = label("", 14f, dim).also {
-            it.setPadding(0, dp(12f), 0, dp(4f))
-            box.addView(it, rowParams())
-        }
+        // Stav klavesnice: velke barevne policko se symbolem (zelena = aktivni, oranzova = zapnuta, cervena = vypnuta).
+        val card = LinearLayout(this)
+        card.gravity = Gravity.CENTER_VERTICAL
+        card.setPadding(dp(14f), dp(14f), dp(14f), dp(14f))
+        val badge = TextView(this)
+        badge.gravity = Gravity.CENTER
+        badge.setTextColor(0xFFFFFFFF.toInt())
+        badge.setTextSize(TypedValue.COMPLEX_UNIT_SP, 26f)
+        badge.typeface = android.graphics.Typeface.DEFAULT_BOLD
+        card.addView(badge, LinearLayout.LayoutParams(dp(52f), dp(52f)))
+        val st = label("", 17f, text)
+        st.typeface = android.graphics.Typeface.create("sans-serif-medium", android.graphics.Typeface.NORMAL)
+        st.setPadding(dp(14f), 0, 0, 0)
+        card.addView(st, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+        val clp = rowParams()
+        clp.topMargin = dp(12f)
+        clp.bottomMargin = dp(8f)
+        box.addView(card, clp)
+        statusCard = card
+        statusBadge = badge
+        statusView = st
         buttonRow(box, getString(R.string.setup_enable), accent) {
             startActivity(Intent(SystemSettings.ACTION_INPUT_METHOD_SETTINGS))
         }
@@ -392,6 +412,21 @@ class SettingsActivity : SettingsScreen() {
                 else -> R.string.setup_status_disabled
             }
         )
-        statusView?.setTextColor(if (active) 0xFF10B981.toInt() else dim)
+        // Barva a symbol podle stavu; policko ma pruhledne pozadi v barve stavu a obrys.
+        val tone = when {
+            active -> 0xFF10B981.toInt()
+            enabled -> 0xFFF59E0B.toInt()
+            else -> 0xFFEF4444.toInt()
+        }
+        statusBadge?.text = if (active) "✓" else if (enabled) "!" else "✕"
+        statusBadge?.background = android.graphics.drawable.GradientDrawable().apply {
+            shape = android.graphics.drawable.GradientDrawable.OVAL
+            setColor(tone)
+        }
+        statusCard?.background = android.graphics.drawable.GradientDrawable().apply {
+            cornerRadius = dp(16f).toFloat()
+            setColor((tone and 0x00FFFFFF) or 0x26000000)
+            setStroke(dp(2f), tone)
+        }
     }
 }

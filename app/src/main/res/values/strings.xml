@@ -238,6 +238,16 @@
     <string name="style_load">Načíst</string>
     <string name="style_only_select">Jen vybrat</string>
     <string name="yoda">Yoda</string>
+    <string name="sec_second_colors">Druhé barvy</string>
+    <string name="trail_color2">Druhá barva stopy</string>
+    <string name="trail_color2_hint">Konec stopy za prstem přechází do této barvy</string>
+    <string name="glow_color2">Druhá barva písmen po tahu</string>
+    <string name="glow_color2_hint">Písmena slova plynule přecházejí z barvy písmen do této barvy</string>
+    <string name="tap_text_color2">Druhá barva znaku po klepnutí</string>
+    <string name="outline_tap_color2">Druhá barva obrysu po klepnutí</string>
+    <string name="tap2_hint">Klepnutí střídají první a druhou barvu</string>
+    <string name="special_outline">Obrys speciálních kláves</string>
+    <string name="special_outline_hint">Shift, ?123 a smazání mají obrys v barvě akcentu</string>
     <string name="sec_advanced">Pokročilé</string>
     <string name="sec_adv_positions">Polohy a nápovědy</string>
     <string name="sec_extra_states">Barvy podle prstu</string>

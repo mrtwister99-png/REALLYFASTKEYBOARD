@@ -30,6 +30,7 @@ pub const STYLE_KEYS: &[&str] = &[
     "passed_text_color", "tap_text_color", "hover_text_color", "label_weight", "digit_weight",
     "neon_color2", "outline_color", "outline_color2", "outline_tap_color", "outline_hover_color",
     "outline_passed_color", "outline_width_dp",
+    "special_outline", "trail_color2", "glow_color2", "tap_text_color2", "outline_tap_color2",
 ];
 /// Jeden slot stylu: klic nastaveni -> hodnota (jen klice ze STYLE_KEYS).
 pub type StyleSlot = serde_json::Map<String, serde_json::Value>;
@@ -191,6 +192,16 @@ pub struct Settings {
     pub outline_passed_color: String,
     /// Tloustka obrysu v dp (1..6).
     pub outline_width_dp: u32,
+    /// Obrys specialnich klaves (Shift, ?123, Backspace) v barve akcentu.
+    pub special_outline: bool,
+    /// Druha barva stopy za prstem: konec stopy ("" = jen jedna barva).
+    pub trail_color2: String,
+    /// Druha barva pismen po uspesnem tahu: pismena plynule prechazeji z `glow_color` do teto barvy ("" = vypnuto).
+    pub glow_color2: String,
+    /// Druha barva znaku po klepnuti: klepnuti stridaji obe barvy ("" = vypnuto).
+    pub tap_text_color2: String,
+    /// Druha barva obrysu po klepnuti: klepnuti stridaji obe barvy ("" = vypnuto).
+    pub outline_tap_color2: String,
     /// Makro prirazene primo klavese: puvodni znak pozice -> id makra.
     pub key_macros: BTreeMap<String, u32>,
     /// Makro prirazene podrzeni klavesy (klavesa si drzi znak i vzhled): puvodni znak pozice -> id makra.
@@ -290,6 +301,11 @@ impl Settings {
             outline_hover_color: String::new(),
             outline_passed_color: String::new(),
             outline_width_dp: 2,
+            special_outline: true,
+            trail_color2: String::new(),
+            glow_color2: String::new(),
+            tap_text_color2: String::new(),
+            outline_tap_color2: String::new(),
             key_macros: BTreeMap::new(),
             key_macros_hold: BTreeMap::new(),
             key_macro_faces: BTreeMap::new(),
@@ -601,6 +617,10 @@ impl Settings {
         fix_optional_color(&mut self.outline_hover_color);
         fix_optional_color(&mut self.outline_passed_color);
         self.outline_width_dp = self.outline_width_dp.clamp(1, 6);
+        fix_optional_color(&mut self.trail_color2);
+        fix_optional_color(&mut self.glow_color2);
+        fix_optional_color(&mut self.tap_text_color2);
+        fix_optional_color(&mut self.outline_tap_color2);
         fix_color_or_rainbow(&mut self.glow_color, &d.glow_color);
         fix_color(&mut self.accent_color, &d.accent_color);
         fix_color(&mut self.custom_background, &d.custom_background);
@@ -1184,5 +1204,28 @@ mod tests {
         assert_eq!(s.tap_effect, "ghost");
         let s = Settings::from_json(r#"{"tap_effect":"bogus"}"#).unwrap();
         assert_eq!(s.tap_effect, Settings::default().tap_effect);
+    }
+
+    #[test]
+    fn special_outline_and_second_state_colors() {
+        let d = Settings::default();
+        assert!(d.special_outline);
+        assert_eq!(
+            (d.trail_color2.as_str(), d.glow_color2.as_str(), d.tap_text_color2.as_str(), d.outline_tap_color2.as_str()),
+            ("", "", "", "")
+        );
+        let s = Settings::from_json(
+            r##"{"special_outline":false,"trail_color2":"#abcdef","glow_color2":"rainbow","tap_text_color2":"bad","outline_tap_color2":"#00ff00"}"##,
+        )
+        .unwrap();
+        assert!(!s.special_outline);
+        assert_eq!(
+            (s.trail_color2.as_str(), s.glow_color2.as_str(), s.tap_text_color2.as_str(), s.outline_tap_color2.as_str()),
+            ("#ABCDEF", "", "", "#00FF00")
+        );
+        for k in ["special_outline", "trail_color2", "glow_color2", "tap_text_color2", "outline_tap_color2"] {
+            assert!(STYLE_KEYS.contains(&k), "{k}");
+        }
+        assert_eq!(Settings::from_json(&s.to_json()).unwrap(), s);
     }
 }

@@ -231,6 +231,16 @@
     <string name="style_load">Load</string>
     <string name="style_only_select">Just select</string>
     <string name="yoda">Yoda</string>
+    <string name="sec_second_colors">Second colors</string>
+    <string name="trail_color2">Second trail color</string>
+    <string name="trail_color2_hint">The end of the trail behind the finger fades into this color</string>
+    <string name="glow_color2">Second color of letters after swipe</string>
+    <string name="glow_color2_hint">The letters of the word blend smoothly from the letter color into this color</string>
+    <string name="tap_text_color2">Second character color after tap</string>
+    <string name="outline_tap_color2">Second outline color after tap</string>
+    <string name="tap2_hint">Taps alternate the first and second color</string>
+    <string name="special_outline">Outline on special keys</string>
+    <string name="special_outline_hint">Shift, ?123 and delete get an outline in the accent color</string>
     <string name="sec_advanced">Advanced</string>
     <string name="sec_adv_positions">Positions and hints</string>
     <string name="sec_extra_states">Colors by finger</string>

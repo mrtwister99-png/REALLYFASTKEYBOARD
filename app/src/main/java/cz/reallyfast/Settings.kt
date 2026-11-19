@@ -95,6 +95,15 @@ class Settings(val json: JSONObject) {
     val outlinePassedColor: String get() = json.optString("outline_passed_color", "")
     val outlineWidthDp: Int get() = json.optInt("outline_width_dp", 2).coerceIn(1, 6)
 
+    /** Obrys specialnich klaves (Shift, ?123, Backspace) v barve akcentu. */
+    val specialOutline: Boolean get() = json.optBoolean("special_outline", true)
+
+    /** Druhe barvy stavu: konec stopy, konec prechodu pismen po tahu, druha barva znaku / obrysu po klepnuti. */
+    val trailColor2: String get() = json.optString("trail_color2", "")
+    val glowColor2: String get() = json.optString("glow_color2", "")
+    val tapTextColor2: String get() = json.optString("tap_text_color2", "")
+    val outlineTapColor2: String get() = json.optString("outline_tap_color2", "")
+
     /** Makra prirazena klavesam: puvodni kod pozice (`Key.src`) -> id makra. Sestavi se jednou pro kazde nastaveni. */
     val keyMacros: SparseIntArray by lazy { intMap("key_macros") }
 
