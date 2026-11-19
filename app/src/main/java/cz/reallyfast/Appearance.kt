@@ -10,6 +10,7 @@ import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.os.Build
 import android.os.Bundle
+import android.os.SystemClock
 import android.text.Editable
 import android.text.InputFilter
 import android.text.InputType
@@ -50,6 +51,16 @@ class AppearanceActivity : SettingsScreen() {
     private lateinit var preview: KeyboardView
     private lateinit var previewBox: LinearLayout
     private lateinit var slotBar: LinearLayout
+    private lateinit var headTop: LinearLayout
+    private lateinit var actionRow: LinearLayout
+    private lateinit var undoBtn: TextView
+    private lateinit var saveBtn: TextView
+
+    // Historie zmen vzhledu pro tlacitko Zpet: snimky nastaveni pred zmenou (rychle po sobe jdouci zmeny = jeden krok).
+    private val undoStack = ArrayList<String>()
+    private var lastSnap = ""
+    private var lastChangeAt = 0L
+    private var restoring = false
     private var advancedOpen = false
 
     // Vlastni styly (sloty 1-5).
@@ -109,6 +120,18 @@ class AppearanceActivity : SettingsScreen() {
         root.orientation = LinearLayout.VERTICAL
         root.setBackgroundColor(bg)
         root.fitsSystemWindows = true
+        lastSnap = RustBridge.settings.json.toString()
+
+        // Pripnuta hlavicka nahore: nadpis, zalozky Hlavni / Waiting a pod nimi plovouci vyber stylu 1-5.
+        val header = LinearLayout(this)
+        header.orientation = LinearLayout.VERTICAL
+        header.setPadding(dp(16f), dp(20f), dp(16f), 0)
+        headTop = LinearLayout(this)
+        headTop.orientation = LinearLayout.VERTICAL
+        header.addView(headTop, rowParams())
+        slotBar = buildSlotBar()
+        header.addView(slotBar, rowParams())
+        root.addView(header, rowParams())
 
         val scroll = ScrollView(this)
         tabScroll = scroll
@@ -195,9 +218,9 @@ class AppearanceActivity : SettingsScreen() {
         kv.swipeAllowed = false
         kv.voiceAllowed = false
         box.addView(kv, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
-        // Vyber stylu 1-5 je pripnuty hned nad nahledem, aby byl stale videt (vybrany je zvyraznen).
-        slotBar = buildSlotBar()
-        root.addView(slotBar, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+        // Nad nahledem: vlevo Zpet (vraci zmeny vzhledu), vpravo Ulozit (do vybraneho stylu); oba sviti az po zmene.
+        actionRow = buildActionRow()
+        root.addView(actionRow, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
         root.addView(box, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
         preview = kv
         previewBox = box
@@ -248,6 +271,8 @@ class AppearanceActivity : SettingsScreen() {
     }
 
     override fun onSettingsChanged() {
+        if (!restoring) trackChange()
+        updateActions()
         updatePreview()
         updateStatus()
         paintPills()
@@ -275,6 +300,7 @@ class AppearanceActivity : SettingsScreen() {
         previewBox.visibility = if (imeVisible && !editing) View.GONE else View.VISIBLE
         preview.visibility = if (imeVisible && editing) View.GONE else View.VISIBLE
         slotBar.visibility = previewBox.visibility
+        actionRow.visibility = previewBox.visibility
     }
 
     /** Radek nahledu: pri uprave klavesy tri tlacitka, jinak napsany text a TEST. */
@@ -489,7 +515,7 @@ class AppearanceActivity : SettingsScreen() {
     // ------------------------------------------------------------------ obsah
 
     private fun build(container: LinearLayout) {
-        title(container, getString(R.string.appearance_open))
+        title(headTop, getString(R.string.appearance_open))
 
         // Dve zalozky: "Hlavni" (vse) a "Waiting ..." (zamcena, dokud se neodemkne).
         extraOpen = Lantern.lit(this)
@@ -515,7 +541,7 @@ class AppearanceActivity : SettingsScreen() {
         }
         val tlp = rowParams()
         tlp.topMargin = dp(14f)
-        container.addView(tabs, tlp)
+        headTop.addView(tabs, tlp)
 
         mainTab = LinearLayout(this)
         mainTab.orientation = LinearLayout.VERTICAL
@@ -527,10 +553,7 @@ class AppearanceActivity : SettingsScreen() {
         buildMain(mainTab)
         if (extraOpen) buildExtra(extraTab)
         // Uplne dole pod obema zalozkami: ulozeni soucasneho vzhledu do vybraneho slotu stylu.
-        val saveStyle = buttonView(getString(R.string.style_save), accent) { saveSlot() }
-        val sslp = rowParams()
-        sslp.topMargin = dp(26f)
-        container.addView(saveStyle, sslp)
+        updateActions()
         hintText(container, getString(R.string.style_slots_hint))
         applyPickMode()
         if (extraOpen && intent?.getBooleanExtra(Lantern.MOTH, false) == true) showTab(1)
@@ -787,7 +810,7 @@ class AppearanceActivity : SettingsScreen() {
     private fun buildSlotBar(): LinearLayout {
         val bar = LinearLayout(this)
         bar.gravity = Gravity.CENTER_VERTICAL
-        bar.setPadding(dp(22f), dp(6f), dp(16f), dp(6f))
+        bar.setPadding(dp(6f), dp(10f), dp(2f), dp(2f))
         val cap = label(getString(R.string.style_slots).uppercase(), 11f, dim)
         cap.letterSpacing = 0.08f
         bar.addView(cap, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
@@ -806,6 +829,72 @@ class AppearanceActivity : SettingsScreen() {
             ?: remembered.takeIf { it in 0 until STYLE_SLOTS } ?: -1
         paintSlots()
         return bar
+    }
+
+    /** Zaznamena zmenu nastaveni do historie; zmeny blize nez UNDO_MERGE_MS (tah posuvniku) tvori jeden krok. */
+    private fun trackChange() {
+        val cur = RustBridge.settings.json.toString()
+        if (cur == lastSnap) return
+        val now = SystemClock.uptimeMillis()
+        if (undoStack.isEmpty() || now - lastChangeAt > UNDO_MERGE_MS) {
+            undoStack.add(lastSnap)
+            if (undoStack.size > UNDO_MAX) undoStack.removeAt(0)
+        }
+        lastChangeAt = now
+        lastSnap = cur
+    }
+
+    private fun undo() {
+        if (undoStack.isEmpty()) return
+        val snap = undoStack.removeAt(undoStack.size - 1)
+        restoring = true
+        try {
+            RustBridge.setSettings(JSONObject(snap))
+        } finally {
+            restoring = false
+        }
+        lastChangeAt = 0L
+        lastSnap = RustBridge.settings.json.toString()
+        updateActions()
+    }
+
+    /** Ulozit svici, kdyz se vzhled lisi od vybraneho stylu (bez vybraneho stylu po jakekoli zmene). */
+    private fun saveEnabled() = if (chosenSlot in 0 until STYLE_SLOTS) !slotMatches(chosenSlot) else undoStack.isNotEmpty()
+
+    private fun buildActionRow(): LinearLayout {
+        val row = LinearLayout(this)
+        row.gravity = Gravity.CENTER_VERTICAL
+        row.setPadding(dp(16f), dp(6f), dp(16f), dp(6f))
+        val u = label("\u2190", 22f)
+        u.gravity = Gravity.CENTER
+        u.contentDescription = getString(R.string.undo_change)
+        u.setOnClickListener { undo() }
+        undoBtn = u
+        row.addView(u, LinearLayout.LayoutParams(dp(56f), dp(40f)))
+        row.addView(View(this), LinearLayout.LayoutParams(0, 1, 1f))
+        val s = label(getString(R.string.save), 15f)
+        s.gravity = Gravity.CENTER
+        s.typeface = Typeface.DEFAULT_BOLD
+        s.setPadding(dp(24f), 0, dp(24f), 0)
+        s.setOnClickListener { saveSlot() }
+        saveBtn = s
+        row.addView(s, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, dp(40f)))
+        return row
+    }
+
+    private fun updateActions() {
+        val a = accent
+        val onA = if (Theme.luminance(a) > 0.55f) 0xFF111113.toInt() else 0xFFFFFFFF.toInt()
+        val canUndo = undoStack.isNotEmpty()
+        undoBtn.isEnabled = canUndo
+        undoBtn.alpha = if (canUndo) 1f else 0.3f
+        undoBtn.setTextColor(text)
+        undoBtn.background = rounded(field, dp(12f).toFloat())
+        val canSave = saveEnabled()
+        saveBtn.isEnabled = canSave
+        saveBtn.alpha = if (canSave) 1f else 0.3f
+        saveBtn.setTextColor(if (canSave) onA else text)
+        saveBtn.background = rounded(if (canSave) a else field, dp(12f).toFloat())
     }
 
     private fun rememberSlot(i: Int) {
@@ -1269,6 +1358,8 @@ class AppearanceActivity : SettingsScreen() {
 
     private companion object {
         const val STYLE_SLOTS = 5
+        const val UNDO_MERGE_MS = 700L
+        const val UNDO_MAX = 50
         val EXTRA_EFFECTS = setOf("orbit", "pop")
         const val UI_PREFS = "appearance_ui"
         const val KEY_CHOSEN_SLOT = "chosen_slot"

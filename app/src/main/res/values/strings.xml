@@ -39,6 +39,7 @@
     <string name="swipe_adapt">Přizpůsobit swipe mému psaní</string>
     <string name="swipe_adapt_reset">Zapomenout přizpůsobení swipe</string>
     <string name="swipe_adapt_reset_done">Přizpůsobení swipe smazáno</string>
+    <string name="undo_change">Vrátit poslední změnu</string>
     <string name="back">Zpět</string>
     <string name="menu_emoji">Emoji</string>
     <string name="menu_settings">Nastavení klávesnice</string>
@@ -228,7 +229,7 @@
     <string name="color_default">Výchozí</string>
     <string name="color_rainbow">Duha</string>
     <string name="style_slots">Moje styly</string>
-    <string name="style_slots_hint">Styly 1–5 jsou nad náhledem; klepnutím styl vyberete a načtete. Tlačítko Uložit styl úplně dole uloží aktuální vzhled do vybraného stylu.</string>
+    <string name="style_slots_hint">Styly 1–5 jsou nahoře; klepnutím styl vyberete a načtete. Tlačítko Uložit vpravo dole uloží aktuální vzhled do vybraného stylu, šipka vlevo dole vrací změny.</string>
     <string name="style_slot_n">Styl %1$d</string>
     <string name="style_save">Uložit styl</string>
     <string name="style_saved">Vzhled uložen do stylu %1$d</string>

@@ -2,6 +2,9 @@
 
 Jedna věta za verzi, nejnovější nahoře. Čísla verzí odpovídají commitům (`vX.Y: …`).
 
+## 1.23 – 2026-11-19
+Výběr stylu 1–5 je pod záložkami nahoře a při posouvání zůstává; nad náhledem vlevo šipka Zpět (vrací změny vzhledu krok za krokem) a vpravo Uložit (do vybraného stylu), obě se rozsvítí až po změně.
+
 ## 1.22.1 – 2026-11-19
 Efekty po klepnutí (včetně Obvodu a Výbuchu) a barvy po klepnutí fungují i na mezerníku.
 

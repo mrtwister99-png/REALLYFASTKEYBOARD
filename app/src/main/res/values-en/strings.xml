@@ -43,6 +43,7 @@
     <string name="swipe_adapt">Adapt swipe to my typing</string>
     <string name="swipe_adapt_reset">Forget swipe adaptation</string>
     <string name="swipe_adapt_reset_done">Swipe adaptation cleared</string>
+    <string name="undo_change">Undo last change</string>
     <string name="back">Back</string>
     <string name="menu_emoji">Emoji</string>
     <string name="menu_settings">Keyboard settings</string>
@@ -228,7 +229,7 @@
     <string name="color_default">Default</string>
     <string name="color_rainbow">Rainbow</string>
     <string name="style_slots">My styles</string>
-    <string name="style_slots_hint">Styles 1–5 are above the preview; tap one to select and load it. The Save style button at the very bottom stores the current look in the selected style.</string>
+    <string name="style_slots_hint">Styles 1–5 are at the top; tap one to select and load it. The Save button at the bottom right stores the current look in the selected style, the arrow at the bottom left undoes changes.</string>
     <string name="style_slot_n">Style %1$d</string>
     <string name="style_save">Save style</string>
     <string name="style_saved">Look saved to style %1$d</string>
