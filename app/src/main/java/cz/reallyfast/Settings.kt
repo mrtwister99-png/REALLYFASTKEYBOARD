@@ -3,6 +3,7 @@ package cz.reallyfast
 import android.graphics.Color
 import android.util.SparseIntArray
 import org.json.JSONObject
+import kotlin.math.pow
 import kotlin.math.roundToInt
 
 /**
@@ -188,7 +189,7 @@ class Theme(
 
         private fun channel(v: Int): Double {
             val s = v / 255.0
-            return if (s <= 0.03928) s / 12.92 else Math.pow((s + 0.055) / 1.055, 2.4)
+            return if (s <= 0.03928) s / 12.92 else ((s + 0.055) / 1.055).pow(2.4)
         }
 
         /** Relativni jas podle WCAG (0..1). */

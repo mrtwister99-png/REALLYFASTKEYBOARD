@@ -17,7 +17,7 @@ class TypingActivity : SettingsScreen() {
         val container = contentColumn()
         scroll.addView(container, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
         setContentView(scroll)
-        title(container, getString(R.string.typing_open), back = true)
+        title(container, getString(R.string.typing_open))
 
         // Psani
         var box = section(container, getString(R.string.sec_typing))

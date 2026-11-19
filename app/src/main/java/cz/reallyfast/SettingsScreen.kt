@@ -216,38 +216,6 @@ abstract class SettingsScreen : BaseScreen() {
     }
 
     /**
-     * Prepinac nad textovou volbou: zapnuto = `onValue`, vypnuto = `offValue`. Stav se bere z nastaveni
-     * (kdyz je v klici jina hodnota, prepinac je vypnuty) a drzi se v souladu pres posluchace nastaveni.
-     * S `alsoOn` je prepinac zapnuty jen tehdy, kdyz je zapnuty i tento boolean klic; zapnuti ho zapne taky.
-     */
-    protected fun valueSwitchRow(
-        box: LinearLayout, labelRes: Int, key: String, onValue: String, offValue: String, hintRes: Int = 0, alsoOn: String = "",
-    ) {
-        val row = LinearLayout(this)
-        row.gravity = Gravity.CENTER_VERTICAL
-        row.minimumHeight = dp(52f)
-        row.addView(label(getString(labelRes)), LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
-        val sw = ToggleView(this)
-        sw.contentDescription = getString(labelRes)
-        fun isOn(): Boolean {
-            val j = RustBridge.settings.json
-            return j.optString(key) == onValue && (alsoOn.isEmpty() || j.optBoolean(alsoOn))
-        }
-        sw.setChecked(isOn(), false)
-        sw.onChange = { checked ->
-            if (isOn() != checked) {
-                val v = if (checked) onValue else offValue
-                if (checked && alsoOn.isNotEmpty()) updateAll(alsoOn to true, key to v) else update(key, v)
-            }
-        }
-        row.addView(sw)
-        row.setOnClickListener { sw.toggle() }
-        box.addView(row, rowParams())
-        if (hintRes != 0) hintText(box, getString(hintRes))
-        refreshers.add { sw.setChecked(isOn(), false) }
-    }
-
-    /**
      * Posuvnik. `scale` = delitel (100 pro float hodnoty typu 0.5-1.5).
      * Hodnota se zapisuje uz behem tazeni, aby nahled reagoval okamzite.
      */

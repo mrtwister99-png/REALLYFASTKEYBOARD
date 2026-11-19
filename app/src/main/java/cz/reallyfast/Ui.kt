@@ -99,18 +99,16 @@ abstract class BaseScreen : Activity() {
         return h
     }
 
-    /** Velky nadpis obrazovky; s `back` i sipka zpet. Vraci text nadpisu (kvuli animaci). */
-    protected fun title(parent: LinearLayout, s: CharSequence, back: Boolean): TextView {
+    /** Velky nadpis obrazovky se sipkou zpet. Vraci text nadpisu (kvuli animaci). */
+    protected fun title(parent: LinearLayout, s: CharSequence): TextView {
         val row = LinearLayout(this)
         row.gravity = Gravity.CENTER_VERTICAL
-        if (back) {
-            val arrow = label("‹", 34f, dim)
-            arrow.setPadding(0, 0, dp(14f), dp(4f))
-            arrow.contentDescription = getString(R.string.back)
-            arrow.setOnClickListener { finish() }
-            row.addView(arrow)
-        }
-        val t = label(s, if (back) 26f else 30f)
+        val arrow = label("‹", 34f, dim)
+        arrow.setPadding(0, 0, dp(14f), dp(4f))
+        arrow.contentDescription = getString(R.string.back)
+        arrow.setOnClickListener { finish() }
+        row.addView(arrow)
+        val t = label(s, 26f)
         t.typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
         row.addView(t)
         parent.addView(row, rowParams())

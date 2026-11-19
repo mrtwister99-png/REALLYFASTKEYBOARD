@@ -61,7 +61,6 @@ class KeyboardService : InputMethodService(), KeyboardView.Listener,
 
     private var root: LinearLayout? = null
     private var shoal: Shoal? = null
-    private val shoreRect = Rect()
     private val shoreSpot = Rect()
     private val shoreAt = IntArray(2)
     private val ebbRun = Runnable { ebbNow() }

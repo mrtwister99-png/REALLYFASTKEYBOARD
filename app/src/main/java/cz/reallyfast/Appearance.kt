@@ -498,7 +498,7 @@ class AppearanceActivity : SettingsScreen() {
     // ------------------------------------------------------------------ obsah
 
     private fun build(container: LinearLayout) {
-        title(container, getString(R.string.appearance_open), back = true)
+        title(container, getString(R.string.appearance_open))
 
         // Dve zalozky: "Hlavni" (vse) a "Waiting ..." (zamcena, dokud se neodemkne).
         extraOpen = Lantern.lit(this)

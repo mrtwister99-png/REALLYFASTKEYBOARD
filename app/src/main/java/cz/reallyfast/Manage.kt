@@ -30,7 +30,7 @@ abstract class SubScreen : BaseScreen() {
         container.setPadding(dp(16f), dp(20f), dp(16f), dp(40f))
         scroll.addView(container, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
         setContentView(scroll)
-        title(container, getString(titleRes), back = true)
+        title(container, getString(titleRes))
     }
 
     protected fun input(hint: String, multiLine: Boolean = false): EditText = EditText(this).apply {
