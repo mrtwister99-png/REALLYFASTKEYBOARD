@@ -238,6 +238,13 @@
     <string name="style_load">Načíst</string>
     <string name="style_only_select">Jen vybrat</string>
     <string name="yoda">Yoda</string>
+    <string name="sec_advanced">Pokročilé</string>
+    <string name="sec_adv_positions">Polohy a nápovědy</string>
+    <string name="sec_extra_states">Barvy podle prstu</string>
+    <string name="states_hint">Co se děje v čase: klepnutí drží barvu asi 2,5 s a pak bledne; při tahu má klávesa pod prstem jednu barvu, projetá druhou, a po skončení tahu vybledne zpět. Barvy pod prstem a po projetí fungují jen při zapnuté animaci po úspěšném tahu.</string>
+    <string name="tap_effect_paint">Barvy</string>
+    <string name="tap_effect_ghost">Duch</string>
+    <string name="glow_style_fly">Slovo</string>
     <string name="sec_extra_outline">Obrys kláves</string>
     <string name="outline_color">Barva obrysu</string>
     <string name="outline_color2">Druhá barva obrysu</string>
@@ -248,7 +255,7 @@
     <string name="outline_passed_color">Barva obrysu po přejetí prstem</string>
     <string name="outline_hint">Bez barvy obrysu mají klávesy obrys jen při klepnutí, pod prstem a po přejetí (jsou-li tyto barvy zadané).</string>
     <string name="neon_color2">Druhá barva efektu</string>
-    <string name="neon_color2_hint">Neon a Glitch střídají obě barvy (duha = náhodný odstín). Efekt Barvy má vlastní barvy 1–3.</string>
+    <string name="neon_color2_hint">Neon, Glitch a Duch střídají obě barvy (duha = náhodný odstín). Efekt Barvy má vlastní barvy 1–3.</string>
     <string name="yoda_later">Návštěva přijde hned při příštím otevření klávesnice</string>
     <string name="number_divider">Oddělovač</string>
     <string name="number_divider_hint">Čárka mezi číslicemi a písmeny</string>
@@ -297,9 +304,7 @@
     <string name="paint_color3">Barva 3</string>
     <string name="notice_ok">OK</string>
     <string name="downgrade_done">Downgrade byl úspěšný</string>
-    <string name="paint_effect">Efekt Barvy při klepnutí</string>
     <string name="paint_hint">Klepnutá klávesa se na několik sekund obarví a pak pomalu vybledne.</string>
-    <string name="fly_effect">Animace Slovo po tahu</string>
     <string name="fly_hint">Po tahu se písmena slova slétnou nad klávesnici a složí slovo.</string>
     <string name="sec_extra_chars">Znaky</string>
     <string name="sec_extra_details">Rozměry a detaily</string>

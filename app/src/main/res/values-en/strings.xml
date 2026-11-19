@@ -231,6 +231,13 @@
     <string name="style_load">Load</string>
     <string name="style_only_select">Just select</string>
     <string name="yoda">Yoda</string>
+    <string name="sec_advanced">Advanced</string>
+    <string name="sec_adv_positions">Positions and hints</string>
+    <string name="sec_extra_states">Colors by finger</string>
+    <string name="states_hint">What happens over time: a tap keeps its color for about 2.5 s and then fades; during a swipe the key under the finger has one color and passed keys another, and after the swipe they fade back. Colors under the finger and after passing only work while the animation after a successful swipe is on.</string>
+    <string name="tap_effect_paint">Colors</string>
+    <string name="tap_effect_ghost">Ghost</string>
+    <string name="glow_style_fly">Word</string>
     <string name="sec_extra_outline">Key outline</string>
     <string name="outline_color">Outline color</string>
     <string name="outline_color2">Second outline color</string>
@@ -241,7 +248,7 @@
     <string name="outline_passed_color">Outline color after the finger passes</string>
     <string name="outline_hint">Without an outline color, keys get an outline only on tap, under the finger and after a swipe passes (if those colors are set).</string>
     <string name="neon_color2">Second effect color</string>
-    <string name="neon_color2_hint">Neon and Glitch alternate both colors (rainbow = random hue). The Paint effect has its own colors 1–3.</string>
+    <string name="neon_color2_hint">Neon, Glitch and Ghost alternate both colors (rainbow = random hue). The Paint effect has its own colors 1–3.</string>
     <string name="yoda_later">The visitor will come the next time the keyboard opens</string>
     <string name="number_divider">Divider</string>
     <string name="number_divider_hint">A line between the digits and the letters</string>
@@ -290,9 +297,7 @@
     <string name="paint_color3">Color 3</string>
     <string name="notice_ok">OK</string>
     <string name="downgrade_done">Downgrade successful</string>
-    <string name="paint_effect">Paint effect on tap</string>
     <string name="paint_hint">A tapped key is painted for a few seconds and then slowly fades back.</string>
-    <string name="fly_effect">Word animation after swipe</string>
     <string name="fly_hint">After a swipe the letters of the word fly above the keyboard and form the word.</string>
     <string name="sec_extra_chars">Characters</string>
     <string name="sec_extra_details">Dimensions and details</string>

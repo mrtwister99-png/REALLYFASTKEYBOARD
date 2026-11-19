@@ -50,6 +50,7 @@ class AppearanceActivity : SettingsScreen() {
     private lateinit var preview: KeyboardView
     private lateinit var previewBox: LinearLayout
     private lateinit var pond: Shoal
+    private var advancedOpen = false
 
     // Vlastni styly (sloty 1-5).
     private val slotViews = ArrayList<StyleSlotView>()
@@ -555,59 +556,66 @@ class AppearanceActivity : SettingsScreen() {
         paintPills()
     }
 
-    /** Druha zalozka: rozmery a detaily, barvy cislic, prechody klaves a pozadi, zvlastni efekty a znaky na klavesach. */
+    /**
+     * Druha zalozka (uroven 3, experti): barvy podle toho, co prave dela prst (pod prstem, po projeti, po klepnuti),
+     * u znaku i u obrysu, a docasne tlacitko Yoda. Zakladni a pokrocile volby jsou na prvni zalozce.
+     */
     private fun buildExtra(tabBox: LinearLayout) {
-        var box = section(tabBox, getString(R.string.sec_extra_details))
+        val box = section(tabBox, getString(R.string.sec_extra_states))
+        hintText(box, getString(R.string.states_hint)).setPadding(0, dp(10f), 0, dp(6f))
+        colorRow(box, R.string.tap_text_color, "tap_text_color", allowAuto = true)
+        colorRow(box, R.string.hover_text_color, "hover_text_color", allowAuto = true, dependsOn = "swipe_glow")
+        colorRow(box, R.string.passed_text_color, "passed_text_color", allowAuto = true, dependsOn = "swipe_glow")
+        colorRow(box, R.string.outline_tap_color, "outline_tap_color", allowAuto = true)
+        colorRow(box, R.string.outline_hover_color, "outline_hover_color", allowAuto = true, dependsOn = "swipe_glow")
+        colorRow(box, R.string.outline_passed_color, "outline_passed_color", allowAuto = true, dependsOn = "swipe_glow")
+        hintText(box, getString(R.string.outline_hint))
+        // Docasne pro zkouseni (pozdeji pryc): navsteva hned.
+        buttonRow(box, getString(R.string.yoda), accent) { knock() }
+    }
+
+    /** Pokrocile (uroven 2): polohy a napovedy, detaily, barvy cislic, prechody (druhe barvy), obrys a barvy efektu. */
+    private fun buildAdvanced(adv: LinearLayout) {
+        var box = section(adv, getString(R.string.sec_adv_positions))
+        labelAdjustButton = adjustRow(box, R.string.label_pos, R.string.label_adjust, true)
+        colorRow(box, R.string.hint_color, "hint_color", allowAuto = true)
+        hintAdjustButton = adjustRow(box, R.string.layout_hint_pos, R.string.hint_adjust, false)
+        sliderRow(box, R.string.hint_size, "hint_percent", 60, 180, 1) { getString(R.string.unit_percent, it) }
+
+        box = section(adv, getString(R.string.sec_extra_details))
         sliderRow(box, R.string.key_gap, "key_gap_dp", 1, 10, 1) { getString(R.string.unit_dp, it) }
         sliderRow(box, R.string.row_gap, "row_gap_dp", 2, 16, 1) { getString(R.string.unit_dp, it) }
-        switchRow(box, R.string.key_popup, "key_popup", hintRes = R.string.key_popup_hint)
+        colorRow(box, R.string.trail_color, "trail_color", allowAuto = true)
         colorRow(box, R.string.popup_color, "popup_color", allowAuto = true)
-        switchRow(box, R.string.key_shadow, "key_shadow", hintRes = R.string.key_shadow_hint)
         colorRow(box, R.string.alts_color, "alts_color", allowAuto = true)
-        sliderRow(box, R.string.hint_size, "hint_percent", 60, 180, 1) { getString(R.string.unit_percent, it) }
-        switchRow(box, R.string.animations, "animations", hintRes = R.string.animations_hint)
+        sliderRow(box, R.string.label_weight, "label_weight", 100, 900, 1, 100) { it.toString() }
+        sliderRow(box, R.string.digit_weight, "digit_weight", 100, 900, 1, 100) { it.toString() }
 
-        box = section(tabBox, getString(R.string.sec_extra_digits))
+        box = section(adv, getString(R.string.sec_extra_digits))
         colorRow(box, R.string.digit_text_color, "digit_text_color", allowAuto = true)
         colorRow(box, R.string.digit_key_color, "digit_key_color", allowAuto = true)
 
-        box = section(tabBox, getString(R.string.sec_extra_gradients))
+        box = section(adv, getString(R.string.sec_extra_gradients))
         colorRow(box, R.string.key_color2, "key_color2", allowAuto = true, allowRainbow = true)
         hintText(box, getString(R.string.key_color2_hint))
         colorRow(box, R.string.background_color2, "background_color2", allowAuto = true, allowRainbow = true)
         hintText(box, getString(R.string.background_color2_hint))
+        colorRow(box, R.string.text_color2, "text_color2", allowAuto = true, allowRainbow = true)
+        hintText(box, getString(R.string.text_color2_hint))
 
-        box = section(tabBox, getString(R.string.sec_extra_outline))
+        box = section(adv, getString(R.string.sec_extra_outline))
         colorRow(box, R.string.outline_color, "outline_color", allowAuto = true)
         colorRow(box, R.string.outline_color2, "outline_color2", allowAuto = true, allowRainbow = true)
         hintText(box, getString(R.string.outline_color2_hint))
         sliderRow(box, R.string.outline_width, "outline_width_dp", 1, 6, 1) { getString(R.string.unit_dp, it) }
-        colorRow(box, R.string.outline_tap_color, "outline_tap_color", allowAuto = true)
-        colorRow(box, R.string.outline_hover_color, "outline_hover_color", allowAuto = true)
-        colorRow(box, R.string.outline_passed_color, "outline_passed_color", allowAuto = true)
-        hintText(box, getString(R.string.outline_hint))
 
-        box = section(tabBox, getString(R.string.sec_extra_effects))
+        box = section(adv, getString(R.string.sec_extra_effects))
         colorRow(box, R.string.neon_color2, "neon_color2", allowAuto = true, allowRainbow = true)
         hintText(box, getString(R.string.neon_color2_hint))
-        valueSwitchRow(box, R.string.paint_effect, "tap_effect", "paint", "neon", alsoOn = "key_glow")
         colorRow(box, R.string.paint_color1, "paint_color1")
         colorRow(box, R.string.paint_color2, "paint_color2")
         colorRow(box, R.string.paint_color3, "paint_color3")
         hintText(box, getString(R.string.paint_hint))
-        valueSwitchRow(box, R.string.fly_effect, "glow_style", "fly", "blink", alsoOn = "swipe_glow")
-        hintText(box, getString(R.string.fly_hint))
-        // Docasne pro zkouseni (pozdeji pryc): navsteva hned.
-        buttonRow(box, getString(R.string.yoda), accent) { knock() }
-
-        box = section(tabBox, getString(R.string.sec_extra_chars))
-        colorRow(box, R.string.text_color2, "text_color2", allowAuto = true, allowRainbow = true)
-        hintText(box, getString(R.string.text_color2_hint))
-        colorRow(box, R.string.hover_text_color, "hover_text_color", allowAuto = true)
-        colorRow(box, R.string.passed_text_color, "passed_text_color", allowAuto = true)
-        colorRow(box, R.string.tap_text_color, "tap_text_color", allowAuto = true)
-        sliderRow(box, R.string.label_weight, "label_weight", 100, 900, 1, 100) { it.toString() }
-        sliderRow(box, R.string.digit_weight, "digit_weight", 100, 900, 1, 100) { it.toString() }
     }
 
     /** Tlacitko s popiskem, ktere zapne nastavovani polohy (znaku nebo napovedy) nad klavesnici. */
@@ -639,26 +647,53 @@ class AppearanceActivity : SettingsScreen() {
         sliderRow(box, R.string.key_height, "key_height_dp", 48, 72, 1) { getString(R.string.unit_dp, it) }
         sliderRow(box, R.string.key_radius, "key_radius_dp", 2, 22, 1) { getString(R.string.unit_dp, it) }
         sliderRow(box, R.string.key_text_size, "key_text_percent", 70, 150, 1) { getString(R.string.unit_percent, it) }
-        labelAdjustButton = adjustRow(box, R.string.label_pos, R.string.label_adjust, true)
 
-        // Klavesy a efekty
+        // Klavesy a efekty (zakladni: zapnout / vybrat)
         box = section(tabBox, getString(R.string.sec_effects))
         switchRow(box, R.string.key_hints, "key_hints")
-        colorRow(box, R.string.hint_color, "hint_color", allowAuto = true)
-        hintAdjustButton = adjustRow(box, R.string.layout_hint_pos, R.string.hint_adjust, false)
         switchRow(box, R.string.swipe_trail, "swipe_trail")
-        colorRow(box, R.string.trail_color, "trail_color", allowAuto = true)
-        // Zvlastni styly (Barvy, Slovo) se zapinaji na druhe zalozce; pri jejich aktivaci neni zadna volba vybrana.
-        choiceRow(box, R.string.tap_effect_label, listOf("none", "neon", "glitch"),
-            listOf(getString(R.string.effect_none), getString(R.string.tap_effect_neon), getString(R.string.tap_effect_glitch)),
+        switchRow(box, R.string.key_popup, "key_popup", hintRes = R.string.key_popup_hint)
+        switchRow(box, R.string.key_shadow, "key_shadow", hintRes = R.string.key_shadow_hint)
+        switchRow(box, R.string.animations, "animations", hintRes = R.string.animations_hint)
+        choiceRow(box, R.string.tap_effect_label, listOf("none", "neon", "glitch", "paint", "ghost"),
+            listOf(
+                getString(R.string.effect_none), getString(R.string.tap_effect_neon),
+                getString(R.string.tap_effect_glitch), getString(R.string.tap_effect_paint),
+                getString(R.string.tap_effect_ghost),
+            ),
             { val j = RustBridge.settings.json; if (j.optBoolean("key_glow")) j.optString("tap_effect") else "none" },
             { v -> if (v == "none") update("key_glow", false) else updateAll("key_glow" to true, "tap_effect" to v) })
         colorRow(box, R.string.neon_color, "neon_color")
-        choiceRow(box, R.string.glow_style_label, listOf("none", "blink", "fill"),
-            listOf(getString(R.string.anim_none), getString(R.string.glow_style_blink), getString(R.string.glow_style_fill)),
+        choiceRow(box, R.string.glow_style_label, listOf("none", "blink", "fill", "fly"),
+            listOf(
+                getString(R.string.anim_none), getString(R.string.glow_style_blink),
+                getString(R.string.glow_style_fill), getString(R.string.glow_style_fly),
+            ),
             { val j = RustBridge.settings.json; if (j.optBoolean("swipe_glow")) j.optString("glow_style") else "none" },
             { v -> if (v == "none") update("swipe_glow", false) else updateAll("swipe_glow" to true, "glow_style" to v) })
+        hintText(box, getString(R.string.fly_hint))
         colorRow(box, R.string.glow_color, "glow_color", allowRainbow = extraOpen)
+
+        // Pokrocile (sbalene): polohy, detaily, druhe barvy, obrys, barvy efektu
+        val advCard = cardBox(tabBox)
+        (advCard.layoutParams as LinearLayout.LayoutParams).topMargin = dp(26f)
+        val advHead = LinearLayout(this)
+        advHead.gravity = Gravity.CENTER_VERTICAL
+        advHead.minimumHeight = dp(56f)
+        advHead.addView(label(getString(R.string.sec_advanced), 16f), LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+        val advArrow = label(if (advancedOpen) "⌄" else "›", 24f, dim)
+        advHead.addView(advArrow)
+        advCard.addView(advHead, rowParams())
+        val adv = LinearLayout(this)
+        adv.orientation = LinearLayout.VERTICAL
+        adv.visibility = if (advancedOpen) View.VISIBLE else View.GONE
+        tabBox.addView(adv, rowParams())
+        advHead.setOnClickListener {
+            advancedOpen = !advancedOpen
+            adv.visibility = if (advancedOpen) View.VISIBLE else View.GONE
+            advArrow.text = if (advancedOpen) "⌄" else "›"
+        }
+        buildAdvanced(adv)
 
         // Jazyk
         box = section(tabBox, getString(R.string.sec_language))

@@ -384,7 +384,7 @@ abstract class SettingsScreen : BaseScreen() {
     }
 
     /** Barevny radek: popisek a vpravo kulaty vzorek aktualni barvy; klepnuti otevre vyber barvy nahore. */
-    protected fun colorRow(box: LinearLayout, labelRes: Int, key: String, allowAuto: Boolean = false, allowRainbow: Boolean = false) {
+    protected fun colorRow(box: LinearLayout, labelRes: Int, key: String, allowAuto: Boolean = false, allowRainbow: Boolean = false, dependsOn: String = "") {
         val row = LinearLayout(this)
         row.gravity = Gravity.CENTER_VERTICAL
         row.minimumHeight = dp(52f)
@@ -419,8 +419,18 @@ abstract class SettingsScreen : BaseScreen() {
                 onRainbow = if (allowRainbow) ({ if (shownColor(key) != Theme.RAINBOW) update(key, Theme.RAINBOW) }) else null)
         }
         box.addView(row, rowParams())
+        // Radek zavisly na prepinaci je zasedly a nereaguje, dokud je ten vypnuty.
+        fun applyEnabled() {
+            val on = dependsOn.isEmpty() || RustBridge.settings.json.optBoolean(dependsOn)
+            row.isEnabled = on
+            row.alpha = if (on) 1f else 0.4f
+        }
+        applyEnabled()
         paint()
-        refreshers.add { paint() }
+        refreshers.add {
+            paint()
+            applyEnabled()
+        }
     }
 
     /**

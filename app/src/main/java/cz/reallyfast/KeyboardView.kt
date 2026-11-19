@@ -64,6 +64,8 @@ class KeyboardView(context: Context) : View(context) {
         var neonAt = 0L
         /** Barva neonu tohoto klepnuti (stridani dvou barev / duha); 0 = barva efektu. Nastavuje se pri stisku. */
         var neonCol = 0
+        /** Cas klepnuti pro efekt Duch (dozvuk), 0 = zadny. */
+        var ghostAt = 0L
         var changedAt = 0L
 
         /** Cas posledniho klepnuti (pro barvu znaku po klepnuti); 0 = zadne. */
@@ -207,6 +209,9 @@ class KeyboardView(context: Context) : View(context) {
         private const val TAP_TEXT_MS = 2500L
         private const val TAP_TEXT_FADE_MS = 400f
         private const val PASSED_FADE_MS = 500f
+        private const val GHOST_MS = 800L
+        private const val GHOST_STEP_MS = 110L
+        private const val GHOST_ECHOES = 3
         // Styl "slovo": pismena vzletnou z klaves, slozi slovo, chvili drzi a vybledou.
         private const val FLY_MS = 450L
         // Po slozeni slovo vyskoci na 1.5x a problikne (POP), pomalu se vrati na 100 % (SETTLE), pak zmizi.
@@ -363,6 +368,8 @@ class KeyboardView(context: Context) : View(context) {
     private var textPercent = 100
     private var glowFillStyle = false
     private var glitchEffect = false
+    private var ghostEffect = false
+    private val ghostPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE }
     private var glowFlyStyle = false
     // Efekt "barvy": pevna tabulka obarvenych klaves podle `src` (index barvy, cas obarveni, doba drzeni); jen v pameti.
     private var paintEffect = false
@@ -528,6 +535,7 @@ class KeyboardView(context: Context) : View(context) {
         glowFillStyle = s.glowStyle == "fill"
         glowFlyStyle = s.glowStyle == "fly"
         glitchEffect = s.tapEffect == "glitch"
+        ghostEffect = s.tapEffect == "ghost"
         paintEffect = s.tapEffect == "paint" && s.keyGlow
         val sig = s.tapEffect + s.keyGlow
         if (sig != effectSig) {
@@ -1168,6 +1176,25 @@ class KeyboardView(context: Context) : View(context) {
                 fill.color = (nc and 0x00FFFFFF) or ((90f * neonA).toInt().coerceIn(0, 255) shl 24)
                 rect.set(cx - hw - g, cy - hh - g, cx + hw + g, cy + hh + g)
                 canvas.drawRoundRect(rect, radius + g, radius + g, fill)
+            }
+            if (k.ghostAt != 0L) {
+                // Duch: za klavesou se rozbehnou 3 dozvuky (obrysy), kazdy o kousek pozdeji, rostou a miznou.
+                val gt = now - k.ghostAt
+                if (gt >= GHOST_MS + (GHOST_ECHOES - 1) * GHOST_STEP_MS) {
+                    k.ghostAt = 0L
+                } else {
+                    animating = true
+                    ghostPaint.strokeWidth = 2f * density
+                    for (e in 0 until GHOST_ECHOES) {
+                        val q = (gt - e * GHOST_STEP_MS) / GHOST_MS.toFloat()
+                        if (q <= 0f || q >= 1f) continue
+                        val grow = (2.5f + 3.5f * (e + 1)) * density * q
+                        val a = (170f * (1f - q) * (1f - q)).toInt().coerceIn(0, 255)
+                        ghostPaint.color = (nc and 0x00FFFFFF) or (a shl 24)
+                        rect.set(cx - hw - grow, cy - hh - grow, cx + hw + grow, cy + hh + grow)
+                        canvas.drawRoundRect(rect, radius + grow, radius + grow, ghostPaint)
+                    }
+                }
             }
             if (dimKey) keyColor = tint(keyColor, theme.background, 0.7f)
             if (gradKey) {
@@ -2055,7 +2082,7 @@ class KeyboardView(context: Context) : View(context) {
                 var n = 0
                 for (k in keys) {
                     if (k.isLetter && n < 4 && k.code.toChar() in "ahoj") {
-                        if (glitchEffect) startGlitch(k, now + n * 140L) else { k.neonCol = nextNeon(); k.neonAt = now }
+                        if (glitchEffect) startGlitch(k, now + n * 140L) else if (ghostEffect) { k.neonCol = nextNeon(); k.ghostAt = now + n * 140L } else { k.neonCol = nextNeon(); k.neonAt = now }
                         n++
                     }
                 }
@@ -2299,6 +2326,9 @@ class KeyboardView(context: Context) : View(context) {
                     paintKey(k, now)
                 } else if (glitchEffect) {
                     startGlitch(k, now)
+                } else if (ghostEffect) {
+                    k.neonCol = nextNeon()
+                    k.ghostAt = now
                 } else {
                     k.neonCol = nextNeon()
                     k.neonAt = -1L

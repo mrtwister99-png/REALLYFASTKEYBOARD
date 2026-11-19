@@ -10,7 +10,7 @@ pub const LAYOUTS: [&str; 2] = ["qwertz", "qwerty"];
 pub const KEY_PLACES: [&str; 3] = ["left", "right", "hidden"];
 pub const THEMES: [&str; 4] = ["dark", "light", "oled_black", "custom"];
 pub const GLOW_STYLES: [&str; 3] = ["blink", "fill", "fly"];
-pub const TAP_EFFECTS: [&str; 3] = ["neon", "glitch", "paint"];
+pub const TAP_EFFECTS: [&str; 4] = ["neon", "glitch", "paint", "ghost"];
 /// Zvlastni hodnota barvy "duha": povolena jen u druhych barev prechodu (klavesy, pozadi, znaky, obrys),
 /// u druhe barvy efektu po klepnuti a u barvy pismen po tahu.
 pub const RAINBOW: &str = "rainbow";
@@ -109,7 +109,7 @@ pub struct Settings {
     pub hint_color: String,
     /// Velikost znaku napovedy v procentech (100 = vychozi).
     pub hint_percent: u32,
-    /// Efekt po klepnuti na klavesu: "neon", "glitch" nebo "paint". Zapina ho `key_glow`.
+    /// Efekt po klepnuti na klavesu: "neon", "glitch", "paint" nebo "ghost" (dozvuk). Zapina ho `key_glow`.
     pub tap_effect: String,
     /// Barva neonu po klepnuti.
     pub neon_color: String,
@@ -1176,5 +1176,13 @@ mod tests {
         assert_eq!(slot["outline_color"], "#123456");
         let back = Settings::default().with_style(&slot);
         assert_eq!((back.outline_color.as_str(), back.neon_color2.as_str()), ("#123456", "rainbow"));
+    }
+
+    #[test]
+    fn ghost_tap_effect_is_valid() {
+        let s = Settings::from_json(r#"{"tap_effect":"ghost"}"#).unwrap();
+        assert_eq!(s.tap_effect, "ghost");
+        let s = Settings::from_json(r#"{"tap_effect":"bogus"}"#).unwrap();
+        assert_eq!(s.tap_effect, Settings::default().tap_effect);
     }
 }
