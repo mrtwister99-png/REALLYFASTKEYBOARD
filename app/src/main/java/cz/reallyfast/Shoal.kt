@@ -25,7 +25,13 @@ class Shoal(context: Context, private val onNet: () -> Unit) : View(context) {
         const val SINK = 800f
         const val TOTAL = RISE + GLIDE + HOLD + SINK
         const val SHOWN = 0.2f
-        const val DROP_MS = 250L
+        // Odmena po chyceni: hlava vyjede cela, chvili stoji, otoci se o 360 stupnu, chvili stoji a zajede zpet.
+        const val UP_MS = 700f
+        const val STAY1_MS = 900f
+        const val SPIN_MS = 1100f
+        const val STAY2_MS = 700f
+        const val DOWN_MS = 800f
+        const val PRIZE_MS = UP_MS + STAY1_MS + SPIN_MS + STAY2_MS + DOWN_MS
     }
 
     private val density = resources.displayMetrics.density
@@ -38,6 +44,9 @@ class Shoal(context: Context, private val onNet: () -> Unit) : View(context) {
     /** Vyplav v souradnicich pohledu. */
     val spot = Rect()
     private var lift = 0f
+    private var show = 0f
+    private var flip = 1f
+    private var from = SHOWN
     private var drift = 0f
     private var fromRight = false
     private var swept = false
@@ -67,7 +76,9 @@ class Shoal(context: Context, private val onNet: () -> Unit) : View(context) {
         if (pearl == null) return
         fromRight = Math.random() < 0.5
         swept = false
-        dropping = false
+        prize = false
+        show = 0f
+        flip = 1f
         lift = 0f
         drift = 0f
         spot.setEmpty()
@@ -96,25 +107,42 @@ class Shoal(context: Context, private val onNet: () -> Unit) : View(context) {
         anim = null
         a?.removeAllListeners()
         a?.cancel()
-        dropping = false
+        prize = false
+        show = 0f
+        flip = 1f
         lift = 0f
         spot.setEmpty()
         if (visibility != GONE) visibility = GONE
+        restoreStrip()
     }
 
-    private fun drop() {
+    /** Pruh nad klavesnici se po odmene vrati na puvodni vysku. */
+    private fun restoreStrip() {
+        val lp = layoutParams ?: return
+        if (lp.height != strip) {
+            lp.height = strip
+            layoutParams = lp
+        }
+    }
+
+    /** Chycena hlava: pruh se zvetsi, aby byla cela videt, a pak probehne odmena (nahoru, stat, otocka, stat, dolu). */
+    private fun reward() {
         val a = anim ?: return
         anim = null
         a.removeAllListeners()
         a.cancel()
-        val d = ValueAnimator.ofFloat(lift, 0f)
-        d.duration = DROP_MS
-        d.interpolator = LinearInterpolator()
-        d.addUpdateListener {
-            lift = it.animatedValue as Float
-            place()
+        from = (SHOWN * lift).coerceIn(0f, 1f)
+        val lp = layoutParams
+        if (lp != null && lp.height < tall) {
+            lp.height = tall
+            layoutParams = lp
         }
-        d.addListener(object : AnimatorListenerAdapter() {
+        prize = true
+        val p = ValueAnimator.ofFloat(0f, PRIZE_MS)
+        p.duration = PRIZE_MS.toLong()
+        p.interpolator = LinearInterpolator()
+        p.addUpdateListener { prizeStep(it.animatedValue as Float) }
+        p.addListener(object : AnimatorListenerAdapter() {
             private var cancelled = false
             override fun onAnimationCancel(animation: Animator) {
                 cancelled = true
@@ -127,12 +155,31 @@ class Shoal(context: Context, private val onNet: () -> Unit) : View(context) {
                 }
             }
         })
-        anim = d
-        dropping = true
-        d.start()
+        anim = p
+        p.start()
     }
 
-    private var dropping = false
+    private var prize = false
+
+    private fun prizeStep(ms: Float) {
+        val t1 = UP_MS
+        val t2 = t1 + STAY1_MS
+        val t3 = t2 + SPIN_MS
+        val t4 = t3 + STAY2_MS
+        flip = 1f
+        when {
+            ms < t1 -> show = from + (1f - from) * out(ms / UP_MS)
+            ms < t2 -> show = 1f
+            ms < t3 -> {
+                show = 1f
+                // Otocka kolem svisle osy: sirka se meni jako cos uhlu, uhel 0 az 360 stupnu.
+                flip = cos(2f * PI.toFloat() * inOut((ms - t2) / SPIN_MS))
+            }
+            ms < t4 -> show = 1f
+            else -> show = 1f - inOut((ms - t4) / DOWN_MS)
+        }
+        place()
+    }
 
     private fun out(x: Float) = 1f - (1f - x) * (1f - x)
     private fun inOut(x: Float) = 0.5f - 0.5f * cos(PI.toFloat() * x)
@@ -164,7 +211,8 @@ class Shoal(context: Context, private val onNet: () -> Unit) : View(context) {
         val w = width
         val h = height
         if (w <= 0 || h <= 0) return
-        val shown = (tall * SHOWN * lift).toInt()
+        if (!prize) show = SHOWN * lift
+        val shown = (tall * show).toInt().coerceAtMost(h)
         if (shown <= 0) {
             spot.setEmpty()
         } else {
@@ -186,14 +234,22 @@ class Shoal(context: Context, private val onNet: () -> Unit) : View(context) {
         val p = pearl ?: return
         if (spot.isEmpty) return
         dst.set(spot.left, spot.top, spot.left + wave, spot.top + tall)
-        canvas.drawBitmap(p, null, dst, paint)
+        if (flip == 1f) {
+            canvas.drawBitmap(p, null, dst, paint)
+        } else {
+            canvas.save()
+            canvas.scale(flip, 1f, spot.left + wave / 2f, spot.top.toFloat())
+            canvas.drawBitmap(p, null, dst, paint)
+            canvas.restore()
+        }
     }
 
     override fun onTouchEvent(e: MotionEvent): Boolean {
-        if (!active || dropping) return false
+        if (!active) return false
+        if (prize) return spot.contains(e.x.toInt(), e.y.toInt())
         if (e.actionMasked == MotionEvent.ACTION_DOWN && spot.contains(e.x.toInt(), e.y.toInt())) {
             swept = true
-            drop()
+            reward()
             onNet()
             return true
         }

@@ -49,7 +49,7 @@ class AppearanceActivity : SettingsScreen() {
 
     private lateinit var preview: KeyboardView
     private lateinit var previewBox: LinearLayout
-    private lateinit var pond: Shoal
+    private lateinit var slotBar: LinearLayout
     private var advancedOpen = false
 
     // Vlastni styly (sloty 1-5).
@@ -195,18 +195,10 @@ class AppearanceActivity : SettingsScreen() {
         kv.swipeAllowed = false
         kv.voiceAllowed = false
         box.addView(kv, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
-        // Navsteva nad celym nahledem (i nad radkem s TEST), stejne jako v klavesnici: pruhledny pruh nad
-        // nahledem, jinak GONE; nepocita se. Dolni cast hlavy zakryje nahled (kresli se az po pruhu).
-        val dock = LinearLayout(this)
-        dock.orientation = LinearLayout.VERTICAL
-        dock.clipChildren = false
-        dock.clipToPadding = false
-        val pondView = Shoal(this) { Toast.makeText(this, Tide.tally(this), Toast.LENGTH_SHORT).show() }
-        pondView.visibility = View.GONE
-        dock.addView(pondView, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, pondView.strip))
-        dock.addView(box, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
-        root.addView(dock, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
-        pond = pondView
+        // Vyber stylu 1-5 je pripnuty hned nad nahledem, aby byl stale videt (vybrany je zvyraznen).
+        slotBar = buildSlotBar()
+        root.addView(slotBar, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+        root.addView(box, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
         preview = kv
         previewBox = box
         rootView = root
@@ -230,7 +222,6 @@ class AppearanceActivity : SettingsScreen() {
         // Odejiti z obrazovky ukonci nastavovani napovedy (bez ulozeni) i zkusebni rezim.
         if (adjusting) finishAdjust()
         if (testMode) stopTest()
-        pond.stop()
         super.onPause()
     }
 
@@ -283,7 +274,7 @@ class AppearanceActivity : SettingsScreen() {
         val editing = editor != null
         previewBox.visibility = if (imeVisible && !editing) View.GONE else View.VISIBLE
         preview.visibility = if (imeVisible && editing) View.GONE else View.VISIBLE
-        if (previewBox.visibility != View.VISIBLE || preview.visibility != View.VISIBLE) pond.stop()
+        slotBar.visibility = previewBox.visibility
     }
 
     /** Radek nahledu: pri uprave klavesy tri tlacitka, jinak napsany text a TEST. */
@@ -540,6 +531,7 @@ class AppearanceActivity : SettingsScreen() {
         val sslp = rowParams()
         sslp.topMargin = dp(26f)
         container.addView(saveStyle, sslp)
+        hintText(container, getString(R.string.style_slots_hint))
         applyPickMode()
         if (extraOpen && intent?.getBooleanExtra(Lantern.MOTH, false) == true) showTab(1)
         paintPills()
@@ -558,7 +550,7 @@ class AppearanceActivity : SettingsScreen() {
 
     /**
      * Druha zalozka (uroven 3, experti): barvy podle toho, co prave dela prst (pod prstem, po projeti, po klepnuti),
-     * u znaku i u obrysu, a docasne tlacitko Yoda. Zakladni a pokrocile volby jsou na prvni zalozce.
+     * u znaku i u obrysu, Zakladni a pokrocile volby jsou na prvni zalozce.
      */
     private fun buildExtra(tabBox: LinearLayout) {
         // Vsechny druhe barvy: prechody (shora dolu), stridani pri klepnuti a konec stopy / prechod pismen po tahu.
@@ -590,8 +582,18 @@ class AppearanceActivity : SettingsScreen() {
         colorRow(box, R.string.outline_hover_color, "outline_hover_color", allowAuto = true, dependsOn = "swipe_glow")
         colorRow(box, R.string.outline_passed_color, "outline_passed_color", allowAuto = true, dependsOn = "swipe_glow")
         hintText(box, getString(R.string.outline_hint))
-        // Docasne pro zkouseni (pozdeji pryc): navsteva hned.
-        buttonRow(box, getString(R.string.yoda), accent) { knock() }
+        // Dalsi efekty po klepnuti (jen ve Waiting): stejny klic jako hlavni vyber, vraceni na "Standard" nastavi Neon.
+        choiceRow(box, R.string.tap_effect_extra_label, listOf("std", "orbit", "pop"),
+            listOf(getString(R.string.tap_effect_std), getString(R.string.tap_effect_orbit), getString(R.string.tap_effect_pop)),
+            { val j = RustBridge.settings.json; if (j.optBoolean("key_glow") && j.optString("tap_effect") in EXTRA_EFFECTS) j.optString("tap_effect") else "std" },
+            { v ->
+                if (v == "std") {
+                    if (RustBridge.settings.json.optString("tap_effect") in EXTRA_EFFECTS) update("tap_effect", "neon")
+                } else {
+                    updateAll("key_glow" to true, "tap_effect" to v)
+                }
+            })
+        hintText(box, getString(R.string.tap_effect_extra_hint))
     }
 
     /** Pokrocile (uroven 2): polohy a napovedy, detaily, barvy cislic, prechody (druhe barvy), obrys a barvy efektu. */
@@ -644,7 +646,6 @@ class AppearanceActivity : SettingsScreen() {
         // Barvy
         var box = section(tabBox, getString(R.string.sec_colors))
         presetRow(box)
-        styleSlotRow(box)
         colorRow(box, R.string.custom_background, "custom_background")
         colorRow(box, R.string.custom_key, "custom_key")
         colorRow(box, R.string.custom_text, "custom_text")
@@ -770,18 +771,6 @@ class AppearanceActivity : SettingsScreen() {
         updateStatus()
     }
 
-    /** Navsteva hned: v otevrene klavesnici, jinak nad nahledem; kdyz neni videt ani nahled, pri pristim otevreni. */
-    private fun knock() {
-        if (Tide.knock?.invoke() == true) return
-        if (previewBox.visibility != View.VISIBLE || preview.visibility != View.VISIBLE) {
-            Tide.moon(this)
-            Toast.makeText(this, R.string.yoda_later, Toast.LENGTH_SHORT).show()
-            return
-        }
-        pond.visibility = View.VISIBLE
-        pond.ebb()
-    }
-
     // ------------------------------------------------------------------ vlastni styly (sloty)
 
     private fun slotJson(i: Int): JSONObject? = RustBridge.settings.json.optJSONArray("style_slots")?.optJSONObject(i)
@@ -794,24 +783,33 @@ class AppearanceActivity : SettingsScreen() {
         return true
     }
 
-    private fun styleSlotRow(box: LinearLayout) {
-        box.addView(label(getString(R.string.style_slots), 15f).also { it.setPadding(0, dp(12f), 0, dp(8f)) }, rowParams())
-        val row = LinearLayout(this)
+    /** Pripnuty pruh se styly 1-5 nad nahledem: vybrany styl je zvyraznen a pamatuje se i po zavreni. */
+    private fun buildSlotBar(): LinearLayout {
+        val bar = LinearLayout(this)
+        bar.gravity = Gravity.CENTER_VERTICAL
+        bar.setPadding(dp(22f), dp(6f), dp(16f), dp(6f))
+        val cap = label(getString(R.string.style_slots).uppercase(), 11f, dim)
+        cap.letterSpacing = 0.08f
+        bar.addView(cap, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+        val size = dp(38f)
         for (i in 0 until STYLE_SLOTS) {
-            val v = StyleSlotView(this, (i + 1).toString())
+            val v = StyleSlotView(this, (i + 1).toString(), size)
             v.contentDescription = getString(R.string.style_slot_n, i + 1)
             v.setOnClickListener { pickSlot(i) }
             slotViews.add(v)
-            val lp = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
-            if (i > 0) lp.leftMargin = dp(8f)
-            row.addView(v, lp)
+            val lp = LinearLayout.LayoutParams(size, size)
+            lp.leftMargin = dp(8f)
+            bar.addView(v, lp)
         }
-        val lp = rowParams()
-        lp.bottomMargin = dp(6f)
-        box.addView(row, lp)
-        hintText(box, getString(R.string.style_slots_hint))
-        chosenSlot = (0 until STYLE_SLOTS).firstOrNull { slotMatches(it) } ?: -1
+        val remembered = getSharedPreferences(UI_PREFS, MODE_PRIVATE).getInt(KEY_CHOSEN_SLOT, -1)
+        chosenSlot = (0 until STYLE_SLOTS).firstOrNull { slotMatches(it) }
+            ?: remembered.takeIf { it in 0 until STYLE_SLOTS } ?: -1
         paintSlots()
+        return bar
+    }
+
+    private fun rememberSlot(i: Int) {
+        getSharedPreferences(UI_PREFS, MODE_PRIVATE).edit().putInt(KEY_CHOSEN_SLOT, i).apply()
     }
 
     private fun paintSlots() {
@@ -826,6 +824,7 @@ class AppearanceActivity : SettingsScreen() {
     /** Klepnuti na slot: vybere ho a nacte; neulozeny soucasny vzhled se nejdriv potvrdi (nebo jen vybrat). */
     private fun pickSlot(i: Int) {
         chosenSlot = i
+        rememberSlot(i)
         paintSlots()
         if (slotMatches(i)) return
         if ((0 until STYLE_SLOTS).none { slotMatches(it) }) {
@@ -848,6 +847,7 @@ class AppearanceActivity : SettingsScreen() {
             return
         }
         RustBridge.saveStyle(i)
+        paintSlots()
         Toast.makeText(this, getString(R.string.style_saved, i + 1), Toast.LENGTH_SHORT).show()
     }
 
@@ -1269,6 +1269,9 @@ class AppearanceActivity : SettingsScreen() {
 
     private companion object {
         const val STYLE_SLOTS = 5
+        val EXTRA_EFFECTS = setOf("orbit", "pop")
+        const val UI_PREFS = "appearance_ui"
+        const val KEY_CHOSEN_SLOT = "chosen_slot"
         const val MAX_ALTS_EDIT = 5
 
 
@@ -1445,7 +1448,7 @@ private class HintPad(context: Context, private val onChange: (Float, Float) -> 
 
 /** Ctvercove tlacitko slotu stylu: pozadi, klavesa a cislo v barvach ulozeneho stylu; vybrany ma obrys v accent barve. */
 @SuppressLint("ViewConstructor")
-private class StyleSlotView(context: Context, private val number: String) : View(context) {
+private class StyleSlotView(context: Context, private val number: String, private val fixed: Int = 0) : View(context) {
     var colors: Theme? = null
         set(value) {
             field = value
@@ -1464,7 +1467,7 @@ private class StyleSlotView(context: Context, private val number: String) : View
     private val rect = android.graphics.RectF()
 
     override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
-        val w = MeasureSpec.getSize(widthMeasureSpec).takeIf { it > 0 } ?: (56f * d).toInt()
+        val w = if (fixed > 0) fixed else MeasureSpec.getSize(widthMeasureSpec).takeIf { it > 0 } ?: (56f * d).toInt()
         setMeasuredDimension(w, w)
     }
 

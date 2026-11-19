@@ -2,6 +2,9 @@
 
 Jedna věta za verzi, nejnovější nahoře. Čísla verzí odpovídají commitům (`vX.Y: …`).
 
+## 1.22 – 2026-11-19
+Výběr stylu 1–5 je připnutý nad náhledem a vybraný styl je stále zvýrazněný (pamatuje se); tlačítko Yoda je pryč; chycená hlava vyjede celá, otočí se o 360° a zajede zpět; ve Waiting dva nové efekty po klepnutí (Obvod a Výbuch).
+
 ## 1.21.4 – 2026-11-19
 targetSdk 35; release se minifikuje a zmenšuje se o nepoužité zdroje; release podpis z local.properties (bez něj varování a debug klíč); AndroidX vypnuto.
 

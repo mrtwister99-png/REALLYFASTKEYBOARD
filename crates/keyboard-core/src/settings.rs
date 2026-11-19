@@ -10,7 +10,7 @@ pub const LAYOUTS: [&str; 2] = ["qwertz", "qwerty"];
 pub const KEY_PLACES: [&str; 3] = ["left", "right", "hidden"];
 pub const THEMES: [&str; 4] = ["dark", "light", "oled_black", "custom"];
 pub const GLOW_STYLES: [&str; 3] = ["blink", "fill", "fly"];
-pub const TAP_EFFECTS: [&str; 4] = ["neon", "glitch", "paint", "ghost"];
+pub const TAP_EFFECTS: [&str; 6] = ["neon", "glitch", "paint", "ghost", "orbit", "pop"];
 /// Zvlastni hodnota barvy "duha": povolena jen u druhych barev prechodu (klavesy, pozadi, znaky, obrys),
 /// u druhe barvy efektu po klepnuti a u barvy pismen po tahu.
 pub const RAINBOW: &str = "rainbow";
@@ -1199,6 +1199,16 @@ mod tests {
         assert_eq!(slot["outline_color"], "#123456");
         let back = Settings::default().with_style(&slot);
         assert_eq!((back.outline_color.as_str(), back.neon_color2.as_str()), ("#123456", "rainbow"));
+    }
+
+    #[test]
+    fn orbit_and_pop_tap_effects_are_valid() {
+        for e in ["orbit", "pop"] {
+            let s = Settings::from_json(&format!(r#"{{"tap_effect":"{e}"}}"#)).unwrap();
+            assert_eq!(s.tap_effect, e);
+            let back = Settings::from_json(&s.to_json()).unwrap();
+            assert_eq!(back.tap_effect, e);
+        }
     }
 
     #[test]

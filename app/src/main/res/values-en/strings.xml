@@ -228,7 +228,7 @@
     <string name="color_default">Default</string>
     <string name="color_rainbow">Rainbow</string>
     <string name="style_slots">My styles</string>
-    <string name="style_slots_hint">Tap a style to select and load it. The Save style button at the very bottom stores the current look in the selected style.</string>
+    <string name="style_slots_hint">Styles 1–5 are above the preview; tap one to select and load it. The Save style button at the very bottom stores the current look in the selected style.</string>
     <string name="style_slot_n">Style %1$d</string>
     <string name="style_save">Save style</string>
     <string name="style_saved">Look saved to style %1$d</string>
@@ -237,7 +237,6 @@
     <string name="style_load_unsaved">The current look isn\'t saved in any style. Load style %1$d and discard it?</string>
     <string name="style_load">Load</string>
     <string name="style_only_select">Just select</string>
-    <string name="yoda">Yoda</string>
     <string name="sec_second_colors">Second colors</string>
     <string name="trail_color2">Second trail color</string>
     <string name="trail_color2_hint">The end of the trail behind the finger fades into this color</string>
@@ -266,7 +265,6 @@
     <string name="outline_hint">Without an outline color, keys get an outline only on tap, under the finger and after a swipe passes (if those colors are set).</string>
     <string name="neon_color2">Second effect color</string>
     <string name="neon_color2_hint">Neon, Glitch and Ghost alternate both colors (rainbow = random hue). The Paint effect has its own colors 1–3.</string>
-    <string name="yoda_later">The visitor will come the next time the keyboard opens</string>
     <string name="number_divider">Divider</string>
     <string name="number_divider_hint">A line between the digits and the letters</string>
     <string name="swipe_adapt_reset_confirm">Clear the swipe adaptation to your typing style? The keyboard will start learning from scratch.</string>
@@ -301,6 +299,11 @@
     <string name="sec_effects">Keys and effects</string>
     <string name="hint_color">Hint color</string>
     <string name="hint_size">Hint size</string>
+    <string name="tap_effect_extra_label">Tap effect (Waiting)</string>
+    <string name="tap_effect_std">Standard</string>
+    <string name="tap_effect_orbit">Orbit</string>
+    <string name="tap_effect_pop">Burst</string>
+    <string name="tap_effect_extra_hint">Orbit: a thicker outline runs around the key from a random spot. Burst: the letter bursts apart and is born again. Standard returns to the choice on the main tab (Neon).</string>
     <string name="tap_effect_label">Tap effect</string>
     <string name="tap_effect_neon">Neon</string>
     <string name="tap_effect_glitch">Glitch</string>

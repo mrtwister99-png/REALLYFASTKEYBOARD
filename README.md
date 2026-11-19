@@ -6,7 +6,7 @@ a velmi podrobným přizpůsobením vzhledu. Logika je v Rustu (`crates/keyboard
 Oprávnění: `VIBRATE` a `RECORD_AUDIO` (jen pro diktování).
 
 **Stav:** verze **1.21.1** (`versionName` v `app/build.gradle.kts`). Funkce a vzhled jsou hotové a pokryté testy
-(181 testů Rustu + 14 testů JNI mostu v JVM). **Nic z toho nebylo vyzkoušeno na skutečném telefonu**: build, testy
+(182 testů Rustu + 14 testů JNI mostu v JVM). **Nic z toho nebylo vyzkoušeno na skutečném telefonu**: build, testy
 a logika jsou ověřené, ale vzhled na displeji, animace a gesta je potřeba projít ručně (viz [Známé limitace](#10-známé-limitace)).
 
 Identifikátor balíčku je `cz.reallyfast`, zobrazovaný název je „fAZT!“ (vykřičník nemůže být v ID balíčku).
@@ -158,7 +158,7 @@ Poznámky k odchylkám od zadání:
 ## 8. Testy a benchmarky
 
 ```
-scripts/ci.sh                      # cargo test (181 testů + testy bin a benchů)
+scripts/ci.sh                      # cargo test (182 testů + testy bin a benchů)
 scripts/ci.sh --bench --jni        # + benchmarky + JVM test JNI mostu
 gradlew.bat :app:testDebugUnitTest # 14 testů JNI mostu (načte Rust jádro do JVM)
 ```

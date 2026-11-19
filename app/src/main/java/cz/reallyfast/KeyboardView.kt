@@ -66,6 +66,12 @@ class KeyboardView(context: Context) : View(context) {
         var neonCol = 0
         /** Cas klepnuti pro efekt Duch (dozvuk), 0 = zadny. */
         var ghostAt = 0L
+        /** Efekt Obvod: cas klepnuti (0 = nic) a nahodny bod startu na obrysu (0..1 delky obvodu). */
+        var orbitAt = 0L
+        var orbitStart = 0f
+        /** Efekt Vybuch: cas klepnuti (0 = nic) a nahodne natoceni jisker. */
+        var popAt = 0L
+        var popSeed = 0f
         /** Barva znaku / obrysu tohoto klepnuti (stridani dvou barev); 0 = zakladni barva. Nastavuje se pri stisku. */
         var tapTxt = 0
         var tapOut = 0
@@ -215,6 +221,18 @@ class KeyboardView(context: Context) : View(context) {
         private const val GHOST_MS = 800L
         private const val GHOST_STEP_MS = 110L
         private const val GHOST_ECHOES = 3
+        // Efekt Obvod: obrys o 2 dp tlustsi probehne obvodem od nahodneho bodu (RUN), chvili drzi (HOLD) a zhasne (FADE).
+        private const val ORBIT_RUN_MS = 700L
+        private const val ORBIT_HOLD_MS = 80L
+        private const val ORBIT_FADE_MS = 220L
+        private const val ORBIT_TOTAL_MS = ORBIT_RUN_MS + ORBIT_HOLD_MS + ORBIT_FADE_MS
+        // Efekt Vybuch: pismeno se rozprskne (BURST), chvili neni (GAP) a znovu se narodi (BORN); jiskry leti SPARK_MS.
+        private const val POP_BURST_MS = 170L
+        private const val POP_GAP_MS = 110L
+        private const val POP_BORN_MS = 330L
+        private const val POP_TOTAL_MS = POP_BURST_MS + POP_GAP_MS + POP_BORN_MS
+        private const val POP_SPARK_MS = 420f
+        private const val POP_SPARKS = 8
         // Styl "slovo": pismena vzletnou z klaves, slozi slovo, chvili drzi a vybledou.
         private const val FLY_MS = 450L
         // Po slozeni slovo vyskoci na 1.5x a problikne (POP), pomalu se vrati na 100 % (SETTLE), pak zmizi.
@@ -372,6 +390,13 @@ class KeyboardView(context: Context) : View(context) {
     private var glowFillStyle = false
     private var glitchEffect = false
     private var ghostEffect = false
+    private var orbitEffect = false
+    private var popEffect = false
+    private val orbitPath = Path()
+    private val orbitSeg = Path()
+    private val orbitMeasure = android.graphics.PathMeasure()
+    private val orbitPos = FloatArray(2)
+    private val orbitPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE; strokeCap = Paint.Cap.ROUND }
     private val ghostPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE }
     private var glowFlyStyle = false
     // Efekt "barvy": pevna tabulka obarvenych klaves podle `src` (index barvy, cas obarveni, doba drzeni); jen v pameti.
@@ -545,6 +570,8 @@ class KeyboardView(context: Context) : View(context) {
         glowFlyStyle = s.glowStyle == "fly"
         glitchEffect = s.tapEffect == "glitch"
         ghostEffect = s.tapEffect == "ghost"
+        orbitEffect = s.tapEffect == "orbit"
+        popEffect = s.tapEffect == "pop"
         paintEffect = s.tapEffect == "paint" && s.keyGlow
         val sig = s.tapEffect + s.keyGlow
         if (sig != effectSig) {
@@ -1315,6 +1342,43 @@ class KeyboardView(context: Context) : View(context) {
                 }
             }
 
+            if (k.orbitAt != 0L) {
+                // Obvod: tlustsi obrys probehne po cele klavese od nahodneho bodu (0 az 100 %), pak zhasne.
+                val ot = now - k.orbitAt
+                if (ot >= ORBIT_TOTAL_MS) {
+                    k.orbitAt = 0L
+                } else {
+                    animating = true
+                    val run = min(1f, ot / ORBIT_RUN_MS.toFloat())
+                    val prog = 1f - (1f - run) * (1f - run)
+                    val fade = if (ot <= ORBIT_RUN_MS + ORBIT_HOLD_MS) 1f else 1f - (ot - ORBIT_RUN_MS - ORBIT_HOLD_MS) / ORBIT_FADE_MS.toFloat()
+                    val sw = max(outlineW, density) + 2f * density
+                    val ins = sw / 2f
+                    val rr = max(0f, radius - ins)
+                    orbitPath.reset()
+                    orbitPath.addRoundRect(cx - hw + ins, cy - hh + ins, cx + hw - ins, cy + hh - ins, rr, rr, Path.Direction.CW)
+                    orbitMeasure.setPath(orbitPath, false)
+                    val len = orbitMeasure.length
+                    val start = k.orbitStart * len
+                    val end = start + len * prog
+                    orbitSeg.reset()
+                    if (end <= len) {
+                        orbitMeasure.getSegment(start, end, orbitSeg, true)
+                    } else {
+                        orbitMeasure.getSegment(start, len, orbitSeg, true)
+                        orbitMeasure.getSegment(0f, end - len, orbitSeg, true)
+                    }
+                    val oa = (255f * fade).toInt().coerceIn(0, 255) shl 24
+                    orbitPaint.strokeWidth = sw
+                    orbitPaint.color = (nc and 0x00FFFFFF) or oa
+                    canvas.drawPath(orbitSeg, orbitPaint)
+                    // Kolecko v bode startu, odkud obrys vybehl.
+                    orbitMeasure.getPosTan(start, orbitPos, null)
+                    fill.color = (nc and 0x00FFFFFF) or oa
+                    canvas.drawCircle(orbitPos[0], orbitPos[1], sw * 0.9f, fill)
+                }
+            }
+
             val baseFg = when {
                 accentKey -> theme.onAccent
                 k.isDigit && digitTextCol != 0 -> digitTextCol
@@ -1338,6 +1402,32 @@ class KeyboardView(context: Context) : View(context) {
                 fg = if (tapF >= 1f) ttc else Theme.blend(fg, ttc, tapF)
             }
             if (dimKey) fg = Theme.blend(fg, theme.background, 0.7f)
+            // Vybuch: pismeno se zvetsi a zmizi, rozprsknou se jiskry, pak se pismeno znovu narodi (s malym presahem).
+            var popTime = -1L
+            var popS = 1f
+            var popA = 1f
+            if (k.popAt != 0L) {
+                popTime = now - k.popAt
+                if (popTime >= POP_TOTAL_MS) {
+                    k.popAt = 0L
+                    popTime = -1L
+                } else {
+                    animating = true
+                    if (popTime < POP_BURST_MS) {
+                        val q = popTime / POP_BURST_MS.toFloat()
+                        popS = 1f + 0.45f * q
+                        popA = 1f - q
+                    } else if (popTime < POP_BURST_MS + POP_GAP_MS) {
+                        popS = 0f
+                        popA = 0f
+                    } else {
+                        val q = (popTime - POP_BURST_MS - POP_GAP_MS) / POP_BORN_MS.toFloat()
+                        val x = q - 1f
+                        popS = 1f + 2.70158f * x * x * x + 1.70158f * x * x
+                        popA = min(1f, q * 2f)
+                    }
+                }
+            }
             val face = if (k.macro != null) faceBitmaps[k.macroFace] else null
             when (k.kind) {
                 KIND_CHAR -> if (face != null) {
@@ -1358,6 +1448,11 @@ class KeyboardView(context: Context) : View(context) {
                     // Poloha znaku: 0,5 / 0,5 = uprostred; jinak se stred pohybuje tam, kde se znak jeste vejde do klavesy.
                     val offX = if (labelX == 0.5f) 0f else (labelX - 0.5f) * 2f * max(0f, hw - labelSize * 0.3f - 2f * density)
                     val offY = if (labelY == 0.5f) 0f else (labelY - 0.5f) * 2f * max(0f, hh - labelSize * 0.36f - 2f * density)
+                    if (popTime >= 0L) {
+                        canvas.save()
+                        canvas.scale(popS, popS, cx + offX, cy + offY + shift)
+                        textPaint.alpha = (textPaint.alpha * popA).toInt().coerceIn(0, 255)
+                    }
                     if (grad) {
                         // Shader je vystredeny na nulu: platno se posune na stred znaku.
                         canvas.save()
@@ -1369,6 +1464,7 @@ class KeyboardView(context: Context) : View(context) {
                     } else {
                         canvas.drawText(charBuf, 0, n, cx + offX, cy + offY + shift - (textPaint.ascent() + textPaint.descent()) / 2f, textPaint)
                     }
+                    if (popTime >= 0L) canvas.restore()
                     textPaint.typeface = baseFace
                 }
                 KIND_SPACE -> {
@@ -1387,6 +1483,16 @@ class KeyboardView(context: Context) : View(context) {
                     drawIcon(canvas, k.kind, cx, cy, min(k.vw, k.h) * 0.2f, fg)
                 }
                 else -> drawIcon(canvas, k.kind, cx, cy, min(k.vw, k.h) * 0.2f, fg)
+            }
+            if (popTime >= 0L && popTime < POP_SPARK_MS) {
+                val q = popTime / POP_SPARK_MS
+                val dist = hh * (0.3f + 1.0f * q)
+                val ja = ((255f * (1f - q)).toInt().coerceIn(0, 255)) shl 24
+                fill.color = (nc and 0x00FFFFFF) or ja
+                for (i in 0 until POP_SPARKS) {
+                    val ang = k.popSeed + i * (2f * PI.toFloat() / POP_SPARKS)
+                    canvas.drawCircle(cx + cos(ang) * dist, cy + sin(ang) * dist, 2.6f * density * (1f - q) + 0.5f, fill)
+                }
             }
         }
 
@@ -2122,7 +2228,7 @@ class KeyboardView(context: Context) : View(context) {
                 var n = 0
                 for (k in keys) {
                     if (k.isLetter && n < 4 && k.code.toChar() in "ahoj") {
-                        if (glitchEffect) startGlitch(k, now + n * 140L) else if (ghostEffect) { k.neonCol = nextNeon(); k.ghostAt = now + n * 140L } else { k.neonCol = nextNeon(); k.neonAt = now }
+                        if (glitchEffect) startGlitch(k, now + n * 140L) else if (ghostEffect) { k.neonCol = nextNeon(); k.ghostAt = now + n * 140L } else if (orbitEffect) { k.neonCol = nextNeon(); k.orbitStart = random.nextFloat(); k.orbitAt = now + n * 140L } else if (popEffect) { k.neonCol = nextNeon(); k.popSeed = random.nextFloat() * 2f * PI.toFloat(); k.popAt = now + n * 140L } else { k.neonCol = nextNeon(); k.neonAt = now }
                         n++
                     }
                 }
@@ -2369,6 +2475,14 @@ class KeyboardView(context: Context) : View(context) {
                 } else if (ghostEffect) {
                     k.neonCol = nextNeon()
                     k.ghostAt = now
+                } else if (orbitEffect) {
+                    k.neonCol = nextNeon()
+                    k.orbitStart = random.nextFloat()
+                    k.orbitAt = now
+                } else if (popEffect) {
+                    k.neonCol = nextNeon()
+                    k.popSeed = random.nextFloat() * 2f * PI.toFloat()
+                    k.popAt = now
                 } else {
                     k.neonCol = nextNeon()
                     k.neonAt = -1L

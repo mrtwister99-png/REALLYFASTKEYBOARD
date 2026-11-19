@@ -228,7 +228,7 @@
     <string name="color_default">Výchozí</string>
     <string name="color_rainbow">Duha</string>
     <string name="style_slots">Moje styly</string>
-    <string name="style_slots_hint">Klepnutím styl vyberete a načtete. Tlačítko Uložit styl úplně dole uloží aktuální vzhled do vybraného stylu.</string>
+    <string name="style_slots_hint">Styly 1–5 jsou nad náhledem; klepnutím styl vyberete a načtete. Tlačítko Uložit styl úplně dole uloží aktuální vzhled do vybraného stylu.</string>
     <string name="style_slot_n">Styl %1$d</string>
     <string name="style_save">Uložit styl</string>
     <string name="style_saved">Vzhled uložen do stylu %1$d</string>
@@ -237,7 +237,6 @@
     <string name="style_load_unsaved">Aktuální vzhled není uložený v žádném stylu. Načíst styl %1$d a aktuální vzhled zahodit?</string>
     <string name="style_load">Načíst</string>
     <string name="style_only_select">Jen vybrat</string>
-    <string name="yoda">Yoda</string>
     <string name="sec_second_colors">Druhé barvy</string>
     <string name="trail_color2">Druhá barva stopy</string>
     <string name="trail_color2_hint">Konec stopy za prstem přechází do této barvy</string>
@@ -266,7 +265,6 @@
     <string name="outline_hint">Bez barvy obrysu mají klávesy obrys jen při klepnutí, pod prstem a po přejetí (jsou-li tyto barvy zadané).</string>
     <string name="neon_color2">Druhá barva efektu</string>
     <string name="neon_color2_hint">Neon, Glitch a Duch střídají obě barvy (duha = náhodný odstín). Efekt Barvy má vlastní barvy 1–3.</string>
-    <string name="yoda_later">Návštěva přijde hned při příštím otevření klávesnice</string>
     <string name="number_divider">Oddělovač</string>
     <string name="number_divider_hint">Čárka mezi číslicemi a písmeny</string>
     <string name="swipe_adapt_reset_confirm">Smazat přizpůsobení swipe tvému stylu psaní? Klávesnice se začne učit od začátku.</string>
@@ -301,6 +299,11 @@
     <string name="sec_effects">Klávesy a efekty</string>
     <string name="hint_color">Barva nápovědy</string>
     <string name="hint_size">Velikost nápovědy</string>
+    <string name="tap_effect_extra_label">Efekt při klepnutí (Waiting)</string>
+    <string name="tap_effect_std">Standard</string>
+    <string name="tap_effect_orbit">Obvod</string>
+    <string name="tap_effect_pop">Výbuch</string>
+    <string name="tap_effect_extra_hint">Obvod: tlustší obrys proběhne kolem klávesy od náhodného místa. Výbuch: písmeno se rozprskne a znovu zrodí. Standard vrací výběr z hlavní záložky (Neon).</string>
     <string name="tap_effect_label">Efekt při klepnutí</string>
     <string name="tap_effect_neon">Neon</string>
     <string name="tap_effect_glitch">Glitch</string>
