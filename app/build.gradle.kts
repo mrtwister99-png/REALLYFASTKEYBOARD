@@ -1,4 +1,5 @@
 import java.io.File
+import java.util.Properties
 
 plugins {
     id("com.android.application")
@@ -7,17 +8,34 @@ plugins {
 
 android {
     namespace = "cz.reallyfast"
-    compileSdk = 34
+    compileSdk = 35
 
     defaultConfig {
         applicationId = "cz.reallyfast"
         minSdk = 24
-        targetSdk = 34
-        versionCode = 26
-        versionName = "1.21.3"
+        targetSdk = 35
+        versionCode = 27
+        versionName = "1.21.4"
         ndk {
             // arm64-v8a = Galaxy S25 Ultra a vsechny dnesni telefony, x86_64 = emulator.
             abiFilters += listOf("arm64-v8a", "x86_64")
+        }
+    }
+
+    // Release klic: v local.properties (mimo git) nastav release.keystore, release.storePassword,
+    // release.keyAlias a release.keyPassword. Bez nich se release podepise debug klicem (jen pro vlastni telefon).
+    val localProps = Properties().apply {
+        val f = rootProject.file("local.properties")
+        if (f.isFile) f.inputStream().use { load(it) }
+    }
+    val hasReleaseKey = listOf("release.keystore", "release.storePassword", "release.keyAlias", "release.keyPassword")
+        .all { !localProps.getProperty(it).isNullOrBlank() }
+    if (hasReleaseKey) {
+        signingConfigs.create("release") {
+            storeFile = file(localProps.getProperty("release.keystore"))
+            storePassword = localProps.getProperty("release.storePassword")
+            keyAlias = localProps.getProperty("release.keyAlias")
+            keyPassword = localProps.getProperty("release.keyPassword")
         }
     }
 
@@ -26,9 +44,15 @@ android {
             isMinifyEnabled = false
         }
         release {
-            isMinifyEnabled = false
-            // Podepsano debug klicem, aby slo release APK rovnou nainstalovat do telefonu.
-            signingConfig = signingConfigs.getByName("debug")
+            isMinifyEnabled = true
+            isShrinkResources = true
+            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+            if (hasReleaseKey) {
+                signingConfig = signingConfigs.getByName("release")
+            } else {
+                logger.warn("reallyFAST!: VAROVANI - release.* v local.properties chybi, release se podepise debug klicem (NEVHODNE pro Google Play)")
+                signingConfig = signingConfigs.getByName("debug")
+            }
         }
     }
 

@@ -40,7 +40,7 @@ do stejného commitu jako zdrojáky.
 **Build > Build App Bundle(s) / APK(s) > Build APK(s)**
 
 Výsledek: `app/build/outputs/apk/debug/app-debug.apk` (cca 17 MB).
-Z příkazové řádky: `gradlew.bat :app:assembleDebug` (release: `:app:assembleRelease`, podepsáno debug klíčem).
+Z příkazové řádky: `gradlew.bat :app:assembleDebug` (release: `:app:assembleRelease`; podepisuje se klíčem z `release.keystore`, `release.storePassword`, `release.keyAlias`, `release.keyPassword` v `local.properties`, bez nich debug klíčem).
 
 ## 3. Instalace do telefonu
 
@@ -257,4 +257,4 @@ Podrobně v [docs/privacy.md](docs/privacy.md). Ve zkratce:
 - Větší korpus pro trigramy, případně malý neuronový jazykový model.
 - Šifrování osobního slovníku klíčem z Android Keystore.
 - Jednoruční režim, plovoucí klávesnice, více jazyků.
-- Pro Google Play: zvýšit targetSdk, podepsat release klíčem, zveřejnit [zásady ochrany soukromí](docs/privacy.md).
+- Pro Google Play: zvýšit targetSdk, zveřejnit [zásady ochrany soukromí](docs/privacy.md).

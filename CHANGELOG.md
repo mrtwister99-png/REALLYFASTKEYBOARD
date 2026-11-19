@@ -2,6 +2,9 @@
 
 Jedna věta za verzi, nejnovější nahoře. Čísla verzí odpovídají commitům (`vX.Y: …`).
 
+## 1.21.4 – 2026-11-19
+targetSdk 35; release se minifikuje a zmenšuje se o nepoužité zdroje; release podpis z local.properties (bez něj varování a debug klíč); AndroidX vypnuto.
+
 ## 1.21.3 – 2026-11-19
 Mazání schránky se vždy provede; posuvníky zapisují nastavení nejvýše každých 100 ms; doplněné anglické řetězce; varování, že záloha není šifrovaná; LICENSE a NOTICE; verze jádra sjednocena s aplikací; build hlasitě varuje, když se Rust nepřeložil.
 
