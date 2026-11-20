@@ -5,7 +5,7 @@ a velmi podrobným přizpůsobením vzhledu. Logika je v Rustu (`crates/keyboard
 (`InputMethodService`, Canvas, haptika). Žádný internet, žádná reklama, žádná telemetrie.
 Oprávnění: `VIBRATE` a `RECORD_AUDIO` (jen pro diktování).
 
-**Stav:** verze **1.24** (`versionName` v `app/build.gradle.kts`). Funkce a vzhled jsou hotové a pokryté testy
+**Stav:** verze **1.24.1** (`versionName` v `app/build.gradle.kts`). Funkce a vzhled jsou hotové a pokryté testy
 (182 testů Rustu + 14 testů JNI mostu v JVM). **Nic z toho nebylo vyzkoušeno na skutečném telefonu**: build, testy
 a logika jsou ověřené, ale vzhled na displeji, animace a gesta je potřeba projít ručně (viz [Známé limitace](#10-známé-limitace)).
 

@@ -2,6 +2,9 @@
 
 Jedna věta za verzi, nejnovější nahoře. Čísla verzí odpovídají commitům (`vX.Y: …`).
 
+## 1.24.1 – 2026-11-20
+Po správném zadání se Waiting hned otevře.
+
 ## 1.24 – 2026-11-20
 Efekt při klepnutí se vybírá z rozbalovacího seznamu a Obvod a Výbuch jsou v něm na Hlavní záložce (z Waiting zmizely); v seznamu maker je před názvem vidět obrázek makra; Waiting se odemyká novým postupem.
 

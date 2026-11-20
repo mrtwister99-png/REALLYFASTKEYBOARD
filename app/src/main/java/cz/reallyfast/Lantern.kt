@@ -11,6 +11,9 @@ import kotlin.math.abs
 
 /** Lucerna. */
 object Lantern {
+    /** Motyl. */
+    const val MOTH = "moth"
+
     private const val OIL = "lantern_oil"
     private const val WICK = "w"
     private const val FLAME = "f"
@@ -64,7 +67,7 @@ object Lantern {
 
     fun pasted(c: Context) = walk(c).pasted()
 
-    fun expanded(c: Context, shortcut: String, text: String) = walk(c).expanded(shortcut, text)
+    fun expanded(c: Context, shortcut: String, text: String): Boolean = walk(c).expanded(shortcut, text)
 
     /** Konec cesty: vrati nastaveni, uklidi pomocne polozky a zahuci. */
     private fun burn(c: Context, base: String?) {
@@ -194,8 +197,9 @@ object Lantern {
             if (!st.lit && st.rank in 7..9) st.rank = 8
         }
 
-        fun expanded(shortcut: String, text: String) {
-            if (st.lit) return
+        /** Vraci true, kdyz tato udalost postup dokoncila. */
+        fun expanded(shortcut: String, text: String): Boolean {
+            if (st.lit) return false
             val ok = shortcut.equals(tag(SHORT), ignoreCase = true) && text.trim() == tag(BODY)
             val t = clock()
             when (st.rank) {
@@ -211,10 +215,12 @@ object Lantern {
                         st.ash = null
                         st.rank = 0
                         done(b)
+                        return true
                     }
                     else -> stamp = t
                 }
             }
+            return false
         }
     }
 }

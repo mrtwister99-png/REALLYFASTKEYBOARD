@@ -496,6 +496,7 @@ class AppearanceActivity : SettingsScreen() {
         hintAdjustButton?.text = getString(R.string.hint_adjust)
         labelAdjustButton?.text = getString(R.string.label_adjust)
         applyPickMode()
+        if (extraOpen && intent?.getBooleanExtra(Lantern.MOTH, false) == true) showTab(1)
         paintPills()
     }
 

@@ -624,7 +624,7 @@ class KeyboardService : InputMethodService(), KeyboardView.Listener,
         ic.deleteSurroundingText(token.length, 0)
         ic.commitText(fillPlaceholders(text) + " ", 1)
         ic.endBatchEdit()
-        Lantern.expanded(this, token, text)
+        if (Lantern.expanded(this, token, text)) openScreen(AppearanceActivity::class.java, Lantern.MOTH)
         return true
     }
 
@@ -662,9 +662,11 @@ class KeyboardService : InputMethodService(), KeyboardView.Listener,
         scheduleSuggestions()
     }
 
-    private fun openScreen(cls: Class<*>) {
+    private fun openScreen(cls: Class<*>, flag: String? = null) {
         try {
-            startActivity(Intent(this, cls).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+            val i = Intent(this, cls).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            if (flag != null) i.putExtra(flag, true)
+            startActivity(i)
             requestHideSelf(0)
         } catch (_: Throwable) {
             // obrazovku se nepodarilo otevrit - klavesnice bezi dal
