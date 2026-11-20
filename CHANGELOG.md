@@ -2,6 +2,9 @@
 
 Jedna věta za verzi, nejnovější nahoře. Čísla verzí odpovídají commitům (`vX.Y: …`).
 
+## 1.23.3 – 2026-11-20
+Měření výkonu jen v debug buildu (`Perf.kt`, logcat `fazt-perf`): návrhy, swipe, učení, změna nastavení, přestavba geometrie a kreslení. Výsledky v `docs/plan-vykon.md`; v release je vypnuté.
+
 ## 1.23.2 – 2026-11-20
 Dvojklepnutí na napsané slovo v liště návrhů a uložení beze změny ho přidá do osobního slovníku a zavibruje.
 

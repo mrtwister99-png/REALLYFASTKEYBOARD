@@ -1,9 +1,27 @@
 # Plán: výkon a odlehčení (další krok)
 
-Stav k verzi 1.23.2. Hotová je „bezpečná dávka“ (jedna transakce v `learn()`, kompaktní JSON nastavení, úklid `wake`).
+Stav k verzi 1.23.3. Hotová je „bezpečná dávka“ (jedna transakce v `learn()`, kompaktní JSON nastavení, úklid `wake`).
 Zbylé body jsou větší zásahy. **Žádný z nich se nemá dělat naslepo**: nejdřív změřit na telefonu, pak měnit.
 
-## 0. Měření (první krok, bez něj nic dalšího)
+## Výsledek měření (v1.23.3, debug build, jeden telefon, běžné osobní slovníky)
+
+Časování je v debug buildu (`Perf.kt`, logcat značka `fazt-perf`, po 8 vzorcích medián / p90 / max; v release vypnuté).
+
+| Co | Medián / max | Rozpočet |
+|---|---|---|
+| `suggest` | 0,1–1,1 ms / 1,9 ms | 8 ms |
+| `swipe` | 5,4–7,3 ms / 9,8 ms | 30 ms |
+| `learn` | 4 ms / 8,3 ms | – |
+| `onDraw` | 0,7–1,9 ms / 2,7 ms | 16 ms |
+| `reloadLayout` | 1,4–2,6 ms / 4,4 ms (49 volání za test) | 50 ms |
+| `applySettings` | 0,1 ms (jednou 4 ms) | 50 ms |
+| `setSettings` celkem | 14 ms / 18 ms (z toho 6,5 ms v Rustu) | 50 ms |
+
+Závěr: vše je pod rozpočtem. Kroky 2 a 3 (index slov, méně dotazů do editoru) se **nedělají**, měření je nepotřebuje.
+Krok 1 je jen úklid (ušetří asi 2,5 ms na změnu a zbytečné přestavby), ne oprava problému. Neověřeno: velký osobní slovník
+(5 000 a 20 000 slov), release build a plynulost na displeji okem.
+
+## 0. Měření (hotovo, viz výše)
 
 Cíl: zjistit, co je na skutečném telefonu pomalé, ne co vypadá pomalé v kódu.
 

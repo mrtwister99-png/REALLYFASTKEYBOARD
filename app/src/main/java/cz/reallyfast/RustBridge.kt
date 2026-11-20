@@ -153,6 +153,7 @@ object RustBridge {
         if (initialized) return
         val app = context.applicationContext
         appContext = app
+        Perf.init(app.applicationInfo)
         if (!load()) return
         val prefs = app.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         val existed = initCore(app.filesDir.absolutePath)
@@ -227,7 +228,13 @@ object RustBridge {
     }
 
     /** Zapise nastaveni do settings.json (pres Rust, vcetne validace) + zaloha do SharedPreferences. */
-    fun setSettings(json: JSONObject) = settingsChanged(call(OP_SET_SETTINGS, json.toString()))
+    fun setSettings(json: JSONObject) {
+        val t0 = Perf.now()
+        val r = call(OP_SET_SETTINGS, json.toString())
+        Perf.end("setSettings-rust", t0)
+        settingsChanged(r)
+        Perf.end("setSettings-celkem", t0)
+    }
 
     fun cycleLanguage() = settingsChanged(call(OP_CYCLE_LANGUAGE))
 
@@ -242,16 +249,23 @@ object RustBridge {
     // ------------------------------------------------------------------ rozlozeni a psani
 
     /** Geometrie klaves jako JSON. `preview` = nahled v nastaveni (neovlivni swipe decoder). */
-    fun layout(width: Int, height: Int, mode: Int, preview: Boolean = false): String =
-        call(OP_LAYOUT, "$width,$height,$mode", null, if (preview) 1 else 0)
+    fun layout(width: Int, height: Int, mode: Int, preview: Boolean = false): String {
+        val t0 = Perf.now()
+        val r = call(OP_LAYOUT, "$width,$height,$mode", null, if (preview) 1 else 0)
+        Perf.end("layout-rust", t0)
+        return r
+    }
 
     /** Swipe decode: `points` = trojice (x, y, t), `count` = pocet platnych floatu. Prazdne = tap. */
     fun swipe(points: FloatArray, count: Int, capitalize: Boolean): List<String> {
         if (!loaded) return emptyList()
+        val t0 = Perf.now()
         return try {
             lines(nativeSwipe(points, count, if (capitalize) FLAG_CAPITALIZE else 0)?.toString(Charsets.UTF_8) ?: "")
         } catch (_: Throwable) {
             emptyList()
+        } finally {
+            Perf.end("swipe", t0)
         }
     }
 
@@ -259,15 +273,23 @@ object RustBridge {
      * Navrhy: pro rozepsane slovo doplneni/opravy, pro prazdne `composing` predikce dalsiho slova.
      * `textBefore` = text pred kurzorem (bez rozepsaneho slova); Rust z nej vezme kontext dvou slov.
      */
-    fun suggest(composing: String, textBefore: String, capitalize: Boolean): List<String> =
-        lines(call(OP_SUGGEST, composing, textBefore, if (capitalize) FLAG_CAPITALIZE.toLong() else 0))
+    fun suggest(composing: String, textBefore: String, capitalize: Boolean): List<String> {
+        val t0 = Perf.now()
+        val r = lines(call(OP_SUGGEST, composing, textBefore, if (capitalize) FLAG_CAPITALIZE.toLong() else 0))
+        Perf.end("suggest", t0)
+        return r
+    }
 
     /**
      * Nauci se potvrzene slovo. `textBefore` = text pred slovem (kontext pro bigramy a trigramy),
      * `fromSwipe` = slovo vzniklo poslednim swipem (pouzije se k prizpusobeni swipe).
      */
-    fun learn(word: String, textBefore: String, fromSwipe: Boolean): Boolean =
-        call(OP_LEARN, word, textBefore, if (fromSwipe) FLAG_FROM_SWIPE.toLong() else 0) == "1"
+    fun learn(word: String, textBefore: String, fromSwipe: Boolean): Boolean {
+        val t0 = Perf.now()
+        val r = call(OP_LEARN, word, textBefore, if (fromSwipe) FLAG_FROM_SWIPE.toLong() else 0) == "1"
+        Perf.end("learn", t0)
+        return r
+    }
 
     /** Uceni z oprav: po swipe bylo `bad` nahrazeno slovem `good`, nebo smazano (`good` prazdne). */
     fun correction(bad: String, good: String) {

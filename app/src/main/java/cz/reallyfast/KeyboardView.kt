@@ -960,6 +960,13 @@ class KeyboardView(context: Context) : View(context) {
 
     /** Nacte geometrii klaves z Rustu pro aktualni velikost a rezim. */
     fun reloadLayout() {
+        val t0 = Perf.now()
+        Perf.count("reloadLayout")
+        reloadLayoutInner()
+        Perf.end("reloadLayout", t0)
+    }
+
+    private fun reloadLayoutInner() {
         applyAppearance()
         if (width <= 0 || height <= 0) return
         cancelTouch()
@@ -1078,6 +1085,12 @@ class KeyboardView(context: Context) : View(context) {
     }
 
     override fun onDraw(canvas: Canvas) {
+        val t0 = Perf.now()
+        drawKeys(canvas)
+        Perf.end("onDraw", t0)
+    }
+
+    private fun drawKeys(canvas: Canvas) {
         // Pozadi jen v ramci teto plochy: rodic neorezava (kvuli bublinam), takze drawColor
         // by prekreslil i listu navrhu nad klavesami.
         val bs = bgShader

@@ -242,6 +242,12 @@ class KeyboardService : InputMethodService(), KeyboardView.Listener,
 
     /** Okamzita zmena tematu / velikosti / jazyka bez restartu klavesnice. */
     private fun applySettings() {
+        val t0 = Perf.now()
+        applySettingsInner()
+        Perf.end("applySettings", t0)
+    }
+
+    private fun applySettingsInner() {
         theme = Theme.from(settings)
         root?.setBackgroundColor(theme.backgroundBottom)
         bar?.applyTheme(theme)
