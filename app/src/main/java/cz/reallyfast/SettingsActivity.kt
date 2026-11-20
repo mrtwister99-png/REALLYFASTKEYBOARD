@@ -243,12 +243,12 @@ class SettingsActivity : SettingsScreen() {
 
         // Podobrazovky nastaveni
         box = cardBox(container).also { (it.layoutParams as LinearLayout.LayoutParams).topMargin = dp(26f) }
-        navRow(box, getString(R.string.appearance_open)) { startActivity(Intent(this, AppearanceActivity::class.java)) }
+        navRow(box, getString(R.string.appearance_open), kind = LineIcon.PALETTE) { startActivity(Intent(this, AppearanceActivity::class.java)) }
         navRow(box, getString(R.string.macros_open), R.drawable.maskot) { startActivity(Intent(this, MacrosActivity::class.java)) }
-        navRow(box, getString(R.string.dictionary_open)) { startActivity(Intent(this, DictionaryActivity::class.java)) }
-        navRow(box, getString(R.string.voice_open)) { startActivity(Intent(this, VoiceActivity::class.java)) }
-        navRow(box, getString(R.string.typing_open)) { startActivity(Intent(this, TypingActivity::class.java)) }
-        navRow(box, getString(R.string.sec_about)) { startActivity(Intent(this, AboutActivity::class.java)) }
+        navRow(box, getString(R.string.dictionary_open), kind = LineIcon.BOOK) { startActivity(Intent(this, DictionaryActivity::class.java)) }
+        navRow(box, getString(R.string.voice_open), kind = LineIcon.MIC) { startActivity(Intent(this, VoiceActivity::class.java)) }
+        navRow(box, getString(R.string.typing_open), kind = LineIcon.KEYBOARD) { startActivity(Intent(this, TypingActivity::class.java)) }
+        navRow(box, getString(R.string.sec_about), kind = LineIcon.INFO) { startActivity(Intent(this, AboutActivity::class.java)) }
 
         // Schranka
         box = section(container, getString(R.string.sec_clipboard))

@@ -34,8 +34,10 @@ pub const STYLE_KEYS: &[&str] = &[
 ];
 /// Jeden slot stylu: klic nastaveni -> hodnota (jen klice ze STYLE_KEYS).
 pub type StyleSlot = serde_json::Map<String, serde_json::Value>;
-/// Vychozi sloty 2-5: pozadi, klavesy, text, accent podle hotovych stylu Midnight, Forest, Paper, Rose.
-const STYLE_SLOT_COLORS: [(&str, &str, &str, &str); 4] = [
+/// Vychozi sloty 2-5: jen jedna barva (accent; neon a barva pismen po tahu jsou stejne), zbytek jako vychozi vzhled.
+const STYLE_SLOT_ACCENTS: [&str; 4] = ["#60A5FA", "#34D399", "#2563EB", "#FB7185"];
+/// Drivejsi vychozi sloty 2-5 (cele barvy hotovych stylu): nezmenene se pri nacteni nahradi novymi vychozimi.
+const LEGACY_SLOT_COLORS: [(&str, &str, &str, &str); 4] = [
     ("#0B1220", "#1B2740", "#E6EDF7", "#60A5FA"),
     ("#0F1A14", "#1E3328", "#E8F3EC", "#34D399"),
     ("#E6E8EC", "#FFFFFF", "#15151A", "#2563EB"),
@@ -322,14 +324,31 @@ impl Default for Settings {
     }
 }
 
-/// Vychozi sloty (spocitaji se jednou): 1 = vychozi vzhled, 2-5 = barvy hotovych stylu.
+/// Vychozi sloty (spocitaji se jednou): 1 = vychozi vzhled, 2-5 = vychozi vzhled s jednou jinou barvou.
 fn default_style_slots() -> &'static [StyleSlot] {
     static SLOTS: OnceLock<Vec<StyleSlot>> = OnceLock::new();
     SLOTS.get_or_init(|| {
         let mut base = Settings::base_default();
         base.validate_fields();
         let mut out = vec![base.style_snapshot()];
-        for (bg, key, text, accent) in STYLE_SLOT_COLORS {
+        for accent in STYLE_SLOT_ACCENTS {
+            let mut s = Settings::base_default();
+            s.accent_color = accent.into();
+            s.neon_color = accent.into();
+            s.glow_color = accent.into();
+            s.validate_fields();
+            out.push(s.style_snapshot());
+        }
+        out
+    })
+}
+
+/// Drivejsi vychozi sloty 2-5 (index 0 = slot 2); jen pro rozpoznani nezmenenych a jejich nahrazeni.
+fn legacy_style_slots() -> &'static [StyleSlot] {
+    static SLOTS: OnceLock<Vec<StyleSlot>> = OnceLock::new();
+    SLOTS.get_or_init(|| {
+        let mut out = Vec::new();
+        for (bg, key, text, accent) in LEGACY_SLOT_COLORS {
             let mut s = Settings::base_default();
             s.theme = "custom".into();
             s.custom_background = bg.into();
@@ -363,7 +382,13 @@ fn normalize_slots(v: &serde_json::Value) -> serde_json::Value {
                 match Settings::base_default().overlay(d).and_then(|t| t.overlay(raw)) {
                     Some(mut t) => {
                         t.validate_fields();
-                        serde_json::Value::Object(t.style_snapshot())
+                        let snap = t.style_snapshot();
+                        // Nezmeneny drivejsi vychozi slot (cele barvy) se nahradi novym jednobarevnym.
+                        if i >= 1 && legacy_style_slots().get(i - 1) == Some(&snap) {
+                            serde_json::Value::Object(d.clone())
+                        } else {
+                            serde_json::Value::Object(snap)
+                        }
                     }
                     None => serde_json::Value::Object(d.clone()),
                 }
@@ -1126,10 +1151,37 @@ mod tests {
             assert_eq!(s.as_object().unwrap().len(), STYLE_KEYS.len());
         }
         assert_eq!(slots[0]["theme"], "dark");
-        assert_eq!(slots[1]["custom_background"], "#0B1220");
-        assert!(slots[1..].iter().all(|s| s["theme"] == "custom"));
+        // vychozi sloty 2-5: vychozi vzhled s jednou jinou barvou, bez druhych barev, zakladni efekt
+        assert_eq!(slots[1]["accent_color"], "#60A5FA");
+        for s in &slots[1..] {
+            assert_eq!(s["theme"], "dark");
+            assert_eq!(s["custom_background"], slots[0]["custom_background"]);
+            assert_eq!(s["custom_key"], slots[0]["custom_key"]);
+            assert_eq!(s["key_color2"], "");
+            assert_eq!(s["tap_effect"], "neon");
+            assert_eq!(s["neon_color"], s["accent_color"]);
+        }
         // stary soubor bez slotu -> vychozi sloty
         assert_eq!(Settings::from_json(r#"{"theme":"light"}"#).unwrap().style_slots, d.style_slots);
+    }
+
+    #[test]
+    fn untouched_legacy_slots_become_single_colour_and_saved_ones_stay() {
+        let legacy: Vec<serde_json::Value> = std::iter::once(Settings::default().style_slots[0].clone())
+            .chain(legacy_style_slots().iter().cloned().map(serde_json::Value::Object))
+            .collect();
+        let json = serde_json::json!({"theme": "dark", "style_slots": legacy});
+        let s = Settings::from_json(&json.to_string()).unwrap();
+        assert_eq!(s.style_slots, Settings::default().style_slots);
+        // slot upraveny uzivatelem se nemeni
+        let mut changed = legacy.clone();
+        changed[2]["key_radius_dp"] = serde_json::json!(21);
+        let json = serde_json::json!({"theme": "dark", "style_slots": changed});
+        let s = Settings::from_json(&json.to_string()).unwrap();
+        let slots = s.style_slots.as_array().unwrap();
+        assert_eq!(slots[2]["key_radius_dp"], 21);
+        assert_eq!(slots[2]["custom_background"], "#0F1A14");
+        assert_eq!(slots[1], Settings::default().style_slots[1]);
     }
 
     #[test]

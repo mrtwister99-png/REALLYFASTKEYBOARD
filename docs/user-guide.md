@@ -91,11 +91,12 @@ Nastavení → **Vzhled a rozložení**. Dole je pořád **živý náhled** klá
 
 ### Moje styly 1–5
 
-Pod záložkami *Hlavní* a *Waiting* je pořád vidět pět čtverečků **1 2 3 4 5** (při posouvání zůstávají na místě). Všechny jsou předvyplněné, takže žádný není prázdný. Vybraný styl má silný obrys a pamatuje se i po zavření obrazovky.
+Pod záložkami *Hlavní* a *Waiting* je pořád vidět pět čtverečků **1 2 3 4 5** (při posouvání zůstávají na místě). Dokud je neuložíš, má styl 1 výchozí vzhled a styly 2–5 stejný vzhled s jednou jinou barvou (modrá, zelená, tmavě modrá, růžová) a základními efekty. Vybraný styl má silný obrys a pamatuje se i po zavření obrazovky.
 
-- **Klepnutí na číslo** styl vybere a načte (pokud aktuální vzhled není uložený v žádném stylu, aplikace se zeptá, zda ho zahodit, nebo styl jen vybrat).
+- **Klepnutí na číslo** rovnou přepne na styl a načte ho. Má-li aktuální styl neuložené změny, aplikace se zeptá, zda ho opravdu změnit bez uložení (Ano / Ne).
 - Tlačítko **Uložit** vpravo dole nad náhledem uloží **celý aktuální vzhled** (včetně pokročilých a expertních voleb) do vybraného stylu. Svítí, jen když se vzhled liší od uloženého stylu.
 - Šipka **Zpět** vlevo dole nad náhledem vrací změny vzhledu, klidně několik za sebou. Dokud nic nezměníš, je zešedlá. Vrací jen nastavení vzhledu, ne přeházení kláves ani makra.
+- Řádky v Nastavení (Vzhled, Slovník, Hlas, Psaní, O aplikaci) mají tenké čárové ikony, Makra maskota.
 - Styly ukládají vzhled, ne jazyk, makra ani přemapování kláves. Jsou i v záloze.
 
 ### Úprava kláves

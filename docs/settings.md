@@ -80,7 +80,7 @@ Počet nastavení: **93**.
 | `custom_background` | `#111113` | `#RRGGBB` | Barva pozadí ve vlastním tématu. | Hlavní → Barvy |
 | `custom_key` | `#26262B` | `#RRGGBB` | Barva kláves ve vlastním tématu. | Hlavní → Barvy |
 | `custom_text` | `#F4F4F5` | `#RRGGBB` | Barva textu ve vlastním tématu. | Hlavní → Barvy |
-| `style_slots` | `5 výchozích stylů` | pole 5 objektů | Moje styly 1–5: pět uložených vzhledů (každý obsahuje právě klíče z `STYLE_KEYS`). Chybějící nebo neplatné sloty se doplní výchozími. | Hlavní → Barvy → Moje styly |
+| `style_slots` | `5 výchozích stylů` | pole 5 objektů | Moje styly 1–5: pět uložených vzhledů (každý obsahuje právě klíče z `STYLE_KEYS`). Chybějící nebo neplatné sloty se doplní výchozími (slot 1 = výchozí vzhled, sloty 2–5 = výchozí vzhled s jednou jinou barvou; nezměněné starší výchozí sloty s plnými barvami se při načtení nahradí novými). | Hlavní → Barvy → Moje styly |
 
 ## Přepínače vzhledu a efekty (úroveň 1)
 

@@ -235,9 +235,8 @@
     <string name="style_saved">Vzhled uložen do stylu %1$d</string>
     <string name="style_loaded">Načten styl %1$d</string>
     <string name="style_pick_first">Nejdřív nahoře vyberte styl 1–5</string>
-    <string name="style_load_unsaved">Aktuální vzhled není uložený v žádném stylu. Načíst styl %1$d a aktuální vzhled zahodit?</string>
-    <string name="style_load">Načíst</string>
-    <string name="style_only_select">Jen vybrat</string>
+    <string name="style_switch_unsaved">Aktuální styl má neuložené změny. Opravdu chceš změnit styl bez uložení?</string>
+    <string name="downgrade_done">Downgrade dokončen!</string>
     <string name="sec_second_colors">Druhé barvy</string>
     <string name="trail_color2">Druhá barva stopy</string>
     <string name="trail_color2_hint">Konec stopy za prstem přechází do této barvy</string>

@@ -2,6 +2,9 @@
 
 Jedna věta za verzi, nejnovější nahoře. Čísla verzí odpovídají commitům (`vX.Y: …`).
 
+## 1.25 – 2026-11-20
+Waiting se po správném zadání jen otevře (nic se nepřepisuje) a ukáže okno „Downgrade dokončen!“; řádky v Nastavení mají tenké čárové ikony; nepoužité styly 2–5 mají jednu barvu a základní efekty (nezměněné starší se nahradí); přepnutí stylu je okamžité a při neuložených změnách se zeptá, zda ho změnit bez uložení.
+
 ## 1.24.2 – 2026-11-20
 Oprava: Waiting se po správném zadání opravdu otevře.
 

@@ -556,7 +556,10 @@ class AppearanceActivity : SettingsScreen() {
         updateActions()
         hintText(container, getString(R.string.style_slots_hint))
         applyPickMode()
-        if (extraOpen && intent?.getBooleanExtra(Lantern.MOTH, false) == true) showTab(1)
+        if (extraOpen && intent?.getBooleanExtra(Lantern.MOTH, false) == true) {
+            intent?.removeExtra(Lantern.MOTH)
+            confirmDialog(getString(R.string.downgrade_done), getString(R.string.notice_ok), null, false, 0xFF22C55E.toInt()) { showTab(1) }
+        }
         paintPills()
     }
 
@@ -901,18 +904,25 @@ class AppearanceActivity : SettingsScreen() {
         }
     }
 
-    /** Klepnuti na slot: vybere ho a nacte; neulozeny soucasny vzhled se nejdriv potvrdi (nebo jen vybrat). */
+    /**
+     * Klepnuti na slot: rovnou prepne a nacte styl. Ma-li soucasny styl neulozene zmeny, zeptá se, zda
+     * ho opravdu zmenit bez ulozeni (Ano = prepnout, Ne = zustat).
+     */
     private fun pickSlot(i: Int) {
+        val unsaved = if (chosenSlot in 0 until STYLE_SLOTS) !slotMatches(chosenSlot) else (0 until STYLE_SLOTS).none { slotMatches(it) }
+        if (unsaved) {
+            confirmDialog(getString(R.string.style_switch_unsaved), getString(R.string.yes), getString(R.string.no), false) { switchTo(i) }
+        } else {
+            switchTo(i)
+        }
+    }
+
+    private fun switchTo(i: Int) {
         chosenSlot = i
         rememberSlot(i)
         paintSlots()
-        if (slotMatches(i)) return
-        if ((0 until STYLE_SLOTS).none { slotMatches(it) }) {
-            confirmDialog(getString(R.string.style_load_unsaved, i + 1), getString(R.string.style_load),
-                getString(R.string.style_only_select), false) { loadSlot(i) }
-        } else {
-            loadSlot(i)
-        }
+        if (!slotMatches(i)) loadSlot(i)
+        updateActions()
     }
 
     private fun loadSlot(i: Int) {

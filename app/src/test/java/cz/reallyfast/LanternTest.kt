@@ -3,8 +3,6 @@ package cz.reallyfast
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
-import org.junit.Assert.assertNotNull
-import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -13,17 +11,12 @@ class LanternTest {
     private class Mem : Lantern.Store {
         override var rank = 0
         override var lit = false
-        override var ash: String? = null
     }
 
     private var now = 10_000L
-    private var finished: String? = null
     private var finishedCount = 0
     private val store = Mem()
-    private val walk = Lantern.Walk(store, { now }) {
-        finished = it
-        finishedCount++
-    }
+    private val walk = Lantern.Walk(store, { now }) { finishedCount++ }
 
     private fun json(sens: Double = 1.0, vib: Int = 10, hold: Int = 300, h: Int = 56, r: Int = 12, t: Int = 100) =
         JSONObject().put("swipe_sensitivity", sens).put("vibration_ms", vib).put("long_press_delay_ms", hold)
@@ -48,11 +41,9 @@ class LanternTest {
     }
 
     @Test
-    fun fullWalkUnlocksAndHandsBackTheOriginalSettings() {
-        val start = json()
+    fun fullWalkUnlocks() {
         val d = toThree()
         assertEquals(3, store.rank)
-        assertEquals(start.toString(), store.ash)
 
         walk.voiced("33")
         walk.learned(" 33 ")
@@ -73,19 +64,6 @@ class LanternTest {
         walk.expanded("/33", "666")
         assertTrue(store.lit)
         assertEquals(1, finishedCount)
-        assertEquals(start.toString(), finished)
-    }
-
-    @Test
-    fun baselineIsTheStateBeforeTheDragThatReachedTheFirstValue() {
-        val first = json(sens = 1.30)
-        walk.moved(json(), first)
-        step()
-        walk.moved(first, json(sens = 1.31))
-        step()
-        walk.moved(json(sens = 1.31), json(sens = 1.33))
-        assertEquals(1, store.rank)
-        assertEquals(json().toString(), store.ash)
     }
 
     @Test
@@ -121,7 +99,6 @@ class LanternTest {
         step()
         walk.moved(d, broken)
         assertEquals(0, store.rank)
-        assertNull(store.ash)
         walk.voiced("33")
         assertEquals(0, store.rank)
     }
@@ -146,7 +123,7 @@ class LanternTest {
         assertFalse(store.lit)
         walk.expanded("/33", "666")
         assertTrue(store.lit)
-        assertNotNull(finished)
+        assertEquals(1, finishedCount)
     }
 
     @Test

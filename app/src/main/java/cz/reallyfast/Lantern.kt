@@ -17,7 +17,6 @@ object Lantern {
     private const val OIL = "lantern_oil"
     private const val WICK = "w"
     private const val FLAME = "f"
-    private const val ASH = "b"
 
     private val breath = longArrayOf(0, 40, 90, 40, 90, 40)
 
@@ -37,11 +36,6 @@ object Lantern {
             set(v) {
                 jar(c).edit().putBoolean(FLAME, v).apply()
             }
-        override var ash: String?
-            get() = jar(c).getString(ASH, null)
-            set(v) {
-                jar(c).edit().putString(ASH, v).apply()
-            }
     }
 
     private var wick: Walk? = null
@@ -50,7 +44,7 @@ object Lantern {
         val w = wick
         if (w != null) return w
         val app = c.applicationContext
-        val n = Walk(Jar(app), { SystemClock.uptimeMillis() }) { base -> burn(app, base) }
+        val n = Walk(Jar(app), { SystemClock.uptimeMillis() }) { pulse(app) }
         wick = n
         return n
     }
@@ -68,21 +62,6 @@ object Lantern {
     fun pasted(c: Context) = walk(c).pasted()
 
     fun expanded(c: Context, shortcut: String, text: String): Boolean = walk(c).expanded(shortcut, text)
-
-    /** Konec cesty: vrati nastaveni, uklidi pomocne polozky a zahuci. */
-    private fun burn(c: Context, base: String?) {
-        try {
-            RustBridge.macros().filter { it.shortcut.equals(Walk.tag(Walk.SHORT), ignoreCase = true) }
-                .forEach { RustBridge.deleteMacro(it.id) }
-            RustBridge.voiceCommands().filter { it.phrase.trim() == Walk.tag(Walk.PAIR) }
-                .forEach { RustBridge.deleteVoiceCommand(it.id) }
-            RustBridge.deleteUserWord(Walk.tag(Walk.PAIR))
-            if (base != null) RustBridge.setSettings(JSONObject(base))
-        } catch (_: Throwable) {
-            // uklid je jen kosmetika
-        }
-        pulse(c)
-    }
 
     private fun pulse(c: Context) {
         try {
@@ -106,14 +85,13 @@ object Lantern {
     internal interface Store {
         var rank: Int
         var lit: Boolean
-        var ash: String?
     }
 
     /**
      * Postup krok za krokem; kazda udalost posune knot nejvyse o jeden stupen a jen z predchoziho.
-     * `done` dostane nastaveni z doby pred prvnim krokem.
+     * `done` se zavola jednou, kdyz je postup dokoncen.
      */
-    internal class Walk(private val st: Store, private val clock: () -> Long, private val done: (String?) -> Unit) {
+    internal class Walk(private val st: Store, private val clock: () -> Long, private val done: () -> Unit) {
         companion object {
             private const val MASK = 0x2B7
 
@@ -133,12 +111,9 @@ object Lantern {
 
             fun tag(v: IntArray) = String(CharArray(v.size) { (v[it] xor MASK).toChar() })
 
-            private const val SPAN = 1500L
             private const val GAP = 30000L
         }
 
-        private var base: String? = null
-        private var lastMove = 0L
         private var stamp = 0L
 
         private fun near(j: JSONObject, key: String, want: Double) = abs(j.optDouble(key, -1000.0) - want) < 0.004
@@ -157,19 +132,9 @@ object Lantern {
 
         fun moved(prev: JSONObject, now: JSONObject) {
             if (st.lit) return
-            val t = clock()
-            // Dokud neni zacato, drzi se nastaveni z doby pred posledni serii zmen.
-            if (st.rank == 0 && t - lastMove > SPAN) base = prev.toString()
-            lastMove = t
-            if (st.rank > 0 && !holds(st.rank, now)) {
-                st.rank = 0
-                st.ash = null
-            }
+            if (st.rank > 0 && !holds(st.rank, now)) st.rank = 0
             when (st.rank) {
-                0 -> if (!sens(prev) && sens(now)) {
-                    st.ash = base ?: prev.toString()
-                    st.rank = 1
-                }
+                0 -> if (!sens(prev) && sens(now)) st.rank = 1
                 1 -> if (!buzz(prev) && buzz(now)) st.rank = 2
                 2 -> if (!hold(prev) && hold(now)) st.rank = 3
             }
@@ -211,10 +176,8 @@ object Lantern {
                     !ok -> st.rank = 8
                     t - stamp <= GAP -> {
                         st.lit = true
-                        val b = st.ash
-                        st.ash = null
                         st.rank = 0
-                        done(b)
+                        done()
                         return true
                     }
                     else -> stamp = t

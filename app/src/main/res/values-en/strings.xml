@@ -235,9 +235,8 @@
     <string name="style_saved">Look saved to style %1$d</string>
     <string name="style_loaded">Style %1$d loaded</string>
     <string name="style_pick_first">First select style 1–5 above</string>
-    <string name="style_load_unsaved">The current look isn\'t saved in any style. Load style %1$d and discard it?</string>
-    <string name="style_load">Load</string>
-    <string name="style_only_select">Just select</string>
+    <string name="style_switch_unsaved">The current style has unsaved changes. Do you really want to switch style without saving\?</string>
+    <string name="downgrade_done">Downgrade complete!</string>
     <string name="sec_second_colors">Second colors</string>
     <string name="trail_color2">Second trail color</string>
     <string name="trail_color2_hint">The end of the trail behind the finger fades into this color</string>

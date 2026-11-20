@@ -241,7 +241,7 @@ abstract class BaseScreen : Activity() {
         confirmDialog(message, confirmLabel, getString(R.string.cancel), true, onConfirm = onConfirm)
 
     /** Radek, ktery otevira dalsi obrazovku (text + sipka vpravo). */
-    protected fun navRow(box: LinearLayout, s: CharSequence, icon: Int = 0, onClick: () -> Unit) {
+    protected fun navRow(box: LinearLayout, s: CharSequence, icon: Int = 0, kind: Int = -1, onClick: () -> Unit) {
         val row = LinearLayout(this)
         row.gravity = Gravity.CENTER_VERTICAL
         row.minimumHeight = dp(56f)
@@ -250,6 +250,15 @@ abstract class BaseScreen : Activity() {
             val img = android.widget.ImageView(this)
             img.setImageResource(icon)
             img.scaleType = android.widget.ImageView.ScaleType.FIT_CENTER
+            val ilp = LinearLayout.LayoutParams(dp(34f), dp(28f))
+            ilp.rightMargin = dp(12f)
+            row.addView(img, ilp)
+        }
+        if (kind >= 0) {
+            // Tenka carova ikona pred popiskem.
+            val img = android.widget.ImageView(this)
+            img.setImageDrawable(LineIcon(kind, text, dp(24f), dp(1.3f).toFloat().coerceAtLeast(1.3f)))
+            img.scaleType = android.widget.ImageView.ScaleType.CENTER
             val ilp = LinearLayout.LayoutParams(dp(34f), dp(28f))
             ilp.rightMargin = dp(12f)
             row.addView(img, ilp)
