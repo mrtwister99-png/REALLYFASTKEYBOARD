@@ -300,11 +300,9 @@
     <string name="sec_effects">Keys and effects</string>
     <string name="hint_color">Hint color</string>
     <string name="hint_size">Hint size</string>
-    <string name="tap_effect_extra_label">Tap effect (Waiting)</string>
-    <string name="tap_effect_std">Standard</string>
     <string name="tap_effect_orbit">Orbit</string>
     <string name="tap_effect_pop">Burst</string>
-    <string name="tap_effect_extra_hint">Orbit: a thicker outline runs around the key from a random spot. Burst: the letter bursts apart and is born again. Standard returns to the choice on the main tab (Neon).</string>
+    <string name="tap_effect_ring_hint">Orbit: a thicker outline runs around the key from a random spot. Burst: the letter bursts apart and is born again.</string>
     <string name="tap_effect_label">Tap effect</string>
     <string name="tap_effect_neon">Neon</string>
     <string name="tap_effect_glitch">Glitch</string>
@@ -323,7 +321,6 @@
     <string name="paint_color2">Color 2</string>
     <string name="paint_color3">Color 3</string>
     <string name="notice_ok">OK</string>
-    <string name="downgrade_done">Downgrade successful</string>
     <string name="paint_hint">A tapped key is painted for a few seconds and then slowly fades back.</string>
     <string name="fly_hint">After a swipe the letters of the word fly above the keyboard and form the word.</string>
     <string name="sec_extra_chars">Characters</string>

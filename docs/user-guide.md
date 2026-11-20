@@ -63,7 +63,7 @@ Každé gesto jde vypnout v nastavení *Psaní*.
 
 Makro je tvůj vlastní textový blok (podpis, adresa, pozdrav).
 
-1. Nastavení → **Makra a zkratky** → **+ Nové makro**: název, text, volitelná **zkratka** a **obrázek** makra (jeden ze čtyř).
+1. Nastavení → **Makra a zkratky** (v seznamu je před názvem vidět obrázek makra) → **+ Nové makro**: název, text, volitelná **zkratka** a **obrázek** makra (jeden ze čtyř).
 2. **Vložení:** klepni na tlačítko maker (s maskotem) ve spodní řadě a vyber makro, **nebo** napiš zkratku a mezeru (`mfg` + mezera → „S pozdravem“).
 3. V textu můžeš použít `{datum}` a `{cas}`, které se při vložení nahradí aktuálním datem a časem.
 4. **Makro na klávesu:** Nastavení → **Vzhled a rozložení** → klepni na písmeno v náhledu → **Makro** a zvol, zda se vloží **na klik** (klávesa pak ukáže obrázek makra místo znaku),
@@ -85,7 +85,7 @@ Diktování používá rozpoznávání řeči v telefonu. Bez staženého offlin
 Nastavení → **Vzhled a rozložení**. Dole je pořád **živý náhled** klávesnice, takže každá změna je vidět hned. Možností je hodně, proto jsou ve **třech úrovních**:
 
 1. **Základ** (záložka *Hlavní*): hotové styly, čtyři barvy, výška a zaoblení kláves, velikost znaků, přepínače (nápovědy, stopa za prstem, bublina, stín, animace, obrys
-   speciálních kláves), **efekt při klepnutí** (žádný, Neon, Glitch, Barvy, Duch) a **animace po úspěšném tahu** (žádná, Postupně, Vybarvení, Slovo) s jejich barvami.
+   speciálních kláves), **efekt při klepnutí** (rozbalovací seznam: žádný, Neon, Glitch, Barvy, Duch, Obvod, Výbuch) a **animace po úspěšném tahu** (žádná, Postupně, Vybarvení, Slovo) s jejich barvami.
 2. **Pokročilé** (sbalená karta *Pokročilé*, klepnutím se rozbalí): poloha znaku a nápovědy, mezery, barvy detailů, číslic, stopy, tloušťky písma, obrys kláves, barvy efektu Barvy.
 3. **Expert** (záložka *Waiting*): druhé barvy (přechody shora dolů, střídání barev, duha) a barvy podle toho, co dělá prst.
 

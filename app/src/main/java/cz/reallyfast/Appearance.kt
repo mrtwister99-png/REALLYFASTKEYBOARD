@@ -556,7 +556,6 @@ class AppearanceActivity : SettingsScreen() {
         updateActions()
         hintText(container, getString(R.string.style_slots_hint))
         applyPickMode()
-        if (extraOpen && intent?.getBooleanExtra(Lantern.MOTH, false) == true) showTab(1)
         paintPills()
     }
 
@@ -605,18 +604,6 @@ class AppearanceActivity : SettingsScreen() {
         colorRow(box, R.string.outline_hover_color, "outline_hover_color", allowAuto = true, dependsOn = "swipe_glow")
         colorRow(box, R.string.outline_passed_color, "outline_passed_color", allowAuto = true, dependsOn = "swipe_glow")
         hintText(box, getString(R.string.outline_hint))
-        // Dalsi efekty po klepnuti (jen ve Waiting): stejny klic jako hlavni vyber, vraceni na "Standard" nastavi Neon.
-        choiceRow(box, R.string.tap_effect_extra_label, listOf("std", "orbit", "pop"),
-            listOf(getString(R.string.tap_effect_std), getString(R.string.tap_effect_orbit), getString(R.string.tap_effect_pop)),
-            { val j = RustBridge.settings.json; if (j.optBoolean("key_glow") && j.optString("tap_effect") in EXTRA_EFFECTS) j.optString("tap_effect") else "std" },
-            { v ->
-                if (v == "std") {
-                    if (RustBridge.settings.json.optString("tap_effect") in EXTRA_EFFECTS) update("tap_effect", "neon")
-                } else {
-                    updateAll("key_glow" to true, "tap_effect" to v)
-                }
-            })
-        hintText(box, getString(R.string.tap_effect_extra_hint))
     }
 
     /** Pokrocile (uroven 2): polohy a napovedy, detaily, barvy cislic, prechody (druhe barvy), obrys a barvy efektu. */
@@ -688,14 +675,17 @@ class AppearanceActivity : SettingsScreen() {
         switchRow(box, R.string.key_shadow, "key_shadow", hintRes = R.string.key_shadow_hint)
         switchRow(box, R.string.special_outline, "special_outline", hintRes = R.string.special_outline_hint)
         switchRow(box, R.string.animations, "animations", hintRes = R.string.animations_hint)
-        choiceRow(box, R.string.tap_effect_label, listOf("none", "neon", "glitch", "paint", "ghost"),
+        // Vyber efektu po klepnuti: rozbalovaci seznam se vsemi efekty.
+        dropdownRow(box, R.string.tap_effect_label, listOf("none", "neon", "glitch", "paint", "ghost", "orbit", "pop"),
             listOf(
                 getString(R.string.effect_none), getString(R.string.tap_effect_neon),
                 getString(R.string.tap_effect_glitch), getString(R.string.tap_effect_paint),
-                getString(R.string.tap_effect_ghost),
+                getString(R.string.tap_effect_ghost), getString(R.string.tap_effect_orbit),
+                getString(R.string.tap_effect_pop),
             ),
             { val j = RustBridge.settings.json; if (j.optBoolean("key_glow")) j.optString("tap_effect") else "none" },
             { v -> if (v == "none") update("key_glow", false) else updateAll("key_glow" to true, "tap_effect" to v) })
+        hintText(box, getString(R.string.tap_effect_ring_hint))
         colorRow(box, R.string.neon_color, "neon_color")
         choiceRow(box, R.string.glow_style_label, listOf("none", "blink", "fill", "fly"),
             listOf(
@@ -936,6 +926,7 @@ class AppearanceActivity : SettingsScreen() {
             return
         }
         RustBridge.saveStyle(i)
+        Lantern.stored(this, i)
         paintSlots()
         Toast.makeText(this, getString(R.string.style_saved, i + 1), Toast.LENGTH_SHORT).show()
     }
@@ -1360,7 +1351,6 @@ class AppearanceActivity : SettingsScreen() {
         const val STYLE_SLOTS = 5
         const val UNDO_MERGE_MS = 700L
         const val UNDO_MAX = 50
-        val EXTRA_EFFECTS = setOf("orbit", "pop")
         const val UI_PREFS = "appearance_ui"
         const val KEY_CHOSEN_SLOT = "chosen_slot"
         const val MAX_ALTS_EDIT = 5

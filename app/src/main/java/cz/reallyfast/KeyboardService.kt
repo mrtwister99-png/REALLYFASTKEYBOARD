@@ -624,9 +624,7 @@ class KeyboardService : InputMethodService(), KeyboardView.Listener,
         ic.deleteSurroundingText(token.length, 0)
         ic.commitText(fillPlaceholders(text) + " ", 1)
         ic.endBatchEdit()
-        RustBridge.macros().firstOrNull { it.shortcut.isNotEmpty() && it.shortcut.equals(token, ignoreCase = true) }?.let {
-            if (Lantern.breathe(this, it.name, it.text, it.shortcut)) RustBridge.deleteMacro(it.id)
-        }
+        Lantern.expanded(this, token, text)
         return true
     }
 
@@ -659,7 +657,6 @@ class KeyboardService : InputMethodService(), KeyboardView.Listener,
         commitComposing(ic)
         ic.commitText(fillPlaceholders(m.text), 1)
         ic.endBatchEdit()
-        if (Lantern.breathe(this, m.name, m.text, m.shortcut)) RustBridge.deleteMacro(m.id)
         autoSpace = false
         updateShift()
         scheduleSuggestions()
@@ -1459,7 +1456,6 @@ class KeyboardService : InputMethodService(), KeyboardView.Listener,
             KeyboardView.MENU_EMOJI -> showEmoji()
             KeyboardView.MENU_CLIPBOARD -> if (clipPanel?.visibility != View.VISIBLE) onClipboardClicked()
             KeyboardView.MENU_SETTINGS -> {
-                Lantern.fan(this)
                 openScreen(SettingsActivity::class.java)
             }
         }
@@ -1539,6 +1535,7 @@ class KeyboardService : InputMethodService(), KeyboardView.Listener,
         flushSwipeLearning()
         commitComposing(ic)
         ic.commitText(text, 1)
+        Lantern.pasted(this)
         autoSpace = false
         showKeyboard()
         updateShift()

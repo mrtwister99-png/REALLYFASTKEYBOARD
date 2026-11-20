@@ -312,6 +312,65 @@ abstract class SettingsScreen : BaseScreen() {
         refreshers.add { paint() }
     }
 
+    /**
+     * Rozbalovaci volba: radek ukazuje vybranou hodnotu a sipku; klepnuti rozvine cely seznam
+     * (vybrana polozka v accent barve), vyber seznam zase sbali.
+     */
+    protected fun dropdownRow(
+        box: LinearLayout, labelRes: Int, values: List<String>, labels: List<String>,
+        current: () -> String, onPick: (String) -> Unit,
+    ) {
+        val col = LinearLayout(this)
+        col.orientation = LinearLayout.VERTICAL
+        col.setPadding(0, dp(4f), 0, dp(6f))
+        val head = LinearLayout(this)
+        head.gravity = Gravity.CENTER_VERTICAL
+        head.minimumHeight = dp(52f)
+        head.addView(label(getString(labelRes)), LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+        val shown = label("", 15f, accent)
+        head.addView(shown)
+        val arrow = label("\u203A", 24f, dim)
+        arrow.setPadding(dp(10f), 0, dp(4f), 0)
+        head.addView(arrow)
+        col.addView(head, rowParams())
+        val list = LinearLayout(this)
+        list.orientation = LinearLayout.VERTICAL
+        list.visibility = View.GONE
+        val items = ArrayList<TextView>()
+        fun paint() {
+            val cur = current()
+            val a = accent
+            val onA = if (Theme.luminance(a) > 0.55f) 0xFF111113.toInt() else 0xFFFFFFFF.toInt()
+            for ((i, p) in items.withIndex()) {
+                val on = values[i] == cur
+                p.background = rounded(if (on) a else field, dp(12f).toFloat())
+                p.setTextColor(if (on) onA else text)
+            }
+            shown.text = values.indexOf(cur).let { if (it >= 0) labels[it] else "" }
+        }
+        fun open(on: Boolean) {
+            list.visibility = if (on) View.VISIBLE else View.GONE
+            arrow.text = if (on) "\u2304" else "\u203A"
+        }
+        for (i in values.indices) {
+            val p = label(labels[i], 15f)
+            p.setPadding(dp(14f), dp(11f), dp(14f), dp(11f))
+            p.setOnClickListener {
+                onPick(values[i])
+                open(false)
+            }
+            items.add(p)
+            val lp = rowParams()
+            lp.topMargin = dp(6f)
+            list.addView(p, lp)
+        }
+        col.addView(list, rowParams())
+        head.setOnClickListener { open(list.visibility != View.VISIBLE) }
+        box.addView(col, rowParams())
+        paint()
+        refreshers.add { paint() }
+    }
+
     private fun hex(c: Int): String = String.format("#%06X", c and 0xFFFFFF)
 
     /** Barva, kterou radek ukazuje: u barev motivu ta skutecna (z Theme), jinak ulozena hodnota ("" = automaticka). */

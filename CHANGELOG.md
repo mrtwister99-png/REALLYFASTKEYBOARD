@@ -2,6 +2,9 @@
 
 Jedna věta za verzi, nejnovější nahoře. Čísla verzí odpovídají commitům (`vX.Y: …`).
 
+## 1.24 – 2026-11-20
+Efekt při klepnutí se vybírá z rozbalovacího seznamu a Obvod a Výbuch jsou v něm na Hlavní záložce (z Waiting zmizely); v seznamu maker je před názvem vidět obrázek makra; Waiting se odemyká novým postupem.
+
 ## 1.23.3 – 2026-11-20
 Měření výkonu jen v debug buildu (`Perf.kt`, logcat `fazt-perf`): návrhy, swipe, učení, změna nastavení, přestavba geometrie a kreslení. Výsledky v `docs/plan-vykon.md`; v release je vypnuté.
 

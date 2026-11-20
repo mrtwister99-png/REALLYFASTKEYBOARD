@@ -94,7 +94,7 @@ Počet nastavení: **93**.
 | `swipe_trail` | `true` | zap / vyp | Stopa za prstem při tahu. | Hlavní → Klávesy a efekty |
 | `swipe_glow` | `true` | zap / vyp | Rozsvícení kláves při tahu a animace po úspěšném tahu (zapíná se výběrem animace). | Hlavní → Animace po úspěšném tahu |
 | `key_glow` | `true` | zap / vyp | Efekt po klepnutí (zapíná se výběrem efektu). | Hlavní → Efekt při klepnutí |
-| `tap_effect` | `neon` | `neon`, `glitch`, `paint`, `ghost`, `orbit`, `pop` | Který efekt se spustí po klepnutí (když je zapnutý `key_glow`). `orbit` (obrys proběhne kolem klávesy) a `pop` (písmeno se rozprskne a znovu zrodí) jsou jen ve Waiting. | Hlavní → Efekt při klepnutí, Waiting → Efekt při klepnutí |
+| `tap_effect` | `neon` | `neon`, `glitch`, `paint`, `ghost`, `orbit`, `pop` | Který efekt se spustí po klepnutí (když je zapnutý `key_glow`). `orbit` (obrys proběhne kolem klávesy) a `pop` (písmeno se rozprskne a znovu zrodí). | Hlavní → Efekt při klepnutí (rozbalovací seznam) |
 | `neon_color` | `#0080FF` | `#RRGGBB` | Barva efektu po klepnutí (Neon, Glitch, Duch). | Hlavní → Klávesy a efekty |
 | `glow_style` | `blink` | `blink`, `fill`, `fly` | Animace po úspěšném tahu (když je zapnutý `swipe_glow`). | Hlavní → Animace po úspěšném tahu |
 | `glow_color` | `#0080FF` | `#RRGGBB` nebo `rainbow` | Barva písmen po úspěšném tahu. Smí být `rainbow`. | Hlavní (duha jen s Waiting) |

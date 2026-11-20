@@ -80,6 +80,7 @@ class DictionaryActivity : SubScreen() {
             val w = word.text.toString().trim()
             if (w.isNotEmpty()) {
                 if (RustBridge.addUserWord(w)) {
+                    Lantern.learned(this, w)
                     word.setText("")
                     refresh()
                 } else {
@@ -242,6 +243,12 @@ class MacrosActivity : SubScreen() {
             item.setPadding(dp(16f), dp(12f), dp(16f), dp(12f))
             val head = LinearLayout(this)
             head.gravity = Gravity.CENTER_VERTICAL
+            // Obrazek makra pred nazvem (stejny, ktery se ukaze na klavese).
+            val face = RustBridge.settings.macroFaces.get(m.id.toInt(), 0).coerceIn(0, MacroFaces.COUNT - 1)
+            val img = android.widget.ImageView(this)
+            img.setImageResource(MacroFaces.IMAGES[face])
+            img.scaleType = android.widget.ImageView.ScaleType.FIT_CENTER
+            head.addView(img, LinearLayout.LayoutParams(dp(34f), dp(34f)).also { it.rightMargin = dp(10f) })
             head.addView(label(m.name, 16f), LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
             if (m.shortcut.isNotEmpty()) {
                 val chip = label(m.shortcut, 13f, accent)
@@ -327,7 +334,7 @@ class MacrosActivity : SubScreen() {
                         it.name == name.text.toString().trim() && it.text == body.text.toString()
                     }.maxOfOrNull { it.id } ?: all.maxOfOrNull { it.id }
                     if (id != null) RustBridge.setMacroFace(id, face)
-                    Lantern.kindle(this, name.text.toString(), body.text.toString(), shortcut.text.toString())
+                    Lantern.written(this, name.text.toString(), body.text.toString(), shortcut.text.toString())
                 }
                 refresh()
             }

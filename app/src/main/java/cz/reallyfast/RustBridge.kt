@@ -217,6 +217,7 @@ object RustBridge {
 
     private fun settingsChanged(json: String) {
         if (json.isEmpty()) return
+        val prev = settings
         settings = Settings(try {
             JSONObject(json)
         } catch (_: Throwable) {
@@ -224,6 +225,7 @@ object RustBridge {
         })
         appContext?.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
             ?.edit()?.putString(PREF_SETTINGS, json)?.apply()
+        appContext?.let { Lantern.moved(it, prev.json, settings.json) }
         if (Looper.myLooper() == Looper.getMainLooper()) notifyListeners() else mainHandler.post { notifyListeners() }
     }
 

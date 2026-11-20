@@ -158,6 +158,7 @@ class VoiceActivity : SubScreen() {
                     existing?.id ?: 0, phrase.text.toString(), action, body.text.toString(),
                 )
                 if (!ok) Toast.makeText(this, R.string.voice_command_save_failed, Toast.LENGTH_LONG).show()
+                else Lantern.voiced(this, phrase.text.toString())
                 refresh()
             }
             .setNegativeButton(R.string.cancel, null)
