@@ -209,7 +209,7 @@ object MacroFaces {
 }
 
 /**
- * Makra: vlastni textove bloky. Vkladaji se tlacitkem s bleskem na klavesnici,
+ * Makra: vlastni textove bloky. Vkladaji se tlacitkem maker (s maskotem) na klavesnici,
  * nebo napsanim zkratky a mezery.
  */
 class MacrosActivity : SubScreen() {
@@ -322,18 +322,14 @@ class MacrosActivity : SubScreen() {
             .setTitle(if (existing == null) R.string.macro_new else R.string.macro_edit)
             .setView(form)
             .setPositiveButton(R.string.save) { _, _ ->
-                val ok = RustBridge.saveMacro(
+                // Jadro vrati id ulozeneho makra (0 = neulozeno), obrazek se priradi primo jemu.
+                val id = RustBridge.saveMacro(
                     existing?.id ?: 0, name.text.toString(), body.text.toString(), shortcut.text.toString(),
                 )
-                if (!ok) {
+                if (id <= 0) {
                     Toast.makeText(this, R.string.macro_save_failed, Toast.LENGTH_LONG).show()
                 } else {
-                    // Nove makro nema znamo id: je to to nejnovejsi se stejnym nazvem, textem a zkratkou.
-                    val all = RustBridge.macros()
-                    val id = existing?.id ?: all.filter {
-                        it.name == name.text.toString().trim() && it.text == body.text.toString()
-                    }.maxOfOrNull { it.id } ?: all.maxOfOrNull { it.id }
-                    if (id != null) RustBridge.setMacroFace(id, face)
+                    RustBridge.setMacroFace(id, face)
                     Lantern.written(this, name.text.toString(), body.text.toString(), shortcut.text.toString())
                 }
                 refresh()

@@ -144,8 +144,8 @@ class RustBridgeTest {
     @Test
     fun macrosAndShortcutsThroughBridge() {
         requireCore()
-        assertTrue(RustBridge.saveMacro(0, "Pozdrav", "S pozdravem 😀", "mfg"))
-        assertFalse(RustBridge.saveMacro(0, "Prázdné", "   ", ""))
+        assertTrue(RustBridge.saveMacro(0, "Pozdrav", "S pozdravem 😀", "mfg") > 0)
+        assertEquals(0L, RustBridge.saveMacro(0, "Prázdné", "   ", ""))
         val m = RustBridge.macros().first { it.name == "Pozdrav" }
         assertEquals("S pozdravem 😀", m.text)
         assertEquals("S pozdravem 😀", RustBridge.expandShortcut("MFG"))

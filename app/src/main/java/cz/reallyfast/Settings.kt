@@ -33,7 +33,7 @@ class Settings(val json: JSONObject) {
 
     val voiceInput: Boolean get() = json.optBoolean("voice_input", true)
 
-    // Vzhled (Faze 2)
+    // Vzhled
     val keyPopup: Boolean get() = json.optBoolean("key_popup", true)
     val keyHints: Boolean get() = json.optBoolean("key_hints", true)
     val keyShadow: Boolean get() = json.optBoolean("key_shadow", true)
@@ -48,7 +48,7 @@ class Settings(val json: JSONObject) {
     /** Prazdny retezec = automaticka barva napovedy podle motivu. */
     val hintColor: String get() = json.optString("hint_color", "")
     val hintPercent: Int get() = json.optInt("hint_percent", 100).coerceIn(60, 180)
-    /** Efekt po klepnuti: "neon", "glitch" nebo "paint". */
+    /** Efekt po klepnuti: "neon", "glitch", "paint", "ghost", "orbit" nebo "pop". */
     val tapEffect: String get() = json.optString("tap_effect", "neon")
     val neonColor: String get() = json.optString("neon_color", "#0080FF")
 

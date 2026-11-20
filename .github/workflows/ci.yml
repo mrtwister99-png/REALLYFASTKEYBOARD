@@ -7,3 +7,15 @@ jobs:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
       - run: bash scripts/ci.sh
+  android:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: dtolnay/rust-toolchain@stable
+      # Android SDK je na runneru predinstalovany (ANDROID_HOME); .so z jniLibs se pouziji hotove.
+      - run: chmod +x gradlew
+      - run: ./gradlew :app:testDebugUnitTest :app:assembleDebug :app:lintDebug --console=plain

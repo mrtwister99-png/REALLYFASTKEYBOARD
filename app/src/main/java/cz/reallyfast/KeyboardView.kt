@@ -126,6 +126,19 @@ class KeyboardView(context: Context) : View(context) {
     }
 
     companion object {
+        /** Zakladni pismeno pro znaky do 0x17F (diakritika pryc); pocita se jednou pri nacteni tridy. */
+        private val BASE_LETTER = IntArray(0x180).also { t ->
+            for (i in t.indices) {
+                t[i] = java.text.Normalizer.normalize(i.toChar().toString(), java.text.Normalizer.Form.NFD)[0].code
+            }
+        }
+
+        /** Zakladni pismeno (bez diakritiky, malym) jako kod znaku. */
+        private fun baseCode(ch: Char): Int {
+            val c = Character.toLowerCase(ch).code
+            return if (c < BASE_LETTER.size) BASE_LETTER[c] else c
+        }
+
         const val KIND_CHAR = 0
         const val KIND_SHIFT = 1
         const val KIND_BACKSPACE = 2
@@ -1668,10 +1681,10 @@ class KeyboardView(context: Context) : View(context) {
         for (j in 0 until n) {
             flyToX[j] = x + flyWidths[j] / 2f
             x += flyWidths[j]
-            val base = java.text.Normalizer.normalize(flyChars[j].toString().lowercase(), java.text.Normalizer.Form.NFD)[0]
+            val base = baseCode(flyChars[j])
             var ki = -1
             for (i in keys.indices) {
-                if (keys[i].kind == KIND_CHAR && keys[i].code == base.code) {
+                if (keys[i].kind == KIND_CHAR && keys[i].code == base) {
                     ki = i
                     break
                 }
@@ -2096,13 +2109,13 @@ class KeyboardView(context: Context) : View(context) {
             startFly(word)
             return
         }
-        val base = java.text.Normalizer.normalize(word.lowercase(), java.text.Normalizer.Form.NFD)
         var n = 0
-        for (ch in base) {
-            if (ch !in 'a'..'z' || n >= glowSeq.size) continue
+        for (ch in word) {
+            val code = baseCode(ch)
+            if (code !in 'a'.code..'z'.code || n >= glowSeq.size) continue
             for (i in keys.indices) {
                 val k = keys[i]
-                if (k.isLetter && k.code == ch.code) {
+                if (k.isLetter && k.code == code) {
                     glowSeq[n++] = i
                     break
                 }

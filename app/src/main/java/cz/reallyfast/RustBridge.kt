@@ -317,14 +317,14 @@ object RustBridge {
         emptyList()
     }
 
-    /** Ulozi makro (id 0 = nove). Vraci false, kdyz je text prazdny nebo je maker prilis mnoho. */
-    fun saveMacro(id: Long, name: String, text: String, shortcut: String): Boolean {
+    /** Ulozi makro (id 0 = nove). Vraci id ulozeneho makra, nebo 0, kdyz je text prazdny nebo je maker prilis mnoho. */
+    fun saveMacro(id: Long, name: String, text: String, shortcut: String): Long {
         val o = JSONObject()
         o.put("id", id)
         o.put("name", name)
         o.put("text", text)
         o.put("shortcut", shortcut)
-        return call(OP_MACRO_SAVE, o.toString()) == "1"
+        return call(OP_MACRO_SAVE, o.toString()).toLongOrNull() ?: 0L
     }
 
     /**

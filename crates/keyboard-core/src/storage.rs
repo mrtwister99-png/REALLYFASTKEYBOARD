@@ -3,7 +3,7 @@
 //!
 //! SIFROVANI: databaze neni sifrovana na urovni aplikace. Duvod: SQLCipher vyzaduje
 //! krizovou kompilaci OpenSSL pro Android a ChaCha20Poly1305 dalsi kryptografickou
-//! zavislost mimo povoleny seznam (serde, serde_json, rusqlite, rayon, fst, once_cell).
+//! zavislost mimo povoleny seznam (serde, serde_json, rusqlite, fst).
 //! Data lezi v privatnim adresari aplikace (/data/data/cz.reallyfast/files), ktery je
 //! chranen sandboxem Androidu a na S25 Ultra sifrovan systemovym file-based encryption
 //! (klice v hardwarovem Keystore). Aplikace nema opravneni INTERNET a zalohy jsou vypnute
@@ -354,20 +354,29 @@ impl Storage {
 
     /// Ulozi makro (id 0 = nove). Vraci false pri prekroceni limitu nebo chybe databaze.
     pub fn macro_save(&self, m: &Macro) -> bool {
-        let Some(conn) = &self.conn else { return false };
+        self.macro_save_id(m) > 0
+    }
+
+    /// Ulozi makro (id 0 = nove) a vrati jeho id; 0 pri prekroceni limitu nebo chybe databaze.
+    pub fn macro_save_id(&self, m: &Macro) -> i64 {
+        let Some(conn) = &self.conn else { return 0 };
         if m.id > 0 {
-            conn.execute(
-                "UPDATE macros SET name = ?2, text = ?3, shortcut = ?4 WHERE id = ?1",
-                params![m.id, m.name, m.text, m.shortcut],
-            )
-            .is_ok()
+            let ok = conn
+                .execute(
+                    "UPDATE macros SET name = ?2, text = ?3, shortcut = ?4 WHERE id = ?1",
+                    params![m.id, m.name, m.text, m.shortcut],
+                )
+                .is_ok();
+            if ok { m.id } else { 0 }
         } else {
             let count: i64 = conn.query_row("SELECT COUNT(*) FROM macros", [], |r| r.get(0)).unwrap_or(0);
             if count as usize >= crate::macros::MAX_MACROS {
-                return false;
+                return 0;
             }
-            conn.execute("INSERT INTO macros (name, text, shortcut) VALUES (?1, ?2, ?3)", params![m.name, m.text, m.shortcut])
-                .is_ok()
+            match conn.execute("INSERT INTO macros (name, text, shortcut) VALUES (?1, ?2, ?3)", params![m.name, m.text, m.shortcut]) {
+                Ok(_) => conn.last_insert_rowid(),
+                Err(_) => 0,
+            }
         }
     }
 

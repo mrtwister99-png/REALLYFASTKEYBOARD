@@ -57,6 +57,7 @@ pub const OP_WORD_JUMP_LEN: i32 = 23;
 pub const OP_SHOULD_CAPITALIZE: i32 = 24;
 pub const OP_DOUBLE_SPACE: i32 = 25;
 pub const OP_PINCH: i32 = 26;
+/// Jen v Rustu (Kotlin stav slovniku nedotazuje, spoleha na listenery po nacteni); drzi se pro nastroje a testy.
 pub const OP_DICT_READY: i32 = 27;
 pub const OP_CYCLE_LANGUAGE: i32 = 28;
 pub const OP_SHIFT_TAP: i32 = 29;
@@ -422,12 +423,17 @@ impl Engine {
 
     /// Ulozi makro z JSON ({id, name, text, shortcut}); id 0 = nove.
     pub fn save_macro(&mut self, json: &str) -> bool {
+        self.save_macro_id(json) > 0
+    }
+
+    /// Ulozi makro (jako `save_macro`) a vrati jeho id; 0 = nic se neulozilo.
+    pub fn save_macro_id(&mut self, json: &str) -> i64 {
         let Some(m) = serde_json::from_str::<macros::Macro>(json).ok().and_then(macros::Macro::normalized) else {
-            return false;
+            return 0;
         };
-        let ok = self.storage.macro_save(&m);
+        let id = self.storage.macro_save_id(&m);
         self.macros = self.storage.macro_list();
-        ok
+        id
     }
 
     pub fn delete_macro(&mut self, id: i64) {
@@ -732,7 +738,8 @@ pub fn dispatch(op: i32, a: &[u8], b: &[u8], num: i64) -> Vec<u8> {
         OP_LEARN => bool_bytes(e.learn(&sa, &sb, num & FLAG_FROM_SWIPE != 0, now)),
         OP_USER_ADD => bool_bytes(e.add_user_word(&sa, now)),
         OP_MACRO_LIST => serde_json::to_vec(e.macros()).unwrap_or_default(),
-        OP_MACRO_SAVE => bool_bytes(e.save_macro(&sa)),
+        // Odpoved: id ulozeneho makra (nebo "0" pri neuspechu).
+        OP_MACRO_SAVE => e.save_macro_id(&sa).to_string().into_bytes(),
         OP_MACRO_DELETE => {
             e.delete_macro(num);
             Vec::new()
@@ -979,6 +986,21 @@ mod tests {
         // kontext dvou slov ma prednost pred vestavenym bigramem "dobrý den"
         assert_eq!(e.suggest("", "Ahoj dobrý ", false, NOW)[0], "pes");
         assert!(e.suggest("", "Ahoj dobrý ", false, NOW).contains(&"den".to_string()));
+    }
+
+    #[test]
+    fn saving_a_macro_returns_its_id() {
+        let mut e = Engine::with_storage(Storage::in_memory(), NOW);
+        // id ulozeneho makra: nove dostane id > 0, uprava vraci stejne id, neuspech 0
+        let id = e.save_macro_id(r#"{"id":0,"name":"Druhe","text":"text","shortcut":"dr"}"#);
+        assert!(id > 0);
+        assert_eq!(e.macros().iter().find(|m| m.name == "Druhe").map(|m| m.id), Some(id));
+        assert_eq!(e.save_macro_id(&format!(r#"{{"id":{id},"name":"Druhe","text":"jiny","shortcut":"dr"}}"#)), id);
+        assert_eq!(e.save_macro_id("nonsense"), 0);
+        // operace vraci id jako text, "0" pri neuspechu
+        let reply = dispatch(OP_MACRO_SAVE, br#"{"id":0,"name":"Treti","text":"x"}"#, b"", 0);
+        assert!(String::from_utf8(reply).unwrap().parse::<i64>().unwrap() > 0);
+        assert_eq!(dispatch(OP_MACRO_SAVE, b"nonsense", b"", 0), b"0");
     }
 
     #[test]

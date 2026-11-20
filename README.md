@@ -5,8 +5,8 @@ a velmi podrobným přizpůsobením vzhledu. Logika je v Rustu (`crates/keyboard
 (`InputMethodService`, Canvas, haptika). Žádný internet, žádná reklama, žádná telemetrie.
 Oprávnění: `VIBRATE` a `RECORD_AUDIO` (jen pro diktování).
 
-**Stav:** verze **1.25** (`versionName` v `app/build.gradle.kts`). Funkce a vzhled jsou hotové a pokryté testy
-(183 testů Rustu + 14 testů JNI mostu v JVM). **Nic z toho nebylo vyzkoušeno na skutečném telefonu**: build, testy
+**Stav:** verze **1.26** (`versionName` v `app/build.gradle.kts`). Funkce a vzhled jsou hotové a pokryté testy
+(184 testů Rustu + 21 testů v JVM: JNI most, shoda kódů operací, postup odemykání). **Nic z toho nebylo vyzkoušeno na skutečném telefonu**: build, testy
 a logika jsou ověřené, ale vzhled na displeji, animace a gesta je potřeba projít ručně (viz [Známé limitace](#10-známé-limitace)).
 
 Identifikátor balíčku je `cz.reallyfast`, zobrazovaný název je „fAZT!“ (vykřičník nemůže být v ID balíčku).
@@ -40,7 +40,7 @@ do stejného commitu jako zdrojáky.
 **Build > Build App Bundle(s) / APK(s) > Build APK(s)**
 
 Výsledek: `app/build/outputs/apk/debug/app-debug.apk` (cca 17 MB).
-Z příkazové řádky: `gradlew.bat :app:assembleDebug` (release: `:app:assembleRelease`; podepisuje se klíčem z `release.keystore`, `release.storePassword`, `release.keyAlias`, `release.keyPassword` v `local.properties`, bez nich debug klíčem).
+Z příkazové řádky: `gradlew.bat :app:assembleDebug` (release: `:app:assembleRelease`; podepisuje se klíčem z `release.keystore`, `release.storePassword`, `release.keyAlias`, `release.keyPassword` v `local.properties`; bez nich release selže, nepodepisuje se debug klíčem).
 
 ## 3. Instalace do telefonu
 
@@ -159,9 +159,9 @@ Poznámky k odchylkám od zadání:
 ## 8. Testy a benchmarky
 
 ```
-scripts/ci.sh                      # cargo test (183 testů + testy bin a benchů)
+scripts/ci.sh                      # cargo test (184 testů + testy bin a benchů)
 scripts/ci.sh --bench --jni        # + benchmarky + JVM test JNI mostu
-gradlew.bat :app:testDebugUnitTest # 14 testů JNI mostu (načte Rust jádro do JVM)
+gradlew.bat :app:testDebugUnitTest # 21 testů (JNI most načtený do JVM, shoda OP_* kódů Rust ↔ Kotlin, odemykání)
 ```
 
 Rychlá kontrola před commitem (z kořene repozitáře):

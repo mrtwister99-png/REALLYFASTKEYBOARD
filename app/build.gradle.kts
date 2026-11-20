@@ -14,8 +14,8 @@ android {
         applicationId = "cz.reallyfast"
         minSdk = 24
         targetSdk = 35
-        versionCode = 37
-        versionName = "1.25"
+        versionCode = 38
+        versionName = "1.26"
         ndk {
             // arm64-v8a = Galaxy S25 Ultra a vsechny dnesni telefony, x86_64 = emulator.
             abiFilters += listOf("arm64-v8a", "x86_64")
@@ -23,13 +23,20 @@ android {
     }
 
     // Release klic: v local.properties (mimo git) nastav release.keystore, release.storePassword,
-    // release.keyAlias a release.keyPassword. Bez nich se release podepise debug klicem (jen pro vlastni telefon).
+    // release.keyAlias a release.keyPassword. Bez nich sestaveni release selze (zadne podepsani debug klicem).
     val localProps = Properties().apply {
         val f = rootProject.file("local.properties")
         if (f.isFile) f.inputStream().use { load(it) }
     }
     val hasReleaseKey = listOf("release.keystore", "release.storePassword", "release.keyAlias", "release.keyPassword")
         .all { !localProps.getProperty(it).isNullOrBlank() }
+    // Release bez klice se nesmi sestavit (jinak by se podepsal debug klicem); debug a testy tim nejsou dotceny.
+    gradle.taskGraph.whenReady {
+        val wantsRelease = allTasks.any { (it.name.startsWith("assemble") || it.name.startsWith("bundle")) && it.name.endsWith("Release") }
+        if (wantsRelease && !hasReleaseKey) {
+            throw GradleException("reallyFAST!: chybi release.keystore, release.storePassword, release.keyAlias nebo release.keyPassword v local.properties - release se nepodepise debug klicem.")
+        }
+    }
     if (hasReleaseKey) {
         signingConfigs.create("release") {
             storeFile = file(localProps.getProperty("release.keystore"))
@@ -49,9 +56,6 @@ android {
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
             if (hasReleaseKey) {
                 signingConfig = signingConfigs.getByName("release")
-            } else {
-                logger.warn("reallyFAST!: VAROVANI - release.* v local.properties chybi, release se podepise debug klicem (NEVHODNE pro Google Play)")
-                signingConfig = signingConfigs.getByName("debug")
             }
         }
     }
@@ -67,8 +71,8 @@ android {
         unitTests.isReturnDefaultValues = true
     }
     lint {
-        abortOnError = false
-        checkReleaseBuilds = false
+        abortOnError = true
+        checkReleaseBuilds = true
     }
 }
 

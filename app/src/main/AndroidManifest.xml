@@ -26,7 +26,7 @@
         android:localeConfig="@xml/locales_config"
         android:supportsRtl="true"
         android:theme="@style/AppTheme"
-        tools:targetApi="34">
+        tools:targetApi="35">
 
         <service
             android:name=".KeyboardService"

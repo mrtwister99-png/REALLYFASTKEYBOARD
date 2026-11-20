@@ -2,6 +2,9 @@
 
 Jedna věta za verzi, nejnovější nahoře. Čísla verzí odpovídají commitům (`vX.Y: …`).
 
+## 1.26 – 2026-11-20
+Úklid podle revize: jádro vrací id uloženého makra (obrázek se přiřadí přesně jemu), test hlídá shodu kódů operací Rust ↔ Kotlin, release bez klíče se nesestaví (žádné podepsání debug klíčem), zapnutý lint, CI testuje i Android (JVM testy, debug build, lint), animace Slovo používá předpočítanou tabulku písmen, opravené zastaralé komentáře a `targetApi`.
+
 ## 1.25 – 2026-11-20
 Waiting se po správném zadání jen otevře (nic se nepřepisuje) a ukáže okno „Downgrade dokončen!“; řádky v Nastavení mají tenké čárové ikony; nepoužité styly 2–5 mají jednu barvu a základní efekty (nezměněné starší se nahradí); přepnutí stylu je okamžité a při neuložených změnách se zeptá, zda ho změnit bez uložení.
 

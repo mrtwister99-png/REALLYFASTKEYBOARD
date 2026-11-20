@@ -231,7 +231,6 @@
     <string name="style_slots">My styles</string>
     <string name="style_slots_hint">Styles 1–5 are at the top; tap one to select and load it. The Save button at the bottom right stores the current look in the selected style, the arrow at the bottom left undoes changes.</string>
     <string name="style_slot_n">Style %1$d</string>
-    <string name="style_save">Save style</string>
     <string name="style_saved">Look saved to style %1$d</string>
     <string name="style_loaded">Style %1$d loaded</string>
     <string name="style_pick_first">First select style 1–5 above</string>
@@ -308,7 +307,6 @@
     <string name="color_done">Done</string>
     <string name="color_brightness">Brightness</string>
     <string name="sec_extra_digits">Digits</string>
-    <string name="sec_extra_gradients">Gradients</string>
     <string name="sec_extra_effects">Effects</string>
     <string name="digit_text_color">Digit color – character</string>
     <string name="digit_key_color">Digit color – key</string>
@@ -322,7 +320,6 @@
     <string name="notice_ok">OK</string>
     <string name="paint_hint">A tapped key is painted for a few seconds and then slowly fades back.</string>
     <string name="fly_hint">After a swipe the letters of the word fly above the keyboard and form the word.</string>
-    <string name="sec_extra_chars">Characters</string>
     <string name="sec_extra_details">Dimensions and details</string>
     <string name="trail_color">Trail color</string>
     <string name="text_color2">Second character color</string>

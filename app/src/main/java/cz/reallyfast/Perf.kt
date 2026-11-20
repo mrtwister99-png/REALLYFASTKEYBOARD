@@ -62,5 +62,5 @@ object Perf {
         s.n = 0
     }
 
-    private fun fmt(nanos: Long): String = String.format("%.2fms", nanos / 1_000_000.0)
+    private fun fmt(nanos: Long): String = String.format(java.util.Locale.ROOT, "%.2fms", nanos / 1_000_000.0)
 }
