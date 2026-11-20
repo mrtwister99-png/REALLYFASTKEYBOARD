@@ -2,6 +2,9 @@
 
 Jedna věta za verzi, nejnovější nahoře. Čísla verzí odpovídají commitům (`vX.Y: …`).
 
+## 1.24.2 – 2026-11-20
+Oprava: Waiting se po správném zadání opravdu otevře.
+
 ## 1.24.1 – 2026-11-20
 Po správném zadání se Waiting hned otevře.
 
