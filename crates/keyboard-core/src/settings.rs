@@ -10,7 +10,9 @@ pub const LAYOUTS: [&str; 2] = ["qwertz", "qwerty"];
 pub const KEY_PLACES: [&str; 3] = ["left", "right", "hidden"];
 pub const THEMES: [&str; 4] = ["dark", "light", "oled_black", "custom"];
 pub const GLOW_STYLES: [&str; 3] = ["blink", "fill", "fly"];
-pub const TAP_EFFECTS: [&str; 6] = ["neon", "glitch", "paint", "ghost", "orbit", "pop"];
+pub const TAP_EFFECTS: [&str; 7] = ["neon", "glitch", "paint", "ghost", "orbit", "pop", "face"];
+/// Vzhled stopy za prstem pri tahu: cara, nebo obrazky maker (hlavy) v odstupech.
+pub const TRAIL_STYLES: [&str; 2] = ["line", "memorocht"];
 /// Zvlastni hodnota barvy "duha": povolena jen u druhych barev prechodu (klavesy, pozadi, znaky, obrys),
 /// u druhe barvy efektu po klepnuti a u barvy pismen po tahu.
 pub const RAINBOW: &str = "rainbow";
@@ -24,7 +26,7 @@ pub const STYLE_KEYS: &[&str] = &[
     "key_label_x", "key_label_y", "key_hint_x", "key_hint_y", "key_hint_pos",
     "key_popup", "key_hints", "key_shadow", "animations", "swipe_trail", "swipe_glow", "key_glow",
     "hint_color", "hint_percent", "tap_effect", "neon_color", "glow_color", "glow_style",
-    "popup_color", "alts_color", "number_divider", "trail_color", "text_color2",
+    "popup_color", "alts_color", "number_divider", "trail_color", "trail_style", "text_color2",
     "digit_text_color", "digit_key_color", "key_color2", "background_color2",
     "paint_color1", "paint_color2", "paint_color3",
     "passed_text_color", "tap_text_color", "hover_text_color", "label_weight", "digit_weight",
@@ -123,6 +125,8 @@ pub struct Settings {
     pub glow_color: String,
     /// Animace pismen po uspesnem tahu: "blink" (postupne zablikani) nebo "fill" (vybarveni klaves).
     pub glow_style: String,
+    /// Vzhled stopy za prstem: "line" (cara) nebo "memorocht" (obrazky maker za sebou po draze tahu).
+    pub trail_style: String,
     /// Vodorovna mezera mezi klavesami v dp.
     pub key_gap_dp: u32,
     /// Svisla mezera mezi radky v dp. Chybejici hodnota (-1) se odvodi z `key_gap_dp` (1,6x).
@@ -264,6 +268,7 @@ impl Settings {
             neon_color2: String::new(),
             glow_color: DEFAULT_ACCENT.into(),
             glow_style: "blink".into(),
+            trail_style: "line".into(),
             key_gap_dp: 5,
             row_gap_dp: 8,
             popup_color: String::new(),
@@ -564,6 +569,9 @@ impl Settings {
         self.key_text_percent = self.key_text_percent.clamp(70, 150);
         if !GLOW_STYLES.contains(&self.glow_style.as_str()) {
             self.glow_style = d.glow_style.clone();
+        }
+        if !TRAIL_STYLES.contains(&self.trail_style.as_str()) {
+            self.trail_style = d.trail_style.clone();
         }
         if self.tap_effect == "vanish" {
             self.tap_effect = "glitch".into();
@@ -1255,12 +1263,23 @@ mod tests {
 
     #[test]
     fn orbit_and_pop_tap_effects_are_valid() {
-        for e in ["orbit", "pop"] {
+        for e in ["orbit", "pop", "face"] {
             let s = Settings::from_json(&format!(r#"{{"tap_effect":"{e}"}}"#)).unwrap();
             assert_eq!(s.tap_effect, e);
             let back = Settings::from_json(&s.to_json()).unwrap();
             assert_eq!(back.tap_effect, e);
         }
+    }
+
+    #[test]
+    fn trail_style_is_validated_and_part_of_styles() {
+        assert_eq!(Settings::default().trail_style, "line");
+        let s = Settings::from_json(r#"{"trail_style":"memorocht"}"#).unwrap();
+        assert_eq!(s.trail_style, "memorocht");
+        assert_eq!(Settings::from_json(&s.to_json()).unwrap().trail_style, "memorocht");
+        let s = Settings::from_json(r#"{"trail_style":"zigzag"}"#).unwrap();
+        assert_eq!(s.trail_style, "line");
+        assert!(STYLE_KEYS.contains(&"trail_style"));
     }
 
     #[test]

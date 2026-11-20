@@ -2,6 +2,9 @@
 
 Jedna věta za verzi, nejnovější nahoře. Čísla verzí odpovídají commitům (`vX.Y: …`).
 
+## 1.27 – 2026-11-20
+Nový efekt stopy „Memorocht“ (za prstem se po dráze tahu objevují obrázky maker jedna za druhou, `trail_style`) a nový efekt po klepnutí „Obličej“ (písmeno se změní na obrázek makra a klávesa se pak rozsvítí).
+
 ## 1.26 – 2026-11-20
 Úklid podle revize: jádro vrací id uloženého makra (obrázek se přiřadí přesně jemu), test hlídá shodu kódů operací Rust ↔ Kotlin, release bez klíče se nesestaví (žádné podepsání debug klíčem), zapnutý lint, CI testuje i Android (JVM testy, debug build, lint), animace Slovo používá předpočítanou tabulku písmen, opravené zastaralé komentáře a `targetApi`.
 

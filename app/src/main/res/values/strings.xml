@@ -299,8 +299,13 @@
     <string name="hint_color">Barva nápovědy</string>
     <string name="hint_size">Velikost nápovědy</string>
     <string name="tap_effect_orbit">Obvod</string>
+    <string name="tap_effect_face">Obličej</string>
+    <string name="trail_style_label">Vzhled stopy</string>
+    <string name="trail_style_line">Čára</string>
+    <string name="trail_style_memorocht">Memorocht</string>
+    <string name="trail_style_hint">Memorocht: za prstem se po dráze tahu objevují obrázky maker (hlavy) jedna za druhou.</string>
     <string name="tap_effect_pop">Výbuch</string>
-    <string name="tap_effect_ring_hint">Obvod: tlustší obrys proběhne kolem klávesy od náhodného místa. Výbuch: písmeno se rozprskne a znovu zrodí.</string>
+    <string name="tap_effect_ring_hint">Obvod: tlustší obrys proběhne kolem klávesy od náhodného místa. Výbuch: písmeno se rozprskne a znovu zrodí. Obličej: písmeno se změní na obrázek makra a klávesa se pak rozsvítí.</string>
     <string name="tap_effect_label">Efekt při klepnutí</string>
     <string name="tap_effect_neon">Neon</string>
     <string name="tap_effect_glitch">Glitch</string>

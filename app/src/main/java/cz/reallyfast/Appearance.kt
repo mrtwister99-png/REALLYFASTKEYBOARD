@@ -289,7 +289,7 @@ class AppearanceActivity : SettingsScreen() {
             "alts_color" -> preview.demoAlts()
             "animations", "outline_hover_color" -> preview.demoPress()
             "outline_passed_color" -> preview.demoPassed()
-            "swipe_trail", "trail_color", "trail_color2" -> preview.demoTrail()
+            "swipe_trail", "trail_style", "trail_color", "trail_color2" -> preview.demoTrail()
             "glow_style", "glow_color", "glow_color2" -> preview.glowWord("ahoj")
         }
     }
@@ -675,17 +675,20 @@ class AppearanceActivity : SettingsScreen() {
         box = section(tabBox, getString(R.string.sec_effects))
         switchRow(box, R.string.key_hints, "key_hints")
         switchRow(box, R.string.swipe_trail, "swipe_trail")
+        choiceRow(box, R.string.trail_style_label, "trail_style", listOf("line", "memorocht"),
+            listOf(getString(R.string.trail_style_line), getString(R.string.trail_style_memorocht)))
+        hintText(box, getString(R.string.trail_style_hint))
         switchRow(box, R.string.key_popup, "key_popup", hintRes = R.string.key_popup_hint)
         switchRow(box, R.string.key_shadow, "key_shadow", hintRes = R.string.key_shadow_hint)
         switchRow(box, R.string.special_outline, "special_outline", hintRes = R.string.special_outline_hint)
         switchRow(box, R.string.animations, "animations", hintRes = R.string.animations_hint)
         // Vyber efektu po klepnuti: rozbalovaci seznam se vsemi efekty.
-        dropdownRow(box, R.string.tap_effect_label, listOf("none", "neon", "glitch", "paint", "ghost", "orbit", "pop"),
+        dropdownRow(box, R.string.tap_effect_label, listOf("none", "neon", "glitch", "paint", "ghost", "orbit", "pop", "face"),
             listOf(
                 getString(R.string.effect_none), getString(R.string.tap_effect_neon),
                 getString(R.string.tap_effect_glitch), getString(R.string.tap_effect_paint),
                 getString(R.string.tap_effect_ghost), getString(R.string.tap_effect_orbit),
-                getString(R.string.tap_effect_pop),
+                getString(R.string.tap_effect_pop), getString(R.string.tap_effect_face),
             ),
             { val j = RustBridge.settings.json; if (j.optBoolean("key_glow")) j.optString("tap_effect") else "none" },
             { v -> if (v == "none") update("key_glow", false) else updateAll("key_glow" to true, "tap_effect" to v) })

@@ -72,6 +72,9 @@ class KeyboardView(context: Context) : View(context) {
         /** Efekt Vybuch: cas klepnuti (0 = nic) a nahodne natoceni jisker. */
         var popAt = 0L
         var popSeed = 0f
+        var faceAt = 0L
+        var faceIdx = 0
+        var faceLit = false
         /** Barva znaku / obrysu tohoto klepnuti (stridani dvou barev); 0 = zakladni barva. Nastavuje se pri stisku. */
         var tapTxt = 0
         var tapOut = 0
@@ -246,6 +249,14 @@ class KeyboardView(context: Context) : View(context) {
         private const val POP_TOTAL_MS = POP_BURST_MS + POP_GAP_MS + POP_BORN_MS
         private const val POP_SPARK_MS = 420f
         private const val POP_SPARKS = 8
+        private const val FACE_IN_MS = 150L
+        private const val FACE_HOLD_MS = 260L
+        private const val FACE_BACK_MS = 200L
+        private const val FACE_TOTAL_MS = FACE_IN_MS + FACE_HOLD_MS + FACE_BACK_MS
+        private const val HEAD_GAP_DP = 54f
+        private const val HEAD_SIZE_DP = 36f
+        private const val HEAD_TAIL = 6f
+        private const val HEAD_MAX = 40
         // Styl "slovo": pismena vzletnou z klaves, slozi slovo, chvili drzi a vybledou.
         private const val FLY_MS = 450L
         // Po slozeni slovo vyskoci na 1.5x a problikne (POP), pomalu se vrati na 100 % (SETTLE), pak zmizi.
@@ -405,6 +416,8 @@ class KeyboardView(context: Context) : View(context) {
     private var ghostEffect = false
     private var orbitEffect = false
     private var popEffect = false
+    private var faceEffect = false
+    private var memoTrail = false
     private val orbitPath = Path()
     private val orbitSeg = Path()
     private val orbitMeasure = android.graphics.PathMeasure()
@@ -585,6 +598,8 @@ class KeyboardView(context: Context) : View(context) {
         ghostEffect = s.tapEffect == "ghost"
         orbitEffect = s.tapEffect == "orbit"
         popEffect = s.tapEffect == "pop"
+        faceEffect = s.tapEffect == "face"
+        memoTrail = s.trailStyle == "memorocht"
         paintEffect = s.tapEffect == "paint" && s.keyGlow
         val sig = s.tapEffect + s.keyGlow
         if (sig != effectSig) {
@@ -910,6 +925,8 @@ class KeyboardView(context: Context) : View(context) {
     private val clip = RectF()
     private val path = Path()
     private val charBuf = CharArray(8)
+    private val headX = FloatArray(HEAD_MAX)
+    private val headY = FloatArray(HEAD_MAX)
 
     // --- dotyk
     private val handler = Handler(Looper.getMainLooper())
@@ -1238,6 +1255,19 @@ class KeyboardView(context: Context) : View(context) {
             }
             val gText = if (glowRainbow || glowCol2 != 0) textOn(gCol) else glowText
             if (glow > 0f) keyColor = tint(keyColor, gCol, glow)
+            // Oblicej: po skonceni se klavesa rozsviti (neon) a pismeno se vrati.
+            if (k.faceAt != 0L) {
+                val ft = now - k.faceAt
+                if (ft >= FACE_TOTAL_MS) {
+                    k.faceAt = 0L
+                } else {
+                    animating = true
+                    if (ft >= FACE_IN_MS + FACE_HOLD_MS && !k.faceLit) {
+                        k.faceLit = true
+                        k.neonAt = now
+                    }
+                }
+            }
             val neonA = if (k.neonAt != 0L) neonAmount(k, now) else 0f
             val nc = if (k.neonCol != 0) k.neonCol else neon
             if (neonA > 0f) {
@@ -1454,6 +1484,30 @@ class KeyboardView(context: Context) : View(context) {
                     }
                 }
             }
+            // Oblicej: pismeno se zmeni na obrazek (zesvetla/zvetsi), chvili drzi a pak se pismeno vrati.
+            var faceLabel = 1f
+            var faceA = 0f
+            var faceS = 1f
+            if (k.faceAt != 0L && k.macro == null) {
+                val ft = now - k.faceAt
+                if (ft >= 0L) {
+                    if (ft < FACE_IN_MS) {
+                        val q = ft / FACE_IN_MS.toFloat()
+                        faceLabel = 1f - q
+                        faceA = q
+                        faceS = 0.5f + 0.55f * q
+                    } else if (ft < FACE_IN_MS + FACE_HOLD_MS) {
+                        faceLabel = 0f
+                        faceA = 1f
+                        faceS = 1.05f - 0.05f * ((ft - FACE_IN_MS) / FACE_HOLD_MS.toFloat())
+                    } else {
+                        val q = (ft - FACE_IN_MS - FACE_HOLD_MS) / FACE_BACK_MS.toFloat()
+                        faceLabel = q
+                        faceA = 1f - q
+                        faceS = 1f - 0.2f * q
+                    }
+                }
+            }
             val face = if (k.macro != null) faceBitmaps[k.macroFace] else null
             when (k.kind) {
                 KIND_CHAR -> if (face != null) {
@@ -1474,10 +1528,10 @@ class KeyboardView(context: Context) : View(context) {
                     // Poloha znaku: 0,5 / 0,5 = uprostred; jinak se stred pohybuje tam, kde se znak jeste vejde do klavesy.
                     val offX = if (labelX == 0.5f) 0f else (labelX - 0.5f) * 2f * max(0f, hw - labelSize * 0.3f - 2f * density)
                     val offY = if (labelY == 0.5f) 0f else (labelY - 0.5f) * 2f * max(0f, hh - labelSize * 0.36f - 2f * density)
-                    if (popTime >= 0L) {
+                    if (popTime >= 0L || faceLabel < 1f) {
                         canvas.save()
                         canvas.scale(popS, popS, cx + offX, cy + offY + shift)
-                        textPaint.alpha = (textPaint.alpha * popA).toInt().coerceIn(0, 255)
+                        textPaint.alpha = (textPaint.alpha * popA * faceLabel).toInt().coerceIn(0, 255)
                     }
                     if (grad) {
                         // Shader je vystredeny na nulu: platno se posune na stred znaku.
@@ -1490,7 +1544,7 @@ class KeyboardView(context: Context) : View(context) {
                     } else {
                         canvas.drawText(charBuf, 0, n, cx + offX, cy + offY + shift - (textPaint.ascent() + textPaint.descent()) / 2f, textPaint)
                     }
-                    if (popTime >= 0L) canvas.restore()
+                    if (popTime >= 0L || faceLabel < 1f) canvas.restore()
                     textPaint.typeface = baseFace
                 }
                 KIND_SPACE -> {
@@ -1515,6 +1569,10 @@ class KeyboardView(context: Context) : View(context) {
                     drawIcon(canvas, k.kind, cx, cy, min(k.vw, k.h) * 0.2f, fg)
                 }
                 else -> drawIcon(canvas, k.kind, cx, cy, min(k.vw, k.h) * 0.2f, fg)
+            }
+            if (faceA > 0f && k.kind == KIND_CHAR) {
+                val fb = faceBitmaps[k.faceIdx.coerceIn(0, faceBitmaps.size - 1)]
+                if (fb != null) drawFaceImage(canvas, fb, cx, cy, hw, hh, faceS, faceA)
             }
             if (popTime >= 0L && popTime < POP_SPARK_MS) {
                 val q = popTime / POP_SPARK_MS
@@ -1771,6 +1829,31 @@ class KeyboardView(context: Context) : View(context) {
         canvas.drawBitmap(bmp, null, rect, bitmapPaint)
     }
 
+    /** Obrazek makra na klavese pri efektu Oblicej (meritko `scale`, pruhlednost `alpha` 0..1). */
+    private fun drawFaceImage(canvas: Canvas, bmp: Bitmap, cx: Float, cy: Float, hw: Float, hh: Float, scale: Float, alpha: Float) {
+        val ratio = bmp.width.toFloat() / bmp.height
+        var h = hh * 2f * 0.78f
+        var w = h * ratio
+        val maxW = hw * 2f * 0.85f
+        if (w > maxW) {
+            w = maxW
+            h = w / ratio
+        }
+        w *= scale
+        h *= scale
+        rect.set(cx - w / 2f, cy - h / 2f, cx + w / 2f, cy + h / 2f)
+        bitmapPaint.alpha = (255f * alpha).toInt().coerceIn(0, 255)
+        canvas.drawBitmap(bmp, null, rect, bitmapPaint)
+        bitmapPaint.alpha = 255
+    }
+
+    private fun startFace(k: Key, at: Long) {
+        k.neonCol = nextNeon()
+        k.faceIdx = random.nextInt(faceBitmaps.size)
+        k.faceLit = false
+        k.faceAt = at
+    }
+
     private fun drawIcon(canvas: Canvas, kind: Int, cx: Float, cy: Float, s: Float, color: Int) {
         stroke.color = color
         stroke.strokeWidth = 1.7f * density
@@ -1877,6 +1960,7 @@ class KeyboardView(context: Context) : View(context) {
             trailCount = 0
             return false
         }
+        if (memoTrail) return drawHeads(canvas, fade)
         val first = max(0, trailCount - TRAIL_POINTS)
         val span = (trailCount - first).toFloat()
         val rgb = trailCol
@@ -1896,6 +1980,54 @@ class KeyboardView(context: Context) : View(context) {
         }
         fill.color = rgb or ((255f * fade).toInt().coerceIn(0, 255) shl 24)
         canvas.drawCircle(px, py, 4.5f * density, fill)
+        return touchMode != T_SWIPE
+    }
+
+    /**
+     * Memorocht: po draze tahu se v pravidelnych odstupech objevuji obrazky maker (hlavy) jedna za druhou;
+     * nova roste, jak se prst vzdaluje, starsi blednou, takze je videt jen kratky ocas. Bez alokace.
+     */
+    private fun drawHeads(canvas: Canvas, fade: Float): Boolean {
+        val gap = HEAD_GAP_DP * density
+        var px = samples[0]
+        var py = samples[1]
+        headX[0] = px
+        headY[0] = py
+        var n = 1
+        var total = 0f
+        var nextD = gap
+        for (i in 1 until trailCount) {
+            val x = samples[i * 3]
+            val y = samples[i * 3 + 1]
+            val seg = hypot(x - px, y - py)
+            while (seg > 0f && n < HEAD_MAX && total + seg >= nextD) {
+                val q = (nextD - total) / seg
+                headX[n] = px + (x - px) * q
+                headY[n] = py + (y - py) * q
+                n++
+                nextD += gap
+            }
+            total += seg
+            px = x
+            py = y
+        }
+        val size = HEAD_SIZE_DP * density
+        val tail = HEAD_TAIL * gap
+        for (j in 0 until n) {
+            val age = total - j * gap
+            if (age >= tail) continue
+            val grow = min(1f, age / (0.45f * gap))
+            val s = 1f + 2.70158f * (grow - 1f) * (grow - 1f) * (grow - 1f) + 1.70158f * (grow - 1f) * (grow - 1f)
+            val a = (1f - age / tail) * fade
+            val bmp = faceBitmaps[j % faceBitmaps.size] ?: continue
+            val half = size * s.coerceAtLeast(0f) / 2f
+            rect.set(headX[j] - half, headY[j] - half, headX[j] + half, headY[j] + half)
+            bitmapPaint.alpha = (255f * a).toInt().coerceIn(0, 255)
+            canvas.drawBitmap(bmp, null, rect, bitmapPaint)
+        }
+        bitmapPaint.alpha = 255
+        fill.color = trailCol or ((255f * fade).toInt().coerceIn(0, 255) shl 24)
+        canvas.drawCircle(px, py, 3.5f * density, fill)
         return touchMode != T_SWIPE
     }
 
@@ -2260,7 +2392,7 @@ class KeyboardView(context: Context) : View(context) {
                 var n = 0
                 for (k in keys) {
                     if (k.isLetter && n < 4 && k.code.toChar() in "ahoj") {
-                        if (glitchEffect) startGlitch(k, now + n * 140L) else if (ghostEffect) { k.neonCol = nextNeon(); k.ghostAt = now + n * 140L } else if (orbitEffect) { k.neonCol = nextNeon(); k.orbitStart = random.nextFloat(); k.orbitAt = now + n * 140L } else if (popEffect) { k.neonCol = nextNeon(); k.popSeed = random.nextFloat() * 2f * PI.toFloat(); k.popAt = now + n * 140L } else { k.neonCol = nextNeon(); k.neonAt = now }
+                        if (glitchEffect) startGlitch(k, now + n * 140L) else if (ghostEffect) { k.neonCol = nextNeon(); k.ghostAt = now + n * 140L } else if (orbitEffect) { k.neonCol = nextNeon(); k.orbitStart = random.nextFloat(); k.orbitAt = now + n * 140L } else if (popEffect) { k.neonCol = nextNeon(); k.popSeed = random.nextFloat() * 2f * PI.toFloat(); k.popAt = now + n * 140L } else if (faceEffect) { startFace(k, now + n * 140L) } else { k.neonCol = nextNeon(); k.neonAt = now }
                         n++
                     }
                 }
@@ -2515,6 +2647,8 @@ class KeyboardView(context: Context) : View(context) {
                     k.neonCol = nextNeon()
                     k.popSeed = random.nextFloat() * 2f * PI.toFloat()
                     k.popAt = now
+                } else if (faceEffect && k.kind == KIND_CHAR && k.macro == null) {
+                    startFace(k, now)
                 } else {
                     k.neonCol = nextNeon()
                     k.neonAt = -1L

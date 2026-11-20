@@ -299,8 +299,13 @@
     <string name="hint_color">Hint color</string>
     <string name="hint_size">Hint size</string>
     <string name="tap_effect_orbit">Orbit</string>
+    <string name="tap_effect_face">Face</string>
+    <string name="trail_style_label">Trail look</string>
+    <string name="trail_style_line">Line</string>
+    <string name="trail_style_memorocht">Memorocht</string>
+    <string name="trail_style_hint">Memorocht: macro pictures (heads) appear one after another along the swipe path.</string>
     <string name="tap_effect_pop">Burst</string>
-    <string name="tap_effect_ring_hint">Orbit: a thicker outline runs around the key from a random spot. Burst: the letter bursts apart and is born again.</string>
+    <string name="tap_effect_ring_hint">Orbit: a thicker outline runs around the key from a random spot. Burst: the letter bursts apart and is born again. Face: the letter turns into a macro picture and the key then lights up.</string>
     <string name="tap_effect_label">Tap effect</string>
     <string name="tap_effect_neon">Neon</string>
     <string name="tap_effect_glitch">Glitch</string>

@@ -5,8 +5,8 @@ a velmi podrobným přizpůsobením vzhledu. Logika je v Rustu (`crates/keyboard
 (`InputMethodService`, Canvas, haptika). Žádný internet, žádná reklama, žádná telemetrie.
 Oprávnění: `VIBRATE` a `RECORD_AUDIO` (jen pro diktování).
 
-**Stav:** verze **1.26** (`versionName` v `app/build.gradle.kts`). Funkce a vzhled jsou hotové a pokryté testy
-(184 testů Rustu + 21 testů v JVM: JNI most, shoda kódů operací, postup odemykání). **Nic z toho nebylo vyzkoušeno na skutečném telefonu**: build, testy
+**Stav:** verze **1.27** (`versionName` v `app/build.gradle.kts`). Funkce a vzhled jsou hotové a pokryté testy
+(185 testů Rustu + 21 testů v JVM: JNI most, shoda kódů operací, postup odemykání). **Nic z toho nebylo vyzkoušeno na skutečném telefonu**: build, testy
 a logika jsou ověřené, ale vzhled na displeji, animace a gesta je potřeba projít ručně (viz [Známé limitace](#10-známé-limitace)).
 
 Identifikátor balíčku je `cz.reallyfast`, zobrazovaný název je „fAZT!“ (vykřičník nemůže být v ID balíčku).
@@ -17,7 +17,7 @@ Pokud máš v telefonu starší build „RustBoard“ (`cz.rustboard`), odinstal
 | Soubor | Pro koho a o čem |
 |---|---|
 | [docs/user-guide.md](docs/user-guide.md) | Uživatelský návod: psaní tahem, diktování, makra, schránka, vzhled |
-| [docs/settings.md](docs/settings.md) | Seznam všech 93 nastavení: klíč, výchozí hodnota, rozsah, kde je v aplikaci |
+| [docs/settings.md](docs/settings.md) | Seznam všech 94 nastavení: klíč, výchozí hodnota, rozsah, kde je v aplikaci |
 | [docs/architecture.md](docs/architecture.md) | Architektura: Rust jádro ↔ JNI ↔ Kotlin, kam co patří, jak přidat nové nastavení |
 | [docs/privacy.md](docs/privacy.md) | Zásady ochrany soukromí (podklad pro Google Play) |
 | [CHANGELOG.md](CHANGELOG.md) | Historie verzí, jedna věta za verzi |
@@ -159,7 +159,7 @@ Poznámky k odchylkám od zadání:
 ## 8. Testy a benchmarky
 
 ```
-scripts/ci.sh                      # cargo test (184 testů + testy bin a benchů)
+scripts/ci.sh                      # cargo test (185 testů + testy bin a benchů)
 scripts/ci.sh --bench --jni        # + benchmarky + JVM test JNI mostu
 gradlew.bat :app:testDebugUnitTest # 21 testů (JNI most načtený do JVM, shoda OP_* kódů Rust ↔ Kotlin, odemykání)
 ```

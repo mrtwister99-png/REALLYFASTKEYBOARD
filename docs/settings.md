@@ -7,7 +7,7 @@ Přehled všech nastavení fAZT! (`settings.json`). **Jediný zdroj pravdy je st
 - **Úrovně:** 1 = základ (vždy vidět v Hlavní), 2 = Pokročilé (sbalená karta v Hlavní), 3 = Waiting (expertní záložka).
 - **Styly 1–5** ukládají jen klíče ze seznamu `STYLE_KEYS` v `settings.rs`: barvy, přechody, obrys, efekty, rozměry, polohy znaků a nápověd, tloušťky písma. Jazyk, rozložení, makra, přemapování kláves a chování psaní se do stylů neukládají.
 
-Počet nastavení: **93**.
+Počet nastavení: **94**.
 
 
 ## Jazyk, rozložení, spodní řada
@@ -92,9 +92,10 @@ Počet nastavení: **93**.
 | `animations` | `true` | zap / vyp | Plynulé animace (stisk, přechody panelů, návrhy). | Hlavní → Klávesy a efekty |
 | `special_outline` | `true` | zap / vyp | Obrys speciálních kláves (Shift, ?123, ⌫) v barvě akcentu. | Hlavní → Klávesy a efekty |
 | `swipe_trail` | `true` | zap / vyp | Stopa za prstem při tahu. | Hlavní → Klávesy a efekty |
+| `trail_style` | `line` | `line`, `memorocht` | Vzhled stopy za prstem: `line` = čára, `memorocht` = za prstem se po dráze tahu objevují obrázky maker (hlavy) jedna za druhou. | Hlavní → Klávesy a efekty |
 | `swipe_glow` | `true` | zap / vyp | Rozsvícení kláves při tahu a animace po úspěšném tahu (zapíná se výběrem animace). | Hlavní → Animace po úspěšném tahu |
 | `key_glow` | `true` | zap / vyp | Efekt po klepnutí (zapíná se výběrem efektu). | Hlavní → Efekt při klepnutí |
-| `tap_effect` | `neon` | `neon`, `glitch`, `paint`, `ghost`, `orbit`, `pop` | Který efekt se spustí po klepnutí (když je zapnutý `key_glow`). `orbit` (obrys proběhne kolem klávesy) a `pop` (písmeno se rozprskne a znovu zrodí). | Hlavní → Efekt při klepnutí (rozbalovací seznam) |
+| `tap_effect` | `neon` | `neon`, `glitch`, `paint`, `ghost`, `orbit`, `pop`, `face` | Který efekt se spustí po klepnutí (když je zapnutý `key_glow`). `orbit` (obrys proběhne kolem klávesy) a `pop` (písmeno se rozprskne a znovu zrodí), `face` (písmeno se změní na obrázek makra a klávesa se pak rozsvítí). | Hlavní → Efekt při klepnutí (rozbalovací seznam) |
 | `neon_color` | `#0080FF` | `#RRGGBB` | Barva efektu po klepnutí (Neon, Glitch, Duch). | Hlavní → Klávesy a efekty |
 | `glow_style` | `blink` | `blink`, `fill`, `fly` | Animace po úspěšném tahu (když je zapnutý `swipe_glow`). | Hlavní → Animace po úspěšném tahu |
 | `glow_color` | `#0080FF` | `#RRGGBB` nebo `rainbow` | Barva písmen po úspěšném tahu. Smí být `rainbow`. | Hlavní (duha jen s Waiting) |

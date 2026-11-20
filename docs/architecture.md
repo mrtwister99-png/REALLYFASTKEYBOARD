@@ -26,7 +26,7 @@ Tři vrstvy. Rust drží **veškerou logiku a data**, Kotlin jen **kreslí, drž
 | Modul | Co dělá |
 |---|---|
 | `lib.rs` | `Engine` (celý stav) a `dispatch(op, a, b, num)`, jediný vstupní bod pro Kotlin. Nikdy nepanikaří; neznámá operace vrací prázdnou odpověď. Kódy `OP_*` (1–50). |
-| `settings.rs` | struktura `Settings` (93 nastavení), výchozí hodnoty, `validate`, styly 1–5 (`STYLE_KEYS`, `style_slots`). Jediný zdroj pravdy pro nastavení. |
+| `settings.rs` | struktura `Settings` (94 nastavení), výchozí hodnoty, `validate`, styly 1–5 (`STYLE_KEYS`, `style_slots`). Jediný zdroj pravdy pro nastavení. |
 | `layout.rs` | geometrie kláves (CZ QWERTZ / EN QWERTY, čísla, symboly) v pixelech. Kotlin ji jen kreslí a swipe decoder ji používá taky, takže se kreslení a dekódování nemůže rozejít. |
 | `swipe.rs` | dráha → 64 bodů → sekvence nejbližších kláves → beam search (šířka 50) přes trie → skóre → top 3 |
 | `dictionary.rs`, `charmap.rs` | vestavěný slovník (FST slovo → frekvence, bigramy, trigramy), jednobajtové kódování znaků |
@@ -73,7 +73,7 @@ vždy znovu přečte z odpovědi (`refreshers` v `SettingsScreen`), takže zobra
 - `reloadLayout()` → `OP_LAYOUT` vrátí geometrii kláves → `Key` objekty.
 - `applyAppearance()` přečte nastavení do polí (barvy, přepínače, `Theme`) a `updateMetrics()` z nich postaví shadery (přechody kláves, znaků, pozadí, obrysu).
   **Cokoli, co se může spočítat dopředu, se počítá tady, ne v `onDraw`.**
-- `onDraw` vykreslí pozadí, klávesy (barva klávesy + efekty po klepnutí: Neon, Glitch, Barvy, Duch, Obvod, Výbuch, na znakových klávesách i na mezerníku; rozsvícení po tahu), obrys, znaky, nápovědy, stopu, bublinu,
+- `onDraw` vykreslí pozadí, klávesy (barva klávesy + efekty po klepnutí: Neon, Glitch, Barvy, Duch, Obvod, Výbuch, Obličej, na znakových klávesách i na mezerníku; rozsvícení po tahu), obrys, znaky, nápovědy, stopu, bublinu,
   animaci Slovo. Stavy kláves (`pressed`, `passed`, `tapAt`, `passedFadeAt`, `neonAt`, `ghostAt`, `orbitAt`, `popAt`) se mění v dotykové logice; v `onDraw` se jen čtou a časují.
   Dokud něco běží, `onDraw` nastaví `animating = true` a vyžádá další snímek.
 - `Theme` (v `Settings.kt`) počítá z nastavení všechny odvozené barvy (`keyPressed`, `popup`, `hint`, `barText` …). Barva textu nad klávesnicí (`barText`) se
