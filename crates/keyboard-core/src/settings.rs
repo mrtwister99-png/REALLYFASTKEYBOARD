@@ -9,10 +9,10 @@ pub const LANGUAGES: [&str; 3] = ["cs", "en", "cs+en"];
 pub const LAYOUTS: [&str; 2] = ["qwertz", "qwerty"];
 pub const KEY_PLACES: [&str; 3] = ["left", "right", "hidden"];
 pub const THEMES: [&str; 4] = ["dark", "light", "oled_black", "custom"];
-pub const GLOW_STYLES: [&str; 3] = ["blink", "fill", "fly"];
-pub const TAP_EFFECTS: [&str; 7] = ["neon", "glitch", "paint", "ghost", "orbit", "pop", "face"];
-/// Vzhled stopy za prstem pri tahu: cara, nebo obrazky maker (hlavy) v odstupech.
-pub const TRAIL_STYLES: [&str; 2] = ["line", "memorocht"];
+pub const GLOW_STYLES: [&str; 4] = ["blink", "fill", "fly", "cut"];
+pub const TAP_EFFECTS: [&str; 6] = ["neon", "glitch", "paint", "ghost", "orbit", "pop"];
+/// Vzhled stopy za prstem pri tahu: cara, nebo horici cara (ohen a dohorivajici stopy).
+pub const TRAIL_STYLES: [&str; 2] = ["line", "fire"];
 /// Zvlastni hodnota barvy "duha": povolena jen u druhych barev prechodu (klavesy, pozadi, znaky, obrys),
 /// u druhe barvy efektu po klepnuti a u barvy pismen po tahu.
 pub const RAINBOW: &str = "rainbow";
@@ -125,7 +125,7 @@ pub struct Settings {
     pub glow_color: String,
     /// Animace pismen po uspesnem tahu: "blink" (postupne zablikani) nebo "fill" (vybarveni klaves).
     pub glow_style: String,
-    /// Vzhled stopy za prstem: "line" (cara) nebo "memorocht" (obrazky maker za sebou po draze tahu).
+    /// Vzhled stopy za prstem: "line" (cara) nebo "fire" (horici cara se stopami, ktere dohori).
     pub trail_style: String,
     /// Vodorovna mezera mezi klavesami v dp.
     pub key_gap_dp: u32,
@@ -1263,7 +1263,7 @@ mod tests {
 
     #[test]
     fn orbit_and_pop_tap_effects_are_valid() {
-        for e in ["orbit", "pop", "face"] {
+        for e in ["orbit", "pop"] {
             let s = Settings::from_json(&format!(r#"{{"tap_effect":"{e}"}}"#)).unwrap();
             assert_eq!(s.tap_effect, e);
             let back = Settings::from_json(&s.to_json()).unwrap();
@@ -1274,12 +1274,25 @@ mod tests {
     #[test]
     fn trail_style_is_validated_and_part_of_styles() {
         assert_eq!(Settings::default().trail_style, "line");
-        let s = Settings::from_json(r#"{"trail_style":"memorocht"}"#).unwrap();
-        assert_eq!(s.trail_style, "memorocht");
-        assert_eq!(Settings::from_json(&s.to_json()).unwrap().trail_style, "memorocht");
-        let s = Settings::from_json(r#"{"trail_style":"zigzag"}"#).unwrap();
-        assert_eq!(s.trail_style, "line");
+        let s = Settings::from_json(r#"{"trail_style":"fire"}"#).unwrap();
+        assert_eq!(s.trail_style, "fire");
+        assert_eq!(Settings::from_json(&s.to_json()).unwrap().trail_style, "fire");
+        // Zruseny styl a neznama hodnota se vrati na caru.
+        for bad in ["memorocht", "zigzag"] {
+            let s = Settings::from_json(&format!(r#"{{"trail_style":"{bad}"}}"#)).unwrap();
+            assert_eq!(s.trail_style, "line");
+        }
         assert!(STYLE_KEYS.contains(&"trail_style"));
+    }
+
+    #[test]
+    fn cut_glow_style_and_removed_face_effect() {
+        let s = Settings::from_json(r#"{"glow_style":"cut"}"#).unwrap();
+        assert_eq!(s.glow_style, "cut");
+        assert_eq!(Settings::from_json(&s.to_json()).unwrap().glow_style, "cut");
+        // Zruseny efekt Oblicej se vrati na vychozi neon.
+        let s = Settings::from_json(r#"{"tap_effect":"face"}"#).unwrap();
+        assert_eq!(s.tap_effect, "neon");
     }
 
     #[test]

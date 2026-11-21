@@ -73,7 +73,7 @@ vždy znovu přečte z odpovědi (`refreshers` v `SettingsScreen`), takže zobra
 - `reloadLayout()` → `OP_LAYOUT` vrátí geometrii kláves → `Key` objekty.
 - `applyAppearance()` přečte nastavení do polí (barvy, přepínače, `Theme`) a `updateMetrics()` z nich postaví shadery (přechody kláves, znaků, pozadí, obrysu).
   **Cokoli, co se může spočítat dopředu, se počítá tady, ne v `onDraw`.**
-- `onDraw` vykreslí pozadí, klávesy (barva klávesy + efekty po klepnutí: Neon, Glitch, Barvy, Duch, Obvod, Výbuch, Obličej, na znakových klávesách i na mezerníku; rozsvícení po tahu), obrys, znaky, nápovědy, stopu, bublinu,
+- `onDraw` vykreslí pozadí, klávesy (barva klávesy + efekty po klepnutí: Neon, Glitch, Barvy, Duch, Obvod, Výbuch, na znakových klávesách i na mezerníku; rozsvícení po tahu), obrys, znaky, nápovědy, stopu, bublinu,
   animaci Slovo. Stavy kláves (`pressed`, `passed`, `tapAt`, `passedFadeAt`, `neonAt`, `ghostAt`, `orbitAt`, `popAt`) se mění v dotykové logice; v `onDraw` se jen čtou a časují.
   Dokud něco běží, `onDraw` nastaví `animating = true` a vyžádá další snímek.
 - `Theme` (v `Settings.kt`) počítá z nastavení všechny odvozené barvy (`keyPressed`, `popup`, `hint`, `barText` …). Barva textu nad klávesnicí (`barText`) se

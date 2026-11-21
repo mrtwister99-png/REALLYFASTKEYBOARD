@@ -675,29 +675,30 @@ class AppearanceActivity : SettingsScreen() {
         box = section(tabBox, getString(R.string.sec_effects))
         switchRow(box, R.string.key_hints, "key_hints")
         switchRow(box, R.string.swipe_trail, "swipe_trail")
-        choiceRow(box, R.string.trail_style_label, "trail_style", listOf("line", "memorocht"),
-            listOf(getString(R.string.trail_style_line), getString(R.string.trail_style_memorocht)))
+        choiceRow(box, R.string.trail_style_label, "trail_style", listOf("line", "fire"),
+            listOf(getString(R.string.trail_style_line), getString(R.string.trail_style_fire)))
         hintText(box, getString(R.string.trail_style_hint))
         switchRow(box, R.string.key_popup, "key_popup", hintRes = R.string.key_popup_hint)
         switchRow(box, R.string.key_shadow, "key_shadow", hintRes = R.string.key_shadow_hint)
         switchRow(box, R.string.special_outline, "special_outline", hintRes = R.string.special_outline_hint)
         switchRow(box, R.string.animations, "animations", hintRes = R.string.animations_hint)
         // Vyber efektu po klepnuti: rozbalovaci seznam se vsemi efekty.
-        dropdownRow(box, R.string.tap_effect_label, listOf("none", "neon", "glitch", "paint", "ghost", "orbit", "pop", "face"),
+        dropdownRow(box, R.string.tap_effect_label, listOf("none", "neon", "glitch", "paint", "ghost", "orbit", "pop"),
             listOf(
                 getString(R.string.effect_none), getString(R.string.tap_effect_neon),
                 getString(R.string.tap_effect_glitch), getString(R.string.tap_effect_paint),
                 getString(R.string.tap_effect_ghost), getString(R.string.tap_effect_orbit),
-                getString(R.string.tap_effect_pop), getString(R.string.tap_effect_face),
+                getString(R.string.tap_effect_pop),
             ),
             { val j = RustBridge.settings.json; if (j.optBoolean("key_glow")) j.optString("tap_effect") else "none" },
             { v -> if (v == "none") update("key_glow", false) else updateAll("key_glow" to true, "tap_effect" to v) })
         hintText(box, getString(R.string.tap_effect_ring_hint))
         colorRow(box, R.string.neon_color, "neon_color")
-        choiceRow(box, R.string.glow_style_label, listOf("none", "blink", "fill", "fly"),
+        choiceRow(box, R.string.glow_style_label, listOf("none", "blink", "fill", "fly", "cut"),
             listOf(
                 getString(R.string.anim_none), getString(R.string.glow_style_blink),
                 getString(R.string.glow_style_fill), getString(R.string.glow_style_fly),
+                getString(R.string.glow_style_cut),
             ),
             { val j = RustBridge.settings.json; if (j.optBoolean("swipe_glow")) j.optString("glow_style") else "none" },
             { v -> if (v == "none") update("swipe_glow", false) else updateAll("swipe_glow" to true, "glow_style" to v) })

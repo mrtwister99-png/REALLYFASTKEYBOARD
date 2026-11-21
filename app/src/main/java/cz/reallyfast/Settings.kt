@@ -40,7 +40,7 @@ class Settings(val json: JSONObject) {
     val keyRadiusDp: Int get() = json.optInt("key_radius_dp", 10)
     val animations: Boolean get() = json.optBoolean("animations", true)
     val swipeTrail: Boolean get() = json.optBoolean("swipe_trail", true)
-    /** Vzhled stopy: "line" (cara) nebo "memorocht" (obrazky maker za sebou po draze tahu). */
+    /** Vzhled stopy: "line" (cara) nebo "fire" (horici cara se stopami, ktere dohori). */
     val trailStyle: String get() = json.optString("trail_style", "line")
     val swipeGlow: Boolean get() = json.optBoolean("swipe_glow", true)
     val keyGlow: Boolean get() = json.optBoolean("key_glow", true)

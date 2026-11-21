@@ -85,7 +85,7 @@ Diktování používá rozpoznávání řeči v telefonu. Bez staženého offlin
 Nastavení → **Vzhled a rozložení**. Dole je pořád **živý náhled** klávesnice, takže každá změna je vidět hned. Možností je hodně, proto jsou ve **třech úrovních**:
 
 1. **Základ** (záložka *Hlavní*): hotové styly, čtyři barvy, výška a zaoblení kláves, velikost znaků, přepínače (nápovědy, stopa za prstem, bublina, stín, animace, obrys
-   speciálních kláves), **efekt při klepnutí** (rozbalovací seznam: žádný, Neon, Glitch, Barvy, Duch, Obvod, Výbuch, Obličej) a **animace po úspěšném tahu** (žádná, Postupně, Vybarvení, Slovo) s jejich barvami.
+   speciálních kláves), **efekt při klepnutí** (rozbalovací seznam: žádný, Neon, Glitch, Barvy, Duch, Obvod, Výbuch) a **animace po úspěšném tahu** (žádná, Postupně, Vybarvení, Slovo, Řez) s jejich barvami.
 2. **Pokročilé** (sbalená karta *Pokročilé*, klepnutím se rozbalí): poloha znaku a nápovědy, mezery, barvy detailů, číslic, stopy, tloušťky písma, obrys kláves, barvy efektu Barvy.
 3. **Expert** (záložka *Waiting*): druhé barvy (přechody shora dolů, střídání barev, duha) a barvy podle toho, co dělá prst.
 

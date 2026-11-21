@@ -253,6 +253,7 @@
     <string name="tap_effect_paint">Barvy</string>
     <string name="tap_effect_ghost">Duch</string>
     <string name="glow_style_fly">Slovo</string>
+    <string name="glow_style_cut">Řez</string>
     <string name="sec_extra_outline">Obrys kláves</string>
     <string name="outline_color">Barva obrysu</string>
     <string name="outline_color2">Druhá barva obrysu</string>
@@ -299,13 +300,12 @@
     <string name="hint_color">Barva nápovědy</string>
     <string name="hint_size">Velikost nápovědy</string>
     <string name="tap_effect_orbit">Obvod</string>
-    <string name="tap_effect_face">Obličej</string>
     <string name="trail_style_label">Vzhled stopy</string>
     <string name="trail_style_line">Čára</string>
-    <string name="trail_style_memorocht">Memorocht</string>
-    <string name="trail_style_hint">Memorocht: za prstem se po dráze tahu objevují obrázky maker (hlavy) jedna za druhou.</string>
+    <string name="trail_style_fire">Oheň</string>
+    <string name="trail_style_hint">Oheň: za prstem hoří plamen a po dráze zůstávají žhavé stopy, které hoří méně a méně, až dohoří.</string>
     <string name="tap_effect_pop">Výbuch</string>
-    <string name="tap_effect_ring_hint">Obvod: tlustší obrys proběhne kolem klávesy od náhodného místa. Výbuch: písmeno se rozprskne a znovu zrodí. Obličej: písmeno se změní na obrázek makra a klávesa se pak rozsvítí.</string>
+    <string name="tap_effect_ring_hint">Obvod: tlustší obrys proběhne kolem klávesy od náhodného místa. Výbuch: písmeno se rozprskne na jiskry, které létají do všech stran, a znovu se zrodí.</string>
     <string name="tap_effect_label">Efekt při klepnutí</string>
     <string name="tap_effect_neon">Neon</string>
     <string name="tap_effect_glitch">Glitch</string>
@@ -324,7 +324,7 @@
     <string name="paint_color3">Barva 3</string>
     <string name="notice_ok">OK</string>
     <string name="paint_hint">Klepnutá klávesa se na několik sekund obarví a pak pomalu vybledne.</string>
-    <string name="fly_hint">Po tahu se písmena slova slétnou nad klávesnici a složí slovo.</string>
+    <string name="fly_hint">Slovo: po tahu se písmena slétnou nad klávesnici a složí slovo. Řez: slovo se složí a každé písmeno se pak rozřízne a obě půlky odpadnou.</string>
     <string name="sec_extra_details">Rozměry a detaily</string>
     <string name="trail_color">Barva stopy</string>
     <string name="text_color2">Druhá barva znaků</string>

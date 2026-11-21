@@ -92,12 +92,12 @@ Počet nastavení: **94**.
 | `animations` | `true` | zap / vyp | Plynulé animace (stisk, přechody panelů, návrhy). | Hlavní → Klávesy a efekty |
 | `special_outline` | `true` | zap / vyp | Obrys speciálních kláves (Shift, ?123, ⌫) v barvě akcentu. | Hlavní → Klávesy a efekty |
 | `swipe_trail` | `true` | zap / vyp | Stopa za prstem při tahu. | Hlavní → Klávesy a efekty |
-| `trail_style` | `line` | `line`, `memorocht` | Vzhled stopy za prstem: `line` = čára, `memorocht` = za prstem se po dráze tahu objevují obrázky maker (hlavy) jedna za druhou. | Hlavní → Klávesy a efekty |
+| `trail_style` | `line` | `line`, `fire` | Vzhled stopy za prstem: `line` = čára, `fire` = hořící čára (plamen za prstem, žhavé stopy hoří méně a méně a po zvednutí prstu cela dohoří). | Hlavní → Klávesy a efekty |
 | `swipe_glow` | `true` | zap / vyp | Rozsvícení kláves při tahu a animace po úspěšném tahu (zapíná se výběrem animace). | Hlavní → Animace po úspěšném tahu |
 | `key_glow` | `true` | zap / vyp | Efekt po klepnutí (zapíná se výběrem efektu). | Hlavní → Efekt při klepnutí |
-| `tap_effect` | `neon` | `neon`, `glitch`, `paint`, `ghost`, `orbit`, `pop`, `face` | Který efekt se spustí po klepnutí (když je zapnutý `key_glow`). `orbit` (obrys proběhne kolem klávesy) a `pop` (písmeno se rozprskne a znovu zrodí), `face` (písmeno se změní na obrázek makra a klávesa se pak rozsvítí). | Hlavní → Efekt při klepnutí (rozbalovací seznam) |
+| `tap_effect` | `neon` | `neon`, `glitch`, `paint`, `ghost`, `orbit`, `pop` | Který efekt se spustí po klepnutí (když je zapnutý `key_glow`). `orbit` (obrys proběhne kolem klávesy) a `pop` (písmeno se rozprskne na jiskry s náhodnými směry, rychlostmi, časy a zakřivením drah a znovu se zrodí). | Hlavní → Efekt při klepnutí (rozbalovací seznam) |
 | `neon_color` | `#0080FF` | `#RRGGBB` | Barva efektu po klepnutí (Neon, Glitch, Duch). | Hlavní → Klávesy a efekty |
-| `glow_style` | `blink` | `blink`, `fill`, `fly` | Animace po úspěšném tahu (když je zapnutý `swipe_glow`). | Hlavní → Animace po úspěšném tahu |
+| `glow_style` | `blink` | `blink`, `fill`, `fly`, `cut` | Animace po úspěšném tahu (když je zapnutý `swipe_glow`). `fly` = písmena složí slovo nad klávesnicí; `cut` = slovo se složí a každé písmeno se rozřízne (náhodně ve 30–70 % výšky) a obě půlky odpadnou od řezu. | Hlavní → Animace po úspěšném tahu |
 | `glow_color` | `#0080FF` | `#RRGGBB` nebo `rainbow` | Barva písmen po úspěšném tahu. Smí být `rainbow`. | Hlavní (duha jen s Waiting) |
 
 ## Pokročilé barvy a obrys (úroveň 2)

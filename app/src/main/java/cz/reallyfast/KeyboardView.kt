@@ -69,12 +69,9 @@ class KeyboardView(context: Context) : View(context) {
         /** Efekt Obvod: cas klepnuti (0 = nic) a nahodny bod startu na obrysu (0..1 delky obvodu). */
         var orbitAt = 0L
         var orbitStart = 0f
-        /** Efekt Vybuch: cas klepnuti (0 = nic) a nahodne natoceni jisker. */
+        /** Efekt Vybuch: cas klepnuti (0 = nic) a nahodne zrno, z ktereho se odvozuje draha kazde jiskry. */
         var popAt = 0L
         var popSeed = 0f
-        var faceAt = 0L
-        var faceIdx = 0
-        var faceLit = false
         /** Barva znaku / obrysu tohoto klepnuti (stridani dvou barev); 0 = zakladni barva. Nastavuje se pri stisku. */
         var tapTxt = 0
         var tapOut = 0
@@ -246,17 +243,23 @@ class KeyboardView(context: Context) : View(context) {
         private const val POP_BURST_MS = 170L
         private const val POP_GAP_MS = 110L
         private const val POP_BORN_MS = 330L
-        private const val POP_TOTAL_MS = POP_BURST_MS + POP_GAP_MS + POP_BORN_MS
-        private const val POP_SPARK_MS = 420f
-        private const val POP_SPARKS = 8
-        private const val FACE_IN_MS = 150L
-        private const val FACE_HOLD_MS = 260L
-        private const val FACE_BACK_MS = 200L
-        private const val FACE_TOTAL_MS = FACE_IN_MS + FACE_HOLD_MS + FACE_BACK_MS
-        private const val HEAD_GAP_DP = 54f
-        private const val HEAD_SIZE_DP = 36f
-        private const val HEAD_TAIL = 6f
-        private const val HEAD_MAX = 40
+        // Jiskry vybuchu: kazda ma nahodny smer, rychlost, zpozdeni, dobu letu, zakriveni drahy a velikost (z popSeed).
+        private const val POP_SPARKS = 18
+        private const val POP_SPARK_MAX_DELAY_MS = 90
+        private const val POP_SPARK_MIN_LIFE_MS = 260
+        private const val POP_SPARK_LIFE_SPAN_MS = 480
+        private const val POP_SPARK_END_MS = POP_SPARK_MAX_DELAY_MS + POP_SPARK_MIN_LIFE_MS + POP_SPARK_LIFE_SPAN_MS
+        private const val POP_TOTAL_MS = POP_SPARK_END_MS.toLong()
+        // Horici cara: okno poslednich bodu stopy, doba dohoreni po zvednuti prstu a prodleva plamenu (zmena nahody).
+        private const val FIRE_POINTS = 70
+        private const val FIRE_OUT_MS = 900f
+        private const val FIRE_FLICKER_MS = 70L
+        private const val FIRE_HOT = 0xFFFFE070.toInt()
+        private const val FIRE_MID = 0xFFFF7A00.toInt()
+        private const val FIRE_COLD = 0xFFB3200A.toInt()
+        // Styl "rez": po dopadu slovo chvili drzi, pak se kazde pismeno rozrizne (30-70 % vysky, nahodny sklon) a poloviny odpadnou.
+        private const val CUT_HOLD_MS = 320L
+        private const val CUT_FALL_MS = 800L
         // Styl "slovo": pismena vzletnou z klaves, slozi slovo, chvili drzi a vybledou.
         private const val FLY_MS = 450L
         // Po slozeni slovo vyskoci na 1.5x a problikne (POP), pomalu se vrati na 100 % (SETTLE), pak zmizi.
@@ -416,8 +419,10 @@ class KeyboardView(context: Context) : View(context) {
     private var ghostEffect = false
     private var orbitEffect = false
     private var popEffect = false
-    private var faceEffect = false
-    private var memoTrail = false
+    private var fireTrail = false
+    private var glowCutStyle = false
+    private var flyCut = false
+    private var flySeed = 0
     private val orbitPath = Path()
     private val orbitSeg = Path()
     private val orbitMeasure = android.graphics.PathMeasure()
@@ -598,8 +603,8 @@ class KeyboardView(context: Context) : View(context) {
         ghostEffect = s.tapEffect == "ghost"
         orbitEffect = s.tapEffect == "orbit"
         popEffect = s.tapEffect == "pop"
-        faceEffect = s.tapEffect == "face"
-        memoTrail = s.trailStyle == "memorocht"
+        glowCutStyle = s.glowStyle == "cut"
+        fireTrail = s.trailStyle == "fire"
         paintEffect = s.tapEffect == "paint" && s.keyGlow
         val sig = s.tapEffect + s.keyGlow
         if (sig != effectSig) {
@@ -925,8 +930,6 @@ class KeyboardView(context: Context) : View(context) {
     private val clip = RectF()
     private val path = Path()
     private val charBuf = CharArray(8)
-    private val headX = FloatArray(HEAD_MAX)
-    private val headY = FloatArray(HEAD_MAX)
 
     // --- dotyk
     private val handler = Handler(Looper.getMainLooper())
@@ -1168,11 +1171,13 @@ class KeyboardView(context: Context) : View(context) {
         var flyLabel = 1f
         if (flyCount > 0) {
             val ft = now - flyStart
-            if (ft >= FLY_MS + FLY_HOLD_MS + FLY_FADE_MS) {
+            val hold = if (flyCut) CUT_HOLD_MS else FLY_HOLD_MS
+            val fadeMs = if (flyCut) CUT_FALL_MS else FLY_FADE_MS
+            if (ft >= FLY_MS + hold + fadeMs) {
                 flyCount = 0
             } else {
                 animating = true
-                flyLabel = if (ft < FLY_MS + FLY_HOLD_MS) 0f else (ft - FLY_MS - FLY_HOLD_MS) / FLY_FADE_MS.toFloat()
+                flyLabel = if (ft < FLY_MS + hold) 0f else (ft - FLY_MS - hold) / fadeMs.toFloat()
             }
         }
 
@@ -1255,19 +1260,6 @@ class KeyboardView(context: Context) : View(context) {
             }
             val gText = if (glowRainbow || glowCol2 != 0) textOn(gCol) else glowText
             if (glow > 0f) keyColor = tint(keyColor, gCol, glow)
-            // Oblicej: po skonceni se klavesa rozsviti (neon) a pismeno se vrati.
-            if (k.faceAt != 0L) {
-                val ft = now - k.faceAt
-                if (ft >= FACE_TOTAL_MS) {
-                    k.faceAt = 0L
-                } else {
-                    animating = true
-                    if (ft >= FACE_IN_MS + FACE_HOLD_MS && !k.faceLit) {
-                        k.faceLit = true
-                        k.neonAt = now
-                    }
-                }
-            }
             val neonA = if (k.neonAt != 0L) neonAmount(k, now) else 0f
             val nc = if (k.neonCol != 0) k.neonCol else neon
             if (neonA > 0f) {
@@ -1469,7 +1461,10 @@ class KeyboardView(context: Context) : View(context) {
                     popTime = -1L
                 } else {
                     animating = true
-                    if (popTime < POP_BURST_MS) {
+                    if (popTime >= POP_BURST_MS + POP_GAP_MS + POP_BORN_MS) {
+                        popS = 1f
+                        popA = 1f
+                    } else if (popTime < POP_BURST_MS) {
                         val q = popTime / POP_BURST_MS.toFloat()
                         popS = 1f + 0.45f * q
                         popA = 1f - q
@@ -1481,30 +1476,6 @@ class KeyboardView(context: Context) : View(context) {
                         val x = q - 1f
                         popS = 1f + 2.70158f * x * x * x + 1.70158f * x * x
                         popA = min(1f, q * 2f)
-                    }
-                }
-            }
-            // Oblicej: pismeno se zmeni na obrazek (zesvetla/zvetsi), chvili drzi a pak se pismeno vrati.
-            var faceLabel = 1f
-            var faceA = 0f
-            var faceS = 1f
-            if (k.faceAt != 0L && k.macro == null) {
-                val ft = now - k.faceAt
-                if (ft >= 0L) {
-                    if (ft < FACE_IN_MS) {
-                        val q = ft / FACE_IN_MS.toFloat()
-                        faceLabel = 1f - q
-                        faceA = q
-                        faceS = 0.5f + 0.55f * q
-                    } else if (ft < FACE_IN_MS + FACE_HOLD_MS) {
-                        faceLabel = 0f
-                        faceA = 1f
-                        faceS = 1.05f - 0.05f * ((ft - FACE_IN_MS) / FACE_HOLD_MS.toFloat())
-                    } else {
-                        val q = (ft - FACE_IN_MS - FACE_HOLD_MS) / FACE_BACK_MS.toFloat()
-                        faceLabel = q
-                        faceA = 1f - q
-                        faceS = 1f - 0.2f * q
                     }
                 }
             }
@@ -1528,10 +1499,10 @@ class KeyboardView(context: Context) : View(context) {
                     // Poloha znaku: 0,5 / 0,5 = uprostred; jinak se stred pohybuje tam, kde se znak jeste vejde do klavesy.
                     val offX = if (labelX == 0.5f) 0f else (labelX - 0.5f) * 2f * max(0f, hw - labelSize * 0.3f - 2f * density)
                     val offY = if (labelY == 0.5f) 0f else (labelY - 0.5f) * 2f * max(0f, hh - labelSize * 0.36f - 2f * density)
-                    if (popTime >= 0L || faceLabel < 1f) {
+                    if (popTime >= 0L) {
                         canvas.save()
                         canvas.scale(popS, popS, cx + offX, cy + offY + shift)
-                        textPaint.alpha = (textPaint.alpha * popA * faceLabel).toInt().coerceIn(0, 255)
+                        textPaint.alpha = (textPaint.alpha * popA).toInt().coerceIn(0, 255)
                     }
                     if (grad) {
                         // Shader je vystredeny na nulu: platno se posune na stred znaku.
@@ -1544,7 +1515,7 @@ class KeyboardView(context: Context) : View(context) {
                     } else {
                         canvas.drawText(charBuf, 0, n, cx + offX, cy + offY + shift - (textPaint.ascent() + textPaint.descent()) / 2f, textPaint)
                     }
-                    if (popTime >= 0L || faceLabel < 1f) canvas.restore()
+                    if (popTime >= 0L) canvas.restore()
                     textPaint.typeface = baseFace
                 }
                 KIND_SPACE -> {
@@ -1570,18 +1541,27 @@ class KeyboardView(context: Context) : View(context) {
                 }
                 else -> drawIcon(canvas, k.kind, cx, cy, min(k.vw, k.h) * 0.2f, fg)
             }
-            if (faceA > 0f && k.kind == KIND_CHAR) {
-                val fb = faceBitmaps[k.faceIdx.coerceIn(0, faceBitmaps.size - 1)]
-                if (fb != null) drawFaceImage(canvas, fb, cx, cy, hw, hh, faceS, faceA)
-            }
-            if (popTime >= 0L && popTime < POP_SPARK_MS) {
-                val q = popTime / POP_SPARK_MS
-                val dist = hh * (0.3f + 1.0f * q)
-                val ja = ((255f * (1f - q)).toInt().coerceIn(0, 255)) shl 24
-                fill.color = (nc and 0x00FFFFFF) or ja
+            if (popTime >= 0L && popTime < POP_SPARK_END_MS) {
+                // Kazda jiskra ma vlastni (nahodny) smer, rychlost, zpozdeni, dobu letu, zakriveni a velikost; nic se neuklada.
+                val seed = (k.popSeed * 1000f).toInt()
+                val white = Theme.blend(nc, WHITE, 0.6f) and 0x00FFFFFF
                 for (i in 0 until POP_SPARKS) {
-                    val ang = k.popSeed + i * (2f * PI.toFloat() / POP_SPARKS)
-                    canvas.drawCircle(cx + cos(ang) * dist, cy + sin(ang) * dist, 2.6f * density * (1f - q) + 0.5f, fill)
+                    val delay = (sparkRand(seed, i, 0) * POP_SPARK_MAX_DELAY_MS).toLong()
+                    val life = POP_SPARK_MIN_LIFE_MS + sparkRand(seed, i, 1) * POP_SPARK_LIFE_SPAN_MS
+                    val q = (popTime - delay) / life
+                    if (q <= 0f || q >= 1f) continue
+                    val ang = sparkRand(seed, i, 2) * 2f * PI.toFloat()
+                    val reach = hh * (0.9f + 2.4f * sparkRand(seed, i, 3))
+                    val curve = (sparkRand(seed, i, 4) - 0.5f) * 1.6f
+                    val ease = 1f - (1f - q) * (1f - q)
+                    val d = reach * ease
+                    // Zakriveni: smer se behem letu stoci a dolu ji tahne lehka tiaz.
+                    val a2 = ang + curve * q
+                    val px = cx + cos(a2) * d
+                    val py = cy + sin(a2) * d + hh * 0.9f * q * q
+                    val alpha = ((255f * (1f - q * q)).toInt()).coerceIn(0, 255)
+                    fill.color = (if (i % 3 == 0) white else (nc and 0x00FFFFFF)) or (alpha shl 24)
+                    canvas.drawCircle(px, py, (1f + 3.2f * sparkRand(seed, i, 5)) * density * (1f - 0.7f * q), fill)
                 }
             }
         }
@@ -1665,14 +1645,16 @@ class KeyboardView(context: Context) : View(context) {
     private fun drawFly(canvas: Canvas, now: Long) {
         if (flyCount == 0) return
         val t = now - flyStart
-        if (t >= FLY_MS + FLY_HOLD_MS + FLY_FADE_MS) return
+        val hold = if (flyCut) CUT_HOLD_MS else FLY_HOLD_MS
+        val fadeMs = if (flyCut) CUT_FALL_MS else FLY_FADE_MS
+        if (t >= FLY_MS + hold + fadeMs) return
         val f = min(1f, t / FLY_MS.toFloat())
         val e = 1f - (1f - f) * (1f - f)
-        val fade = if (t < FLY_MS + FLY_HOLD_MS) 1f else 1f - (t - FLY_MS - FLY_HOLD_MS) / FLY_FADE_MS.toFloat()
+        val fade = if (flyCut || t < FLY_MS + hold) 1f else 1f - (t - FLY_MS - hold) / fadeMs.toFloat()
         val alpha = (255f * fade).toInt().coerceIn(0, 255)
         // Faze po dopadu: rychle zvetseni + probliknuti, pak pomaly navrat na 100 %.
         var pop = 0f
-        if (t > FLY_MS) {
+        if (t > FLY_MS && !flyCut) {
             val pt = t - FLY_MS
             pop = if (pt < FLY_POP_MS) {
                 pt / FLY_POP_MS.toFloat()
@@ -1683,6 +1665,10 @@ class KeyboardView(context: Context) : View(context) {
         }
         val scale = 1f + (flyPopScale - 1f) * pop
         val size = (flyStartSize + (flyEndSize - flyStartSize) * e) * scale
+        if (flyCut && t >= FLY_MS + hold) {
+            drawCut(canvas, (t - FLY_MS - hold) / fadeMs.toFloat(), size)
+            return
+        }
         flyFill.textSize = size
         flyOutline.textSize = size
         flyOutline.strokeWidth = size * 0.14f
@@ -1707,6 +1693,59 @@ class KeyboardView(context: Context) : View(context) {
             }
             canvas.drawText(flyChars, j, 1, x, y, flyOutline)
             canvas.drawText(flyChars, j, 1, x, y, flyFill)
+        }
+    }
+
+    /** Pseudonahodne cislo 0..1 z (zrno, index, sul); bez alokace a bez stavu (stejne zrno = stejne hodnoty). */
+    private fun sparkRand(seed: Int, i: Int, salt: Int): Float {
+        var h = seed * 374761393 + i * 668265263 + salt * 2147483647
+        h = (h xor (h ushr 13)) * 1274126177
+        h = h xor (h ushr 16)
+        return (h and 0xFFFFFF) / 16777216f
+    }
+
+    /**
+     * Styl "rez" po dopadu slova: kazde pismeno se rozrizne ve 30-70 % vysky (nahodny sklon rezu) a obe poloviny
+     * odpadnou od rezu (nahoru/dolu kolmo na rez, k tomu tiaz a nahodne natoceni). `q` = 0..1 postup padani. Bez alokace.
+     */
+    private fun drawCut(canvas: Canvas, q: Float, size: Float) {
+        val landY = if (overflowTop > 0) -overflowTop / 2f else flyEndSize * 0.75f
+        val dy = -(flyFill.ascent() + flyFill.descent()) / 2f
+        val baseline = landY + dy
+        val alpha = (255f * (1f - q * q)).toInt().coerceIn(0, 255)
+        flyOutline.color = ((alpha * 0.6f).toInt().coerceIn(0, 255) shl 24)
+        val reach = size * (0.5f * q + 0.7f * q * q)
+        val gravity = size * 2.2f * q * q
+        val big = size * 3f
+        for (j in 0 until flyCount) {
+            val c = when {
+                glowRainbow -> rainbow(if (flyCount > 1) j / (flyCount - 1f) else 0f)
+                glowCol2 != 0 -> Theme.blend(glowColor, glowCol2, if (flyCount > 1) j / (flyCount - 1f) else 0f)
+                else -> glowColor
+            }
+            flyFill.color = (c and 0x00FFFFFF) or (alpha shl 24)
+            val x = flyToX[j]
+            // Telo pismene: male pismeno saha do 0,5 vysky, ostatni do 0,72 (rez musi vzdy protnout pismeno).
+            val top = baseline - size * (if (flyChars[j].isLowerCase()) 0.5f else 0.72f)
+            val cutY = top + (baseline + size * 0.02f - top) * (0.3f + 0.4f * sparkRand(flySeed, j, 0))
+            val tilt = (sparkRand(flySeed, j, 1) - 0.5f) * 40f
+            val rad = Math.toRadians(tilt.toDouble())
+            val nx = sin(rad).toFloat()
+            val ny = -cos(rad).toFloat()
+            val side = if (sparkRand(flySeed, j, 2) < 0.5f) 1f else -1f
+            val spin = (8f + 30f * sparkRand(flySeed, j, 3)) * q
+            for (half in 0..1) {
+                val dir = if (half == 0) 1f else -1f
+                canvas.save()
+                canvas.translate(nx * reach * dir + side * dir * size * 0.25f * q, ny * reach * dir + gravity)
+                canvas.rotate(side * dir * spin, x, cutY)
+                canvas.rotate(tilt, x, cutY)
+                if (half == 0) canvas.clipRect(x - big, cutY - big, x + big, cutY) else canvas.clipRect(x - big, cutY, x + big, cutY + big)
+                canvas.rotate(-tilt, x, cutY)
+                canvas.drawText(flyChars, j, 1, x, baseline, flyOutline)
+                canvas.drawText(flyChars, j, 1, x, baseline, flyFill)
+                canvas.restore()
+            }
         }
     }
 
@@ -1757,6 +1796,8 @@ class KeyboardView(context: Context) : View(context) {
             }
         }
         flyCount = n
+        flyCut = glowCutStyle
+        flySeed = random.nextInt()
         flyStart = SystemClock.uptimeMillis()
         glowCount = 0
         invalidate()
@@ -1827,31 +1868,6 @@ class KeyboardView(context: Context) : View(context) {
         rect.set(cx - w / 2f, cy - h / 2f, cx + w / 2f, cy + h / 2f)
         bitmapPaint.alpha = if (dimmed) 77 else 255
         canvas.drawBitmap(bmp, null, rect, bitmapPaint)
-    }
-
-    /** Obrazek makra na klavese pri efektu Oblicej (meritko `scale`, pruhlednost `alpha` 0..1). */
-    private fun drawFaceImage(canvas: Canvas, bmp: Bitmap, cx: Float, cy: Float, hw: Float, hh: Float, scale: Float, alpha: Float) {
-        val ratio = bmp.width.toFloat() / bmp.height
-        var h = hh * 2f * 0.78f
-        var w = h * ratio
-        val maxW = hw * 2f * 0.85f
-        if (w > maxW) {
-            w = maxW
-            h = w / ratio
-        }
-        w *= scale
-        h *= scale
-        rect.set(cx - w / 2f, cy - h / 2f, cx + w / 2f, cy + h / 2f)
-        bitmapPaint.alpha = (255f * alpha).toInt().coerceIn(0, 255)
-        canvas.drawBitmap(bmp, null, rect, bitmapPaint)
-        bitmapPaint.alpha = 255
-    }
-
-    private fun startFace(k: Key, at: Long) {
-        k.neonCol = nextNeon()
-        k.faceIdx = random.nextInt(faceBitmaps.size)
-        k.faceLit = false
-        k.faceAt = at
     }
 
     private fun drawIcon(canvas: Canvas, kind: Int, cx: Float, cy: Float, s: Float, color: Int) {
@@ -1952,6 +1968,7 @@ class KeyboardView(context: Context) : View(context) {
      */
     private fun drawTrail(canvas: Canvas, now: Long): Boolean {
         if (!drawTrailEnabled || trailCount < 2) return false
+        if (fireTrail) return drawFire(canvas, now)
         val fade = if (touchMode == T_SWIPE || trailHeld) 1f else {
             if (!animate) return false
             1f - (now - trailEndedAt) / TRAIL_FADE_MS
@@ -1960,7 +1977,6 @@ class KeyboardView(context: Context) : View(context) {
             trailCount = 0
             return false
         }
-        if (memoTrail) return drawHeads(canvas, fade)
         val first = max(0, trailCount - TRAIL_POINTS)
         val span = (trailCount - first).toFloat()
         val rgb = trailCol
@@ -1984,51 +2000,63 @@ class KeyboardView(context: Context) : View(context) {
     }
 
     /**
-     * Memorocht: po draze tahu se v pravidelnych odstupech objevuji obrazky maker (hlavy) jedna za druhou;
-     * nova roste, jak se prst vzdaluje, starsi blednou, takze je videt jen kratky ocas. Bez alokace.
+     * Horici cara: za prstem hori plamen, jehoz hlava je nejhorejsi; zpet po draze tahu zustavaji zhavici stopy,
+     * ktere hori mene a mene (zlute, oranzove, cervene), a po zvednuti prstu cela cara postupne dohori.
+     * Plamen se chveje (nahoda se meni po FIRE_FLICKER_MS). Bez alokace; vraci true, dokud neco hori.
      */
-    private fun drawHeads(canvas: Canvas, fade: Float): Boolean {
-        val gap = HEAD_GAP_DP * density
-        var px = samples[0]
-        var py = samples[1]
-        headX[0] = px
-        headY[0] = py
-        var n = 1
-        var total = 0f
-        var nextD = gap
-        for (i in 1 until trailCount) {
+    private fun drawFire(canvas: Canvas, now: Long): Boolean {
+        var burn = 0f
+        if (touchMode != T_SWIPE && !trailHeld) {
+            if (!animate) return false
+            burn = (now - trailEndedAt) / FIRE_OUT_MS
+            if (burn >= 1f) {
+                trailCount = 0
+                return false
+            }
+        }
+        val first = max(0, trailCount - FIRE_POINTS)
+        val span = (trailCount - first).toFloat()
+        val bucket = (now / FIRE_FLICKER_MS).toInt()
+        val life = 1f - burn
+        stroke.style = Paint.Style.STROKE
+        var px = samples[first * 3]
+        var py = samples[first * 3 + 1]
+        for (i in first + 1 until trailCount) {
+            val f = (i - first) / span
+            // Zhavost: hlava (f = 1) hori naplno, ocas rychle uhasina; po zvednuti prstu klesa vse.
+            val heat = f * f * life
             val x = samples[i * 3]
             val y = samples[i * 3 + 1]
-            val seg = hypot(x - px, y - py)
-            while (seg > 0f && n < HEAD_MAX && total + seg >= nextD) {
-                val q = (nextD - total) / seg
-                headX[n] = px + (x - px) * q
-                headY[n] = py + (y - py) * q
-                n++
-                nextD += gap
+            val flick = 0.75f + 0.5f * sparkRand(bucket, i, 7)
+            val col = if (heat > 0.5f) Theme.blend(FIRE_MID, FIRE_HOT, (heat - 0.5f) * 2f) else Theme.blend(FIRE_COLD, FIRE_MID, heat * 2f)
+            stroke.color = (col and 0x00FFFFFF) or ((230f * heat).toInt().coerceIn(0, 255) shl 24)
+            stroke.strokeWidth = (1.2f + 4.5f * heat) * density * flick
+            canvas.drawLine(px, py, x, y, stroke)
+            // Jazyk plamene: kulicka stoupa nad drahou, tim vys a vetsi, cim je bod zhavejsi.
+            if (heat > 0.12f && i % 2 == 0) {
+                val rise = heat * (3f + 11f * sparkRand(bucket, i, 8)) * density
+                val sway = (sparkRand(bucket, i, 9) - 0.5f) * 6f * density * heat
+                fill.color = (col and 0x00FFFFFF) or ((200f * heat).toInt().coerceIn(0, 255) shl 24)
+                canvas.drawCircle(x + sway, y - rise, (1f + 3f * heat) * density * flick, fill)
             }
-            total += seg
             px = x
             py = y
         }
-        val size = HEAD_SIZE_DP * density
-        val tail = HEAD_TAIL * gap
-        for (j in 0 until n) {
-            val age = total - j * gap
-            if (age >= tail) continue
-            val grow = min(1f, age / (0.45f * gap))
-            val s = 1f + 2.70158f * (grow - 1f) * (grow - 1f) * (grow - 1f) + 1.70158f * (grow - 1f) * (grow - 1f)
-            val a = (1f - age / tail) * fade
-            val bmp = faceBitmaps[j % faceBitmaps.size] ?: continue
-            val half = size * s.coerceAtLeast(0f) / 2f
-            rect.set(headX[j] - half, headY[j] - half, headX[j] + half, headY[j] + half)
-            bitmapPaint.alpha = (255f * a).toInt().coerceIn(0, 255)
-            canvas.drawBitmap(bmp, null, rect, bitmapPaint)
+        // Hlava plamene: oranzova zare, uvnitr zluta a bily stred, nahore tri zachvevajici se jazyky.
+        val hot = life
+        fill.color = (FIRE_MID and 0x00FFFFFF) or ((150f * hot).toInt().coerceIn(0, 255) shl 24)
+        canvas.drawCircle(px, py, (8f + 2f * sparkRand(bucket, 0, 10)) * density * (0.5f + 0.5f * hot), fill)
+        fill.color = (FIRE_HOT and 0x00FFFFFF) or ((230f * hot).toInt().coerceIn(0, 255) shl 24)
+        canvas.drawCircle(px, py, 5f * density * (0.5f + 0.5f * hot), fill)
+        fill.color = (WHITE and 0x00FFFFFF) or ((255f * hot).toInt().coerceIn(0, 255) shl 24)
+        canvas.drawCircle(px, py, 2.4f * density * (0.5f + 0.5f * hot), fill)
+        fill.color = (FIRE_MID and 0x00FFFFFF) or ((220f * hot).toInt().coerceIn(0, 255) shl 24)
+        for (t in 0 until 3) {
+            val h = (7f + 10f * sparkRand(bucket, t, 11)) * density * hot
+            val sx = (sparkRand(bucket, t, 12) - 0.5f) * 10f * density
+            canvas.drawCircle(px + sx, py - h, (1.6f + 1.6f * sparkRand(bucket, t, 13)) * density * hot, fill)
         }
-        bitmapPaint.alpha = 255
-        fill.color = trailCol or ((255f * fade).toInt().coerceIn(0, 255) shl 24)
-        canvas.drawCircle(px, py, 3.5f * density, fill)
-        return touchMode != T_SWIPE
+        return true
     }
 
     /** Bublina s pismenem nad stisknutou klavesou. Vraci true, dokud bezi animace. */
@@ -2237,7 +2265,7 @@ class KeyboardView(context: Context) : View(context) {
      */
     fun glowWord(word: String) {
         if (!glowEnabled || word.isEmpty()) return
-        if (glowFlyStyle) {
+        if (glowFlyStyle || glowCutStyle) {
             startFly(word)
             return
         }
@@ -2392,7 +2420,7 @@ class KeyboardView(context: Context) : View(context) {
                 var n = 0
                 for (k in keys) {
                     if (k.isLetter && n < 4 && k.code.toChar() in "ahoj") {
-                        if (glitchEffect) startGlitch(k, now + n * 140L) else if (ghostEffect) { k.neonCol = nextNeon(); k.ghostAt = now + n * 140L } else if (orbitEffect) { k.neonCol = nextNeon(); k.orbitStart = random.nextFloat(); k.orbitAt = now + n * 140L } else if (popEffect) { k.neonCol = nextNeon(); k.popSeed = random.nextFloat() * 2f * PI.toFloat(); k.popAt = now + n * 140L } else if (faceEffect) { startFace(k, now + n * 140L) } else { k.neonCol = nextNeon(); k.neonAt = now }
+                        if (glitchEffect) startGlitch(k, now + n * 140L) else if (ghostEffect) { k.neonCol = nextNeon(); k.ghostAt = now + n * 140L } else if (orbitEffect) { k.neonCol = nextNeon(); k.orbitStart = random.nextFloat(); k.orbitAt = now + n * 140L } else if (popEffect) { k.neonCol = nextNeon(); k.popSeed = random.nextFloat() * 2f * PI.toFloat(); k.popAt = now + n * 140L } else { k.neonCol = nextNeon(); k.neonAt = now }
                         n++
                     }
                 }
@@ -2647,8 +2675,6 @@ class KeyboardView(context: Context) : View(context) {
                     k.neonCol = nextNeon()
                     k.popSeed = random.nextFloat() * 2f * PI.toFloat()
                     k.popAt = now
-                } else if (faceEffect && k.kind == KIND_CHAR && k.macro == null) {
-                    startFace(k, now)
                 } else {
                     k.neonCol = nextNeon()
                     k.neonAt = -1L

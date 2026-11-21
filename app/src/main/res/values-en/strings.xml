@@ -253,6 +253,7 @@
     <string name="tap_effect_paint">Colors</string>
     <string name="tap_effect_ghost">Ghost</string>
     <string name="glow_style_fly">Word</string>
+    <string name="glow_style_cut">Cut</string>
     <string name="sec_extra_outline">Key outline</string>
     <string name="outline_color">Outline color</string>
     <string name="outline_color2">Second outline color</string>
@@ -299,13 +300,12 @@
     <string name="hint_color">Hint color</string>
     <string name="hint_size">Hint size</string>
     <string name="tap_effect_orbit">Orbit</string>
-    <string name="tap_effect_face">Face</string>
     <string name="trail_style_label">Trail look</string>
     <string name="trail_style_line">Line</string>
-    <string name="trail_style_memorocht">Memorocht</string>
-    <string name="trail_style_hint">Memorocht: macro pictures (heads) appear one after another along the swipe path.</string>
+    <string name="trail_style_fire">Fire</string>
+    <string name="trail_style_hint">Fire: a flame burns behind your finger and glowing traces stay on the path, burning less and less until they burn out.</string>
     <string name="tap_effect_pop">Burst</string>
-    <string name="tap_effect_ring_hint">Orbit: a thicker outline runs around the key from a random spot. Burst: the letter bursts apart and is born again. Face: the letter turns into a macro picture and the key then lights up.</string>
+    <string name="tap_effect_ring_hint">Orbit: a thicker outline runs around the key from a random spot. Burst: the letter bursts into sparks flying in all directions and is born again.</string>
     <string name="tap_effect_label">Tap effect</string>
     <string name="tap_effect_neon">Neon</string>
     <string name="tap_effect_glitch">Glitch</string>
@@ -324,7 +324,7 @@
     <string name="paint_color3">Color 3</string>
     <string name="notice_ok">OK</string>
     <string name="paint_hint">A tapped key is painted for a few seconds and then slowly fades back.</string>
-    <string name="fly_hint">After a swipe the letters of the word fly above the keyboard and form the word.</string>
+    <string name="fly_hint">Word: after a swipe the letters fly above the keyboard and form the word. Cut: the word forms and every letter is then cut in two and both halves fall away.</string>
     <string name="sec_extra_details">Dimensions and details</string>
     <string name="trail_color">Trail color</string>
     <string name="text_color2">Second character color</string>

@@ -2,6 +2,9 @@
 
 Jedna věta za verzi, nejnovější nahoře. Čísla verzí odpovídají commitům (`vX.Y: …`).
 
+## 1.28 – 2026-11-21
+Výbuch je živější (jiskry létají do všech stran po náhodných, zakřivených drahách s náhodným časem a rychlostí); efekt stopy „Memorocht“ a efekt po klepnutí „Obličej“ jsou smazané (staré hodnoty se vrátí na Čáru a Neon); nová stopa „Oheň“ (hořící čára se žhavými stopami, které dohoří) a nová animace po tahu „Řez“ (každé písmeno slova se rozřízne a půlky odpadnou).
+
 ## 1.27 – 2026-11-20
 Nový efekt stopy „Memorocht“ (za prstem se po dráze tahu objevují obrázky maker jedna za druhou, `trail_style`) a nový efekt po klepnutí „Obličej“ (písmeno se změní na obrázek makra a klávesa se pak rozsvítí).
 
