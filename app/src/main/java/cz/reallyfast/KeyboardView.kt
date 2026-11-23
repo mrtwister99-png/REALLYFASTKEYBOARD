@@ -2465,7 +2465,7 @@ class KeyboardView(context: Context) : View(context) {
 
     /**
      * Postupne rozsviceni pismen slova: prvni pismeno, pak druhe... az posledni, jako by se slovo
-     * skladalo po pismenech; pak zhasne cele naraz. Diakritika se prevede na zakladni pismeno (š bliká na klavese s).
+     * skladalo po pismenech; pak zhasne cele naraz. Diakritika se prevede na zakladni pismeno (s blika na klavese s).
      */
     fun glowWord(word: String) {
         if (!glowEnabled || word.isEmpty()) return
@@ -2737,7 +2737,7 @@ class KeyboardView(context: Context) : View(context) {
     /** Hlasitost reci 0..1 - ridi velikost mikrofonu. */
     var voiceLevel = 0f
 
-    /** Text pod mikrofonem ("Poslouchám…"). */
+    /** Text pod mikrofonem ("Posloucham..."). */
     var voiceLabel = ""
         set(value) {
             field = value

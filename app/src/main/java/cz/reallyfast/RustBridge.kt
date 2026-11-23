@@ -13,7 +13,7 @@ import java.util.concurrent.CopyOnWriteArrayList
  * Tenky JNI wrapper nad Rust jadrem (crates/keyboard-core).
  *
  * Veskera logika (rozlozeni, swipe decode, predikce, autocorrect, uceni, nastaveni, schranka,
- * emoji, gesta) je v Rustu. Retezce se predavaji jako UTF-8 ByteArray, aby se nepoškodila emoji.
+ * emoji, gesta) je v Rustu. Retezce se predavaji jako UTF-8 ByteArray, aby se neposkodila emoji.
  * Kdyz se nativni knihovna nepodari nacist, vsechny funkce vraci prazdny vysledek (zadny crash).
  */
 object RustBridge {

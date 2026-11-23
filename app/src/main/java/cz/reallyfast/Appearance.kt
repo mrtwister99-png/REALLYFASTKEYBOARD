@@ -555,7 +555,7 @@ class AppearanceActivity : SettingsScreen() {
     // ------------------------------------------------------------------ obsah
 
     private fun build(container: LinearLayout) {
-        // Zadné záložky: jen kategorie 0.-5. + Waiting jako poslední zamčená kategorie. Hlavička 1-5 + TEST zůstává pořád nahoře.
+        // Zadne zalozky: jen kategorie 0.-5. + Waiting jako posledni zamcena kategorie. Hlavicka 1-5 + TEST zustava porad nahore.
         extraOpen = Lantern.lit(this)
         buildCategory(container, 0, getString(R.string.cat_fast))
         buildCategory(container, 1, getString(R.string.cat_layout))
@@ -575,7 +575,7 @@ class AppearanceActivity : SettingsScreen() {
         applyImeLayout()
     }
 
-    /** Jedna kategorie: hlavička + sbalený obsah + nahoře uprostřed živá ukázka (stejný výřez q-z / a-g, jiná animace). */
+    /** Jedna kategorie: hlavicka + sbaleny obsah + nahore uprostred ziva ukazka (stejny vyrez q-z / a-g, jina animace). */
     private fun buildCategory(container: LinearLayout, index: Int, titleText: String, locked: Boolean = false) {
         val card = cardBox(container)
         (card.layoutParams as LinearLayout.LayoutParams).topMargin = dp(12f)
@@ -597,7 +597,7 @@ class AppearanceActivity : SettingsScreen() {
             if (locked) { Toast.makeText(this, R.string.tab_locked, Toast.LENGTH_SHORT).show(); return@setOnClickListener }
             if (expandedCat == index) collapseCat(index) else expandCat(index)
         }
-        // Obsah podle kategorie - plní se až při prvním rozbalení, ať je start rychlý.
+        // Obsah podle kategorie - plni se az pri prvnim rozbaleni, at je start rychly.
         head.setTag(index)
     }
 
@@ -608,7 +608,7 @@ class AppearanceActivity : SettingsScreen() {
         catArrows[index].text = "⌄"
         body.visibility = View.VISIBLE
         if (body.childCount == 0) {
-            // Ukázka nahoře uprostřed v každé kategorii.
+            // Ukazka nahore uprostred v kazde kategorii.
             val pv = MiniPreviewView(this, index)
             val lp = LinearLayout.LayoutParams(dp(320f), dp(112f))
             lp.gravity = Gravity.CENTER_HORIZONTAL
@@ -636,7 +636,7 @@ class AppearanceActivity : SettingsScreen() {
         applyImeLayout()
     }
 
-    /** 0. Rychle: připravené styly, jazyk, řada číslic, oddělovač, jemný stín, obrys speciálních. */
+    /** 0. Rychle: pripravene styly, jazyk, rada cislic, oddelovac, jemny stin, obrys specialnich. */
     private fun buildCatFast(box: LinearLayout) {
         var s = section(box, getString(R.string.sec_fast))
         presetRow(s)
@@ -648,7 +648,7 @@ class AppearanceActivity : SettingsScreen() {
         switchRow(s, R.string.special_outline, "special_outline", hintRes = R.string.special_outline_hint)
     }
 
-    /** 1. Rozložení a písmo. */
+    /** 1. Rozlozeni a pismo. */
     private fun buildCatLayout(box: LinearLayout) {
         var s = section(box, getString(R.string.sec_layout_dims))
         sliderRow(s, R.string.keyboard_height, "keyboard_height_percent", 30, 55, 1) { getString(R.string.unit_percent, it) }
@@ -682,7 +682,7 @@ class AppearanceActivity : SettingsScreen() {
         hintText(s, getString(R.string.bottom_row_hint))
     }
 
-    /** 2. Barvy: I. základní, II. bublina / držení / číslice, III. druhé barvy. */
+    /** 2. Barvy: I. zakladni, II. bublina / drzeni / cislice, III. druhe barvy. */
     private fun buildCatColors(box: LinearLayout) {
         var s = section(box, getString(R.string.cat_colors_1))
         colorRow(s, R.string.custom_background, "custom_background")
@@ -706,7 +706,7 @@ class AppearanceActivity : SettingsScreen() {
         colorRow(s, R.string.digit_text_color, "digit_text_color", allowAuto = true)
     }
 
-    /** 3. Animace po kliknutí: I. výběr + barva efektu (rovnou 3 barvy), II. obrys+znak, III. druhé barvy. */
+    /** 3. Animace po kliknuti: I. vyber + barva efektu (rovnou 3 barvy), II. obrys+znak, III. druhe barvy. */
     private fun buildCatTap(box: LinearLayout) {
         var s = section(box, getString(R.string.cat_tap_1))
         dropdownRow(s, R.string.tap_effect_label, listOf("none", "neon", "glitch", "paint", "ghost", "orbit", "pop", "cut", "slide"),
@@ -714,7 +714,7 @@ class AppearanceActivity : SettingsScreen() {
             { val j = RustBridge.settings.json; if (j.optBoolean("key_glow")) j.optString("tap_effect") else "none" },
             { v -> if (v == "none") update("key_glow", false) else updateAll("key_glow" to true, "tap_effect" to v) })
         hintText(s, getString(R.string.cat_tap_1_hint))
-        // Při výběru animace se rovnou ukážou 3 výběry barev (vybarvení).
+        // Pri vyberu animace se rovnou ukazou 3 vybery barev (vybarveni).
         colorRow(s, R.string.neon_color, "neon_color")
         colorRow(s, R.string.tap_text_color, "tap_text_color", allowAuto = true)
         colorRow(s, R.string.outline_tap_color, "outline_tap_color", allowAuto = true)
@@ -730,7 +730,7 @@ class AppearanceActivity : SettingsScreen() {
         colorRow(s, R.string.outline_tap_color2, "outline_tap_color2", allowAuto = true)
     }
 
-    /** 4. Swipe: I. linka + průchod + úspěšné slovo, II. průchod barvy + druhé barvy. */
+    /** 4. Swipe: I. linka + pruchod + uspesne slovo, II. pruchod barvy + druhe barvy. */
     private fun buildCatSwipe(box: LinearLayout) {
         var s = section(box, getString(R.string.cat_swipe_1))
         switchRow(s, R.string.swipe_trail, "swipe_trail")
@@ -758,7 +758,7 @@ class AppearanceActivity : SettingsScreen() {
         colorRow(s, R.string.outline_color2, "outline_color2", allowAuto = true, allowRainbow = true)
     }
 
-    /** 5. Konfigurace klávesnice: vyjede klávesnice, klik + podržení = úprava písmenka / makra. */
+    /** 5. Konfigurace klavesnice: vyjede klavesnice, klik + podrzeni = uprava pismenka / makra. */
     private fun buildCatKeys(box: LinearLayout) {
         var s = section(box, getString(R.string.sec_keys))
         box.addView(label(getString(R.string.layout_hint), 14f, dim).also { it.setPadding(0, dp(10f), 0, dp(4f)) }, rowParams())
@@ -778,7 +778,7 @@ class AppearanceActivity : SettingsScreen() {
         updateStatus()
     }
 
-    /** Waiting jako poslední kategorie, pořád zamčená: + barva obrysu a druhé barvy efektu (zbytky). */
+    /** Waiting jako posledni kategorie, porad zamcena: + barva obrysu a druhe barvy efektu (zbytky). */
     private fun buildCatWaiting(box: LinearLayout) {
         var s = section(box, getString(R.string.sec_waiting_key))
         sliderRow(s, R.string.waiting_key_height, "key_height_dp", 48, 72, 1) { getString(R.string.unit_dp, it) }
@@ -902,9 +902,6 @@ class AppearanceActivity : SettingsScreen() {
         box = section(tabBox, getString(R.string.sec_effects))
         switchRow(box, R.string.key_hints, "key_hints")
         switchRow(box, R.string.swipe_trail, "swipe_trail")
-        choiceRow(box, R.string.trail_style_label, "trail_style", listOf("line", "fire"),
-            listOf(getString(R.string.trail_style_line), getString(R.string.trail_style_fire)))
-        hintText(box, getString(R.string.trail_style_hint))
         switchRow(box, R.string.key_popup, "key_popup", hintRes = R.string.key_popup_hint)
         switchRow(box, R.string.key_shadow, "key_shadow", hintRes = R.string.key_shadow_hint)
         switchRow(box, R.string.special_outline, "special_outline", hintRes = R.string.special_outline_hint)
@@ -1020,8 +1017,8 @@ class AppearanceActivity : SettingsScreen() {
     }
 
     /**
-     * Mini ukázka nahoře v každé kategorii: stejný výřez q w e r t z / a s d f g, jiná animace podle kategorie.
-     * Běží v loopu (slovo "fazt"): 0-2 statické klávesy, 3 klepnutí, 4 swipe + průchod o 0,25 s + rotace, 5 statické, 6 statické.
+     * Mini ukazka nahore v kazde kategorii: stejny vyrez q w e r t z / a s d f g, jina animace podle kategorie.
+     * Bezi v loopu (slovo "fazt"): 0-2 staticke klavesy, 3 klepnuti, 4 swipe + pruchod o 0,25 s + rotace, 5 staticke, 6 staticke.
      */
     private inner class MiniPreviewView(ctx: android.content.Context, private val cat: Int) : View(ctx) {
         private val rnd = kotlin.random.Random(1234)
@@ -1054,14 +1051,14 @@ class AppearanceActivity : SettingsScreen() {
                     val isPath = pathPts.any { it.first == row && it.second == c }
                     var col = keyCol
                     if (cat == 4 && isPath) {
-                        // Průchod o 0,25 s později: každé písmenko se rozsvítí až po zpoždění.
+                        // Pruchod o 0,25 s pozdeji: kazde pismenko se rozsviti az po zpozdeni.
                         val idx = pathPts.indexOfFirst { it.first == row && it.second == c }
                         val delay = 0.25f + idx * 0.2f
                         if (t in delay..(delay + 0.45f)) col = Theme.blend(keyCol, th.accent, 0.55f)
                     }
                     paint.color = col; paint.style = Paint.Style.FILL
                     canvas.drawRoundRect(r, 10f * resources.displayMetrics.density, 10f * resources.displayMetrics.density, paint)
-                    // Rotace projetého písmenka v kategorii 4: +10° kroky, vydrž 0,25 s, zpět.
+                    // Rotace projeteho pismenka v kategorii 4: +10 st kroky, vydrz 0,25 s, zpet.
                     var rot = 0f
                     if (cat == 4 && isPath) {
                         val idx = pathPts.indexOfFirst { it.first == row && it.second == c }
@@ -1082,7 +1079,7 @@ class AppearanceActivity : SettingsScreen() {
                     canvas.drawText(letters[c], r.centerX(), r.centerY() - (tPaint.ascent() + tPaint.descent()) / 2f, tPaint)
                     if (rot != 0f) canvas.restore()
                     if (cat == 3 && row == 1 && c == 3) {
-                        // Klepnutí: pulz na f.
+                        // Klepnuti: pulz na f.
                         val q = (t * 2f) % 1f
                         paint.style = Paint.Style.STROKE; paint.strokeWidth = 2f * resources.displayMetrics.density
                         paint.color = (th.accent and 0x00FFFFFF) or ((255f * (1f - q)).toInt() shl 24)
@@ -1092,7 +1089,7 @@ class AppearanceActivity : SettingsScreen() {
                 }
             }
             if (cat == 4) {
-                // Linka fazt: klasická / čárkovaná / oheň / pixel podle nastavení, v loopu.
+                // Linka fazt: klasicka / carkovana / ohen / pixel podle nastaveni, v loopu.
                 val style = RustBridge.settings.json.optString("trail_style", "line")
                 paint.style = Paint.Style.STROKE; paint.strokeWidth = 4f * resources.displayMetrics.density; paint.strokeCap = Paint.Cap.ROUND
                 paint.color = Theme.parse(RustBridge.settings.json.optString("trail_color", ""), th.accent)
@@ -1236,7 +1233,7 @@ class AppearanceActivity : SettingsScreen() {
     }
 
     /**
-     * Klepnuti na slot: rovnou prepne a nacte styl. Ma-li soucasny styl neulozene zmeny, zeptá se, zda
+     * Klepnuti na slot: rovnou prepne a nacte styl. Ma-li soucasny styl neulozene zmeny, zepta se, zda
      * ho opravdu zmenit bez ulozeni (Ano = prepnout, Ne = zustat).
      */
     private fun pickSlot(i: Int) {
