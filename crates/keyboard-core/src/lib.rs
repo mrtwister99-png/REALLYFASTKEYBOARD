@@ -85,6 +85,8 @@ pub const OP_STYLE_LOAD: i32 = 50;
 
 /// Priznaky pro swipe / suggest.
 pub const FLAG_CAPITALIZE: i64 = 1;
+/// Zkusebni tah z nahledu v nastaveni: nesmi skoncit v zaznamu tahu.
+pub const FLAG_PREVIEW: i64 = 2;
 /// Uceni: slovo bylo napsano swipem (pouzije se k prizpusobeni swipe).
 pub const FLAG_FROM_SWIPE: i64 = 4;
 
@@ -362,6 +364,11 @@ impl Engine {
         }
         let c = self.user.note_correction(&bad, &good);
         self.storage.put_correction(&bad, &good, c);
+    }
+
+    /// Zapomene rozdelany tah (zkusebni tah z nahledu se nema zapsat do zaznamu).
+    pub fn discard_swipe_pending(&mut self) {
+        self.swipe_pending = None;
     }
 
     /// Zapise zapamatovany tah do zaznamu, kdyz je zaznam zapnuty, a tah zapomene.
@@ -671,7 +678,13 @@ fn floats(s: &str) -> Vec<f32> {
 pub fn swipe_global(raw: &[f32], flags: i64) -> Vec<u8> {
     let mut guard = engine();
     match guard.as_mut() {
-        Some(e) => lines(e.swipe(raw, flags & FLAG_CAPITALIZE != 0, now_ms())),
+        Some(e) => {
+            let out = e.swipe(raw, flags & FLAG_CAPITALIZE != 0, now_ms());
+            if flags & FLAG_PREVIEW != 0 {
+                e.discard_swipe_pending();
+            }
+            lines(out)
+        }
         None => Vec::new(),
     }
 }
@@ -1303,6 +1316,16 @@ mod tests {
         let file: storage::SwipeLogFile = serde_json::from_str(&e.export_swipe_log()).unwrap();
         assert_eq!(file.swipes[0].points, path);
         e.clear_swipe_log();
+        assert_eq!(e.swipe_log_count(), 0);
+    }
+
+    #[test]
+    fn preview_swipe_is_not_logged() {
+        let (mut e, path, _) = logging_engine(true);
+        // zkusebni tah z nahledu se zahodi; pozdejsi potvrzeni slova ho nezapise
+        e.swipe(&path, false, NOW);
+        e.discard_swipe_pending();
+        e.learn("ahoj", "", true, NOW);
         assert_eq!(e.swipe_log_count(), 0);
     }
 

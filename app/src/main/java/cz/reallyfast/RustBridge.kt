@@ -69,6 +69,7 @@ object RustBridge {
     private const val OP_STYLE_LOAD = 50
 
     const val FLAG_CAPITALIZE = 1
+    const val FLAG_PREVIEW = 2
     const val FLAG_FROM_SWIPE = 4
 
     // Akce gest (gestures.rs)
@@ -259,11 +260,11 @@ object RustBridge {
     }
 
     /** Swipe decode: `points` = trojice (x, y, t), `count` = pocet platnych floatu. Prazdne = tap. */
-    fun swipe(points: FloatArray, count: Int, capitalize: Boolean): List<String> {
+    fun swipe(points: FloatArray, count: Int, capitalize: Boolean, preview: Boolean = false): List<String> {
         if (!loaded) return emptyList()
         val t0 = Perf.now()
         return try {
-            lines(nativeSwipe(points, count, if (capitalize) FLAG_CAPITALIZE else 0)?.toString(Charsets.UTF_8) ?: "")
+            lines(nativeSwipe(points, count, (if (capitalize) FLAG_CAPITALIZE else 0) or (if (preview) FLAG_PREVIEW else 0))?.toString(Charsets.UTF_8) ?: "")
         } catch (_: Throwable) {
             emptyList()
         } finally {

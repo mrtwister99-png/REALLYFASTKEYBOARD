@@ -3391,7 +3391,7 @@ class KeyboardView(context: Context) : View(context) {
                     l.onGestureAction(g)
                 } else if (touchMode == T_SWIPE) {
                     l.onBeforeSwipe()
-                    val words = RustBridge.swipe(samples, sampleCount * 3, shiftState != SHIFT_OFF)
+                    val words = RustBridge.swipe(samples, sampleCount * 3, shiftState != SHIFT_OFF, preview)
                     // Prazdny vysledek = prilis kratky / pomaly tah -> bereme jako tap.
                     if (words.isEmpty()) l.onKeyTap(k) else l.onSwipeWords(words)
                 } else if (!longPressFired) {

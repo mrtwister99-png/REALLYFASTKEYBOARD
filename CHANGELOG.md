@@ -3,7 +3,7 @@
 Jedna věta za verzi, nejnovější nahoře. Čísla verzí odpovídají commitům (`vX.Y: …`).
 
 ## 1.29 – 2026-11-23
-Přestavba obrazovky Vzhled: pevná hlavička (Zpět, Test, Uložit a posuvník stylů 1–5), náhled klávesnice vyjíždí plynule po rozbalení kategorie, kategorie mají tlačítka úrovní I–III, klepnutí na řádek ukáže nápovědu a v náhledu zabliká dotčená část v barvě akcentu (ostatní klávesy se ztlumí), ukázky animací píšou slova FAZT / ahoj (občas NEČUM); nové nastavení `hint_font` (písmo nápovědy), výběr písma ukazuje každé písmo samo sebou; tloušťka obrysu je dostupná v Barvách.
+Přestavba obrazovky Vzhled: pevná hlavička (Zpět, Test, Uložit a posuvník stylů 1–5), náhled klávesnice vyjíždí plynule po rozbalení kategorie, kategorie mají tlačítka úrovní I–III, klepnutí na řádek ukáže nápovědu a v náhledu zabliká dotčená část v barvě akcentu (ostatní klávesy se ztlumí), ukázky animací píšou slova FAZT / ahoj (občas NEČUM); nové nastavení `hint_font` (písmo nápovědy), výběr písma ukazuje každé písmo samo sebou; tloušťka obrysu je dostupná v Barvách; zkušební tahy z Testu se nezapisují do záznamu tahů a při odchodu z obrazovky náhled plynule zajede.
 
 ## 1.28 – 2026-11-21
 Výbuch je živější (jiskry létají do všech stran po náhodných, zakřivených drahách s náhodným časem a rychlostí); efekt stopy „Memorocht“ a efekt po klepnutí „Obličej“ jsou smazané (staré hodnoty se vrátí na Čáru a Neon); nová stopa „Oheň“ (hořící čára se žhavými stopami, které dohoří) a nová animace po tahu „Řez“ (každé písmeno slova se rozřízne a půlky odpadnou).

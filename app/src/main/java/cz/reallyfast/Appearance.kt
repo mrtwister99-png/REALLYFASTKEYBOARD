@@ -68,6 +68,7 @@ class AppearanceActivity : SettingsScreen() {
     private lateinit var saveBtn: TextView
     private lateinit var profile: ProfileSlider
     private var previewOpen = false
+    private var leaving = false
     private var slideAnim: ValueAnimator? = null
 
     // Zmeny vzhledu od otevreni obrazovky: Ulozit se rozsviti az po zmene.
@@ -264,7 +265,7 @@ class AppearanceActivity : SettingsScreen() {
         val back = label("\u2190", 20f)
         back.gravity = Gravity.CENTER
         back.contentDescription = getString(R.string.back)
-        back.setOnClickListener { finish() }
+        back.setOnClickListener { if (!onBackRequested()) finish() }
         backBtn = back
         top.addView(back, LinearLayout.LayoutParams(dp(48f), dp(42f)))
         top.addView(View(this), LinearLayout.LayoutParams(0, 1, 1f))
@@ -298,6 +299,16 @@ class AppearanceActivity : SettingsScreen() {
         paintSlots()
         updateActions()
         return header
+    }
+
+    /** Odchod z obrazovky: nahled nejdriv plynule zajede dolu a az potom se obrazovka zavre. */
+    override fun onBackRequested(): Boolean {
+        if (!previewOpen || leaving) return false
+        leaving = true
+        if (testMode) stopTest()
+        slidePreview(false)
+        tabScroll.postDelayed({ finish() }, 300L)
+        return true
     }
 
     override fun onPause() {
@@ -366,6 +377,7 @@ class AppearanceActivity : SettingsScreen() {
 
     /** Skutecna klavesnice otevrena = nahled schovany; jinak je nahled videt, kdyz je rozbalena kategorie, pri testu a pri uprave klavesy. */
     private fun applyImeLayout() {
+        if (leaving) return
         val editing = editor != null
         val want = (testMode || expandedCat >= 0 || editing) && !(imeVisible && !editing)
         preview.visibility = if (imeVisible && editing) View.GONE else View.VISIBLE
