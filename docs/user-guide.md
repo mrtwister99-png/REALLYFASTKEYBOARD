@@ -82,20 +82,27 @@ Diktování používá rozpoznávání řeči v telefonu. Bez staženého offlin
 
 ## 9. Vzhled
 
-Nastavení → **Vzhled a rozložení**. Dole je pořád **živý náhled** klávesnice, takže každá změna je vidět hned. Možností je hodně, proto jsou ve **třech úrovních**:
+Nastavení → **Vzhled a rozložení**. Nahoře je **pevná hlavička**, pod ní jezdí seznam kategorií. Po rozbalení kategorie **plynule vyjede dole živý náhled** klávesnice,
+takže každá změna je vidět hned. Možností je hodně, proto má každá kategorie až **tři úrovně** (tlačítka **I**, **II**, **III** nahoře v kategorii; vždy se začíná první):
 
-1. **Základ** (záložka *Hlavní*): hotové styly, čtyři barvy, výška a zaoblení kláves, velikost znaků, přepínače (nápovědy, stopa za prstem, bublina, stín, animace, obrys
-   speciálních kláves), **efekt při klepnutí** (rozbalovací seznam: žádný, Neon, Glitch, Barvy, Duch, Obvod, Výbuch) a **animace po úspěšném tahu** (žádná, Postupně, Vybarvení, Slovo, Řez) s jejich barvami.
-2. **Pokročilé** (sbalená karta *Pokročilé*, klepnutím se rozbalí): poloha znaku a nápovědy, mezery, barvy detailů, číslic, stopy, tloušťky písma, obrys kláves, barvy efektu Barvy.
-3. **Expert** (záložka *Waiting*): druhé barvy (přechody shora dolů, střídání barev, duha) a barvy podle toho, co dělá prst.
+- **0. Rychle**: hotové styly, jazyk, rozložení, řada čísel, oddělovač, jemný stín, obrys speciálních kláves a **písmo kláves i nápovědy** (každé písmo je v seznamu vykreslené samo sebou).
+- **1. Rozložení a písmo**: I rozměry, II poloha a tloušťka písma, III spodní řada (emoji a makra).
+- **2. Barvy**: I základní, II bublina / držení / číslice, III druhé barvy.
+- **3. Animace po kliknutí**: I výběr efektu a barvy, II obrys a znak, III druhé barvy.
+- **4. Swipe**: I stopa, průchod a úspěšné slovo, II barvy průchodu a druhé barvy.
+- **5. Konfigurace klávesnice**: úprava písmen a maker na klávesách.
+- **IV** je poslední, zamčená kategorie.
 
-### Moje styly 1–5
+**Živé ukázky:** klepneš-li na libovolný řádek nastavení, vyskočí krátká **nápověda** a v náhledu **zabliká v barvě akcentu** to, čeho se nastavení týká (řada čísel, Y a Z, mezerník,
+spodní tlačítka…); ostatní klávesy se na chvilku ztlumí. U animací po klepnutí a po tahu se v náhledu napíše slovo (většinou FAZT nebo ahoj).
 
-Pod záložkami *Hlavní* a *Waiting* je pořád vidět pět čtverečků **1 2 3 4 5** (při posouvání zůstávají na místě). Dokud je neuložíš, má styl 1 výchozí vzhled a styly 2–5 stejný vzhled s jednou jinou barvou (modrá, zelená, tmavě modrá, růžová) a základními efekty. Vybraný styl má silný obrys a pamatuje se i po zavření obrazovky.
+### Hlavička: Zpět, Test, Uložit a styly 1–5
 
-- **Klepnutí na číslo** rovnou přepne na styl a načte ho. Má-li aktuální styl neuložené změny, aplikace se zeptá, zda ho opravdu změnit bez uložení (Ano / Ne).
-- Tlačítko **Uložit** vpravo dole nad náhledem uloží **celý aktuální vzhled** (včetně pokročilých a expertních voleb) do vybraného stylu. Svítí, jen když se vzhled liší od uloženého stylu.
-- Šipka **Zpět** vlevo dole nad náhledem vrací změny vzhledu, klidně několik za sebou. Dokud nic nezměníš, je zešedlá. Vrací jen nastavení vzhledu, ne přeházení kláves ani makra.
+Vlevo nahoře je **Zpět**, vpravo **Test** (vyzkoušíš psaní a swipe přímo v náhledu) a **Uložit**. Pod nimi je **posuvník** se styly **1 2 3 4 5**; kulička jezdí plynule, styl se vybere po puštění.
+Dokud je neuložíš, má styl 1 výchozí vzhled a styly 2–5 stejný vzhled s jednou jinou barvou (modrá, zelená, tmavě modrá, růžová) a základními efekty. Vybraný styl se pamatuje i po zavření obrazovky.
+
+- **Výběr stylu** rovnou přepne a načte ho. Má-li aktuální styl neuložené změny, aplikace se zeptá, zda ho opravdu změnit bez uložení (Ano / Ne).
+- Tlačítko **Uložit** uloží **celý aktuální vzhled** do vybraného stylu. Je zešedlé, dokud nic nezměníš; svítí, když se vzhled liší od uloženého stylu.
 - Řádky v Nastavení (Vzhled, Slovník, Hlas, Psaní, O aplikaci) mají tenké čárové ikony, Makra maskota.
 - Styly ukládají vzhled, ne jazyk, makra ani přemapování kláves. Jsou i v záloze.
 

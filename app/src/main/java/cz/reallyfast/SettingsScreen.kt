@@ -124,6 +124,12 @@ abstract class SettingsScreen : BaseScreen() {
     /** Zavolano po zapisu jedne hodnoty z radku (napr. ukazka neonu v nahledu). */
     protected open fun onSettingUpdated(key: String, value: Any) {}
 
+    /** Zavolano tesne pred zapisem hodnoty (rozlozeni je jeste puvodni). */
+    protected open fun onSettingWillUpdate(key: String, value: Any) {}
+
+    /** Uzivatel se dotkl radku nastaveni `key` (klepnuti, zmena, zacatek tahu): ukazka a napoveda. `anchor` = radek. */
+    protected open fun onSettingTouched(key: String, anchor: View) {}
+
     /** Svisly kontejner rolovaciho obsahu obrazovky. */
     protected fun contentColumn(): LinearLayout {
         val c = LinearLayout(this)
@@ -133,6 +139,7 @@ abstract class SettingsScreen : BaseScreen() {
     }
 
     protected fun update(key: String, value: Any) {
+        onSettingWillUpdate(key, value)
         val j = RustBridge.settings.edit()
         j.put(key, value)
         RustBridge.setSettings(j)
@@ -141,6 +148,7 @@ abstract class SettingsScreen : BaseScreen() {
 
     /** Zapise vic hodnot jednim volanim (rozlozeni se prepocita jednou); ukazky se pusti pro kazdy klic. */
     protected fun updateAll(vararg pairs: Pair<String, Any>) {
+        for ((k, v) in pairs) onSettingWillUpdate(k, v)
         val j = RustBridge.settings.edit()
         for ((k, v) in pairs) j.put(k, v)
         RustBridge.setSettings(j)
@@ -193,7 +201,10 @@ abstract class SettingsScreen : BaseScreen() {
         sw.contentDescription = getString(labelRes)
         sw.setChecked(RustBridge.settings.json.optBoolean(key), false)
         sw.onChange = { checked ->
-            if (RustBridge.settings.json.optBoolean(key) != checked) update(key, checked)
+            if (RustBridge.settings.json.optBoolean(key) != checked) {
+                update(key, checked)
+                onSettingTouched(key, row)
+            }
         }
         row.addView(sw)
         row.setOnClickListener { sw.toggle() }
@@ -260,13 +271,15 @@ abstract class SettingsScreen : BaseScreen() {
                 }
             }
 
-            override fun onStartTrackingTouch(sb: SeekBar) {}
+            override fun onStartTrackingTouch(sb: SeekBar) {
+                onSettingTouched(key, col)
+            }
             override fun onStopTrackingTouch(sb: SeekBar) {
                 commit(sb.progress * step + min)
             }
         })
-        minus.setOnClickListener { val v = (current() - step).coerceAtLeast(min); seek.progress = (v - min) / step; commit(v); value.text = format(v) }
-        plus.setOnClickListener { val v = (current() + step).coerceAtMost(max); seek.progress = (v - min) / step; commit(v); value.text = format(v) }
+        minus.setOnClickListener { val v = (current() - step).coerceAtLeast(min); seek.progress = (v - min) / step; commit(v); value.text = format(v); onSettingTouched(key, col) }
+        plus.setOnClickListener { val v = (current() + step).coerceAtMost(max); seek.progress = (v - min) / step; commit(v); value.text = format(v); onSettingTouched(key, col) }
         seekRow.addView(seek, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
         seekRow.addView(plus)
         col.addView(seekRow, rowParams())
@@ -279,13 +292,13 @@ abstract class SettingsScreen : BaseScreen() {
     }
 
     protected fun choiceRow(box: LinearLayout, labelRes: Int, key: String, values: List<String>, labels: List<String>) {
-        choiceRow(box, labelRes, values, labels, { RustBridge.settings.json.optString(key) }, { update(key, it) })
+        choiceRow(box, labelRes, values, labels, { RustBridge.settings.json.optString(key) }, { update(key, it) }, key)
     }
 
     /** Volba z pilulek; `current` vraci vybranou hodnotu (nebo cokoli mimo `values` = nic vybrano), `onPick` ji zapise. */
     protected fun choiceRow(
         box: LinearLayout, labelRes: Int, values: List<String>, labels: List<String>,
-        current: () -> String, onPick: (String) -> Unit,
+        current: () -> String, onPick: (String) -> Unit, touchKey: String = "",
     ) {
         val col = LinearLayout(this)
         col.orientation = LinearLayout.VERTICAL
@@ -307,7 +320,10 @@ abstract class SettingsScreen : BaseScreen() {
             val p = label(labels[i], 14f)
             p.gravity = Gravity.CENTER
             p.setPadding(dp(4f), dp(10f), dp(4f), dp(10f))
-            p.setOnClickListener { onPick(values[i]) }
+            p.setOnClickListener {
+                onPick(values[i])
+                if (touchKey.isNotEmpty()) onSettingTouched(touchKey, col)
+            }
             pills.add(p)
             val lp = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
             if (i > 0) lp.leftMargin = dp(6f)
@@ -327,7 +343,7 @@ abstract class SettingsScreen : BaseScreen() {
      */
     protected fun dropdownRow(
         box: LinearLayout, labelRes: Int, values: List<String>, labels: List<String>,
-        current: () -> String, onPick: (String) -> Unit,
+        current: () -> String, onPick: (String) -> Unit, touchKey: String = "",
     ) {
         val col = LinearLayout(this)
         col.orientation = LinearLayout.VERTICAL
@@ -367,6 +383,7 @@ abstract class SettingsScreen : BaseScreen() {
             p.setOnClickListener {
                 onPick(values[i])
                 open(false)
+                if (touchKey.isNotEmpty()) onSettingTouched(touchKey, col)
             }
             items.add(p)
             val lp = rowParams()
@@ -374,7 +391,10 @@ abstract class SettingsScreen : BaseScreen() {
             list.addView(p, lp)
         }
         col.addView(list, rowParams())
-        head.setOnClickListener { open(list.visibility != View.VISIBLE) }
+        head.setOnClickListener {
+            open(list.visibility != View.VISIBLE)
+            if (touchKey.isNotEmpty()) onSettingTouched(touchKey, col)
+        }
         box.addView(col, rowParams())
         paint()
         refreshers.add { paint() }
@@ -459,6 +479,7 @@ abstract class SettingsScreen : BaseScreen() {
             swatch.background = d
         }
         row.setOnClickListener {
+            onSettingTouched(key, row)
             val cur = shownColor(key)
             val initial = if (cur.isEmpty() || cur == Theme.RAINBOW) autoColor(key) else Theme.parse(cur, 0xFFFFFFFF.toInt())
             showColorPicker(getString(labelRes), initial, allowAuto,

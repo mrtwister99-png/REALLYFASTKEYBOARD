@@ -22,7 +22,7 @@ pub const STYLE_SLOTS: usize = 5;
 /// mapy klaves, makra, gesta, spodni rada ani chovani psani sem nepatri.
 pub const STYLE_KEYS: &[&str] = &[
     "theme", "accent_color", "custom_background", "custom_key", "custom_text",
-    "key_height_dp", "key_width_dp", "key_radius_dp", "key_text_percent", "key_gap_dp", "row_gap_dp", "key_font", "trail_width_dp",
+    "key_height_dp", "key_width_dp", "key_radius_dp", "key_text_percent", "key_gap_dp", "row_gap_dp", "key_font", "hint_font", "trail_width_dp",
     "key_label_x", "key_label_y", "key_hint_x", "key_hint_y", "key_hint_pos",
     "key_popup", "key_hints", "key_shadow", "animations", "swipe_trail", "swipe_glow", "key_glow",
     "hint_color", "hint_percent", "tap_effect", "neon_color", "glow_color", "glow_style",
@@ -203,6 +203,8 @@ pub struct Settings {
     pub trail_width_dp: u32,
     /// Pismo klaves: "system" nebo nazev souboru pisma z assets/fonts (bez cesty).
     pub key_font: String,
+    /// Pismo male napovedy na klavese: "system" nebo nazev souboru pisma z assets/fonts.
+    pub hint_font: String,
     /// Obrys specialnich klaves (Shift, ?123, Backspace) v barve akcentu.
     pub special_outline: bool,
     /// Druha barva stopy za prstem: konec stopy ("" = jen jedna barva).
@@ -317,6 +319,7 @@ impl Settings {
             char_outline: false,
             trail_width_dp: 4,
             key_font: "system".into(),
+            hint_font: "system".into(),
             special_outline: true,
             trail_color2: String::new(),
             glow_color2: String::new(),
@@ -576,6 +579,9 @@ impl Settings {
         // Nazev pisma: jen jednoduchy nazev souboru (zadna cesta), jinak systemove.
         if self.key_font.is_empty() || self.key_font.len() > 64 || self.key_font.contains(['/', '\\'])|| self.key_font.contains("..") {
             self.key_font = "system".into();
+        }
+        if self.hint_font.is_empty() || self.hint_font.len() > 64 || self.hint_font.contains(['/', '\\'])|| self.hint_font.contains("..") {
+            self.hint_font = "system".into();
         }
         if self.row_gap_dp < 0 {
             self.row_gap_dp = (self.key_gap_dp as f32 * 1.6).round() as i32;
@@ -1299,6 +1305,19 @@ mod tests {
             assert_eq!(s.trail_style, "line");
         }
         assert!(STYLE_KEYS.contains(&"trail_style"));
+    }
+
+    #[test]
+    fn hint_font_is_validated_and_part_of_styles() {
+        assert_eq!(Settings::default().hint_font, "system");
+        let s = Settings::from_json(r#"{"hint_font":"Gemola.ttf"}"#).unwrap();
+        assert_eq!(s.hint_font, "Gemola.ttf");
+        assert_eq!(Settings::from_json(&s.to_json()).unwrap().hint_font, "Gemola.ttf");
+        for bad in ["", "../x.ttf", "a/b.ttf"] {
+            let s = Settings::from_json(&format!(r#"{{"hint_font":"{bad}"}}"#)).unwrap();
+            assert_eq!(s.hint_font, "system");
+        }
+        assert!(STYLE_KEYS.contains(&"hint_font"));
     }
 
     #[test]

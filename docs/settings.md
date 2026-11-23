@@ -60,6 +60,8 @@ Počet nastavení: **94**.
 | `keyboard_height_percent` | `38` | 30 – 50 | Celková výška klávesnice v % výšky obrazovky; mění se gestem pinch. | gesto pinch |
 | `key_radius_dp` | `10` | 2 – 22 | Zaoblení kláves (dp). | Hlavní → Rozměry |
 | `key_text_percent` | `100` | 70 – 150 | Velikost znaků na klávesách (%). | Hlavní → Rozměry |
+| `key_font` | `system` | `system` nebo název souboru z `assets/fonts` | Písmo znaků na klávesách (bez cesty; neplatný název = systémové). | Rychle |
+| `hint_font` | `system` | `system` nebo název souboru z `assets/fonts` | Písmo malé nápovědy na klávese (bez cesty; neplatný název = systémové). Je součástí stylů. | Rychle |
 | `key_gap_dp` | `5` | 1 – 10 | Vodorovná mezera mezi klávesami (dp). | Pokročilé → Rozměry a detaily |
 | `row_gap_dp` | `8` | 2 – 16 | Svislá mezera mezi řadami (dp); u starého souboru se odvodí z `key_gap_dp`. | Pokročilé → Rozměry a detaily |
 | `key_label_x` | `0.5` | 0 – 1 | Vodorovná poloha hlavního znaku na klávese (0,5 = uprostřed). | Pokročilé → Polohy a nápovědy |

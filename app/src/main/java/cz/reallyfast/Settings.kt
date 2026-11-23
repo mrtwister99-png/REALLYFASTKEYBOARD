@@ -19,6 +19,7 @@ class Settings(val json: JSONObject) {
     val keyHeightDp: Int get() = json.optInt("key_height_dp", 56)
     val keyWidthDp: Int get() = json.optInt("key_width_dp", 0).let { if (it == 0) 0 else it.coerceIn(24, 120) }
     val keyFont: String get() = json.optString("key_font", "system")
+    val hintFont: String get() = json.optString("hint_font", "system")
     val trailWidthDp: Int get() = json.optInt("trail_width_dp", 4).coerceIn(1, 12)
     val theme: String get() = json.optString("theme", "dark")
     val accentColor: String get() = json.optString("accent_color", "#0080FF")

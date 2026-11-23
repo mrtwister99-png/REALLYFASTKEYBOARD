@@ -98,7 +98,7 @@
     <string name="custom_key">Barva kláves</string>
     <string name="custom_text">Barva textu</string>
     <string name="preview">Náhled</string>
-    <string name="key_height">Výška klávesnice</string>
+    <string name="key_height">Výška kláves</string>
     <string name="styles">Připravené styly</string>
     <string name="key_radius">Zaoblení kláves</string>
     <string name="key_popup">Bublina s písmenem při stisku</string>
@@ -229,7 +229,6 @@
     <string name="color_default">Výchozí</string>
     <string name="color_rainbow">Duha</string>
     <string name="style_slots">Moje styly</string>
-    <string name="style_slots_hint">Styly 1–5 jsou nahoře; klepnutím styl vyberete a načtete. Tlačítko Uložit vpravo dole uloží aktuální vzhled do vybraného stylu, šipka vlevo dole vrací změny.</string>
     <string name="style_slot_n">Styl %1$d</string>
     <string name="style_saved">Vzhled uložen do stylu %1$d</string>
     <string name="style_loaded">Načten styl %1$d</string>
@@ -370,20 +369,17 @@
     <string name="cat_swipe_line_hint">Pixelová = čtverečky podél tahu. Průchod začne o 0,25 s později, písmenko se otočí a vrátí.</string>
     <string name="cat_swipe_pass_hint">Animace průchodu + úspěšné slovo.</string>
     <string name="cat_swipe_2">II. Barva průchodu + druhé barvy</string>
-    <string name="cat_keys_hint">Klik na klávesu = úprava písmenka, podržení = makro. Klávesnice je vidět jen tady a při TESTu.</string>
+    <string name="cat_keys_hint">Klik na klávesu = úprava písmenka, podržení = makro.</string>
     <string name="sec_fast">Rychle</string>
     <string name="sec_layout_dims">Rozměry</string>
     <string name="sec_layout_pos">Poloha a tloušťka</string>
-    <string name="sec_key_font">Písmo kláves</string>
     <string name="sec_waiting_colors">Barvy Waiting + zbytky</string>
     <string name="trail_style_dashed">Čárkovaná</string>
     <string name="trail_style_pixel">Pixelová</string>
     <string name="trail_width">Šířka linky</string>
-    <string name="keyboard_height">Výška klávesnice</string>
-    <string name="preview_test_close">X TEST</string>
+    <string name="keyboard_height">Výška klávesnice (% obrazovky)</string>
     <string name="font_system">Systémové</string>
     <string name="key_font_label">Písmo</string>
-    <string name="key_font_hint">Vlastní fonty dej do složky app/src/main/assets/fonts/ - pak se tu samy objeví.</string>
     <string name="waiting_key_height">Výška samostatné klávesy</string>
     <string name="waiting_key_width">Šířka samostatné klávesy</string>
     <string name="waiting_key_gap">Mezera mezi klávesami</string>
@@ -394,4 +390,46 @@
     <string name="unit_auto">auto</string>
     <string name="sec_waiting_key">Samostatná klávesa</string>
     <string name="swipe_glow">Animace průchodu</string>
+    <string name="hint_font_label">Písmo nápovědy</string>
+    <string name="font_sample">fAZT! Ahoj 123</string>
+    <string name="tip_number_row">Řada čísel nad písmeny. Po vypnutí je klávesnice nižší.</string>
+    <string name="tip_language">Jazyk slovníku a návrhů. Zvolený jazyk je vidět na mezerníku.</string>
+    <string name="tip_layout">QWERTZ nebo QWERTY: prohodí klávesy Y a Z.</string>
+    <string name="tip_keyboard_height">Výška klávesnice v procentech výšky obrazovky.</string>
+    <string name="tip_key_height">Výška jedné klávesy.</string>
+    <string name="tip_key_width">Šířka samostatné klávesy. Auto ji roztáhne podle řady.</string>
+    <string name="tip_key_radius">Zaoblení rohů kláves.</string>
+    <string name="tip_key_gap">Mezera mezi klávesami v řadě.</string>
+    <string name="tip_row_gap">Mezera mezi řadami kláves.</string>
+    <string name="tip_key_text">Velikost znaků na klávesách.</string>
+    <string name="tip_hint_size">Velikost malé nápovědy v rohu klávesy.</string>
+    <string name="tip_key_font">Písmo znaků na klávesách. Každé písmo je vidět přímo v seznamu.</string>
+    <string name="tip_hint_font">Písmo malé nápovědy v rohu klávesy.</string>
+    <string name="tip_label_weight">Tloušťka písmen na klávesách.</string>
+    <string name="tip_digit_weight">Tloušťka číslic.</string>
+    <string name="tip_emoji_key">Kde je tlačítko emoji: vlevo, vpravo, nebo skryté.</string>
+    <string name="tip_macro_key">Kde je tlačítko maker: vlevo, vpravo, nebo skryté.</string>
+    <string name="tip_hint_color">Barva malé nápovědy. Auto ji odvodí z barvy textu.</string>
+    <string name="tip_colors_base">Barvy pozadí, kláves a znaků. Změna přepne motiv na vlastní.</string>
+    <string name="tip_outline_color">Barva obrysu kláves. Auto = bez obrysu.</string>
+    <string name="tip_outline_width">Tloušťka obrysu kláves.</string>
+    <string name="tip_accent">Barva akcentu: Enter, zapnutý Shift a zvýraznění v nastavení.</string>
+    <string name="tip_popup_color">Barva bubliny nad stisknutou klávesou.</string>
+    <string name="tip_alts_color">Barva lišty znaků, která vyskočí při podržení klávesy.</string>
+    <string name="tip_digit_colors">Vlastní barvy kláves a znaků v řadě čísel.</string>
+    <string name="tip_colors2">Druhá barva: první barva plynule přechází do této.</string>
+    <string name="tip_tap_effect">Animace, která proběhne po klepnutí na klávesu.</string>
+    <string name="tip_neon_color">Barva animace po klepnutí.</string>
+    <string name="tip_tap_text">Barva znaku po klepnutí. Po chvíli vybledne.</string>
+    <string name="tip_outline_tap">Barva obrysu klávesy po klepnutí.</string>
+    <string name="tip_swipe_trail">Stopa za prstem při psaní tahem.</string>
+    <string name="tip_trail_style">Vzhled stopy: čára, čárkovaná, oheň nebo pixely.</string>
+    <string name="tip_trail_color">Barva stopy za prstem.</string>
+    <string name="tip_trail_width">Tloušťka stopy.</string>
+    <string name="tip_swipe_glow">Po tahu se písmena napsaného slova rozsvítí.</string>
+    <string name="tip_glow_style">Animace písmen slova po tahu.</string>
+    <string name="tip_glow_color">Barva animace slova po tahu.</string>
+    <string name="tip_passed">Barvy klávesy, přes kterou už prst při tahu přejel.</string>
+    <string name="tip_hover">Barvy klávesy přímo pod prstem při tahu.</string>
+    <string name="tip_preset">Hotové motivy. Klepnutím použiješ jeho barvy.</string>
 </resources>

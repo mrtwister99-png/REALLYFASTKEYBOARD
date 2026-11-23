@@ -280,11 +280,13 @@ class KeyboardView(context: Context) : View(context) {
         private const val FILL_HOLD_MS = 150L
         private const val FILL_OUT_MS = 300L
         private const val DEMO_POPUP_MS = 700L
-        private const val DEMO_TRAIL_MS = 700L
+        private const val DEMO_TRAIL_MS = 900L
         private const val DEMO_TRAIL_STEPS = 12
         private const val DEMO_TRAIL_POINTS = 36
         private const val DEMO_ALTS_MS = 900L
         private const val DEMO_PRESS_STEP_MS = 230L
+        private const val SPOT_MAX = 64
+        private const val SPOT_MS = 1100L
         private const val WHITE = 0xFFFFFFFF.toInt()
     }
 
@@ -613,6 +615,23 @@ class KeyboardView(context: Context) : View(context) {
         if (customFont != null && customFontName == name) return customFont!!
         return try { val tf = Typeface.createFromAsset(context.assets, "fonts/$name"); customFont = tf; customFontName = name; tf } catch (_: Throwable) { customFont = null; customFontName = null; weightFace(weight) }
     }
+    /** Pismo male napovedy: "system" = systemove, jinak soubor z assets/fonts (pri chybe systemove). */
+    private fun loadHintFont(name: String, weight: Int): Typeface {
+        if (name == "system" || name.isBlank()) return weightFace(weight)
+        val cached = hintFontCache
+        if (cached != null && hintFontName == name) return cached
+        return try {
+            val tf = Typeface.createFromAsset(context.assets, "fonts/$name")
+            hintFontCache = tf
+            hintFontName = name
+            tf
+        } catch (_: Throwable) {
+            hintFontCache = null
+            hintFontName = null
+            weightFace(weight)
+        }
+    }
+
     /** Banner "slovo X je ulozeno!" - probehne 1x zprava doleva uvnitr mezerniku. */
     fun showSavedWord(word: String) {
         savedBannerText = context.getString(R.string.word_saved_banner, word)
@@ -687,6 +706,7 @@ class KeyboardView(context: Context) : View(context) {
         val cf = loadKeyFont(s.keyFont, s.labelWeight)
         labelFace = cf
         digitFace = cf
+        hintFace = loadHintFont(s.hintFont, s.labelWeight)
         tapTextCol = Theme.parse(s.tapTextColor, 0)
         paintCols[0] = Theme.parse(s.paintColor1, 0xFF0080FF.toInt())
         paintCols[1] = Theme.parse(s.paintColor2, 0xFFFF5100.toInt())
@@ -972,6 +992,9 @@ class KeyboardView(context: Context) : View(context) {
     private val baseFace: Typeface = Typeface.create("sans-serif", Typeface.NORMAL)
     private var labelFace: Typeface = baseFace
     private var digitFace: Typeface = baseFace
+    private var hintFace: Typeface = baseFace
+    private var hintFontCache: Typeface? = null
+    private var hintFontName: String? = null
     private val textPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         textAlign = Paint.Align.CENTER
         typeface = baseFace
@@ -1224,6 +1247,11 @@ class KeyboardView(context: Context) : View(context) {
             canvas.drawRect(0f, rowH - 0.5f * density, width.toFloat(), rowH + 0.5f * density, fill)
         }
 
+        // Ukazka v nastaveni: klavesy mimo vybranou skupinu jsou ztlumene, vybrane blikaji v barve akcentu.
+        val spotOn = now < spotUntil
+        if (!spotOn && spotCount > 0) spotCount = 0
+        if (spotOn) animating = true
+
         var glowActive = false
         if (glowCount > 0) {
             val total = if (glowFill) FILL_IN_MS + FILL_HOLD_MS + FILL_OUT_MS
@@ -1261,7 +1289,8 @@ class KeyboardView(context: Context) : View(context) {
             if (animate && k.changedAt != 0L && now - k.changedAt < RELEASE_ANIM_MS) animating = true
 
             val hintText = if (k === hintSample) "1" else k.hint
-            val dimKey = hintFocus && !(k.kind == KIND_CHAR && hintText.isNotEmpty())
+            val dimKey = (hintFocus && !(k.kind == KIND_CHAR && hintText.isNotEmpty())) ||
+                (spotOn && !inSpot(k.vx + k.vw / 2f, k.y + k.h / 2f))
             val marked = k.kind == KIND_CHAR && k.src == markedSrc
             val accentKey = marked || k.kind == KIND_ENTER || (k.kind == KIND_SHIFT && shiftState == SHIFT_CAPS)
             var paintA = 0f
@@ -1689,6 +1718,7 @@ class KeyboardView(context: Context) : View(context) {
             if (k.kind != KIND_CHAR || k.macro != null || k.holdMacro == null) continue
             drawHint(canvas, k, "", if (k.changedAt == 0L) 0f else pressAmount(k, now), radius, faceBitmaps[k.macroFace])
         }
+        if (spotOn) drawSpot(canvas, now, radius)
         if (drawGlitch(canvas, now)) animating = true
         if (drawTrail(canvas, now)) animating = true
         if (drawPreview(canvas, now)) animating = true
@@ -1747,7 +1777,9 @@ class KeyboardView(context: Context) : View(context) {
             canvas.drawBitmap(bitmap, null, rect, bitmapPaint)
             return
         }
+        textPaint.typeface = hintFace
         canvas.drawText(text, x, y, textPaint)
+        textPaint.typeface = labelFace
     }
 
     private fun isFlying(keyIndex: Int): Boolean {
@@ -2509,6 +2541,59 @@ class KeyboardView(context: Context) : View(context) {
 
     private fun demoLetter(c: Char): Key? = keys.firstOrNull { it.isLetter && it.code == c.code }
 
+    /** Klavesa pismene `ch` (diakritika se prevede na zaklad); pro ukazky slov. */
+    private fun demoKeyFor(ch: Char): Key? = demoLetter(baseCode(ch).toChar())
+
+    // --- ukazka nastaveni: blikajici skupina klaves, ostatni ztlumene
+    private val spotRects = FloatArray(SPOT_MAX * 4)
+    private var spotCount = 0
+    private var spotAt = 0L
+    private var spotUntil = 0L
+
+    /**
+     * Zablikne v barve akcentu klavesami, pro ktere `pick` vrati true; ostatni klavesy se na dobu `ms` ztlumi.
+     * Poloha se zapamatuje hned (i kdyz se klavesy potom z rozlozeni ztrati, napr. vypnuta rada cislic).
+     */
+    fun spotKeys(ms: Long = SPOT_MS, pick: (Key) -> Boolean) {
+        var n = 0
+        for (k in keys) {
+            if (n >= SPOT_MAX || !pick(k)) continue
+            spotRects[n * 4] = k.vx + padX
+            spotRects[n * 4 + 1] = k.y + padY
+            spotRects[n * 4 + 2] = k.vx + k.vw - padX
+            spotRects[n * 4 + 3] = k.y + k.h - padY
+            n++
+        }
+        spotCount = n
+        spotAt = SystemClock.uptimeMillis()
+        spotUntil = spotAt + ms
+        invalidate()
+    }
+
+    private fun inSpot(x: Float, y: Float): Boolean {
+        for (i in 0 until spotCount) {
+            if (x >= spotRects[i * 4] && x <= spotRects[i * 4 + 2] && y >= spotRects[i * 4 + 1] && y <= spotRects[i * 4 + 3]) return true
+        }
+        return false
+    }
+
+    private fun drawSpot(canvas: Canvas, now: Long, radius: Float) {
+        val span = max(1L, spotUntil - spotAt).toFloat()
+        val q = ((now - spotAt) / span).coerceIn(0f, 1f)
+        val pulse = 0.5f - 0.5f * kotlin.math.cos(q * 4f * PI.toFloat())
+        val a = pulse * min(1f, (1f - q) / 0.15f)
+        if (a <= 0f) return
+        val col = theme.accent and 0x00FFFFFF
+        fill.color = col or ((120f * a).toInt().coerceIn(0, 255) shl 24)
+        ghostPaint.color = col or ((255f * a).toInt().coerceIn(0, 255) shl 24)
+        ghostPaint.strokeWidth = 2.5f * density
+        for (i in 0 until spotCount) {
+            rect.set(spotRects[i * 4], spotRects[i * 4 + 1], spotRects[i * 4 + 2], spotRects[i * 4 + 3])
+            canvas.drawRoundRect(rect, radius, radius, fill)
+            canvas.drawRoundRect(rect, radius, radius, ghostPaint)
+        }
+    }
+
     /** Ukazka bubliny nad klavesou (nahled v nastaveni): na ~0,7 s se objevi nad pismenem. */
     fun demoPopup() {
         if (preview && previewTouch) return
@@ -2520,19 +2605,24 @@ class KeyboardView(context: Context) : View(context) {
         invalidate()
     }
 
-    /** Ukazka stopy za prstem (nahled v nastaveni): na ~0,7 s se nakresli cara pres par pismen a pak vybledne. */
-    fun demoTrail() {
+    /** Ukazka stopy za prstem (nahled v nastaveni): na ~0,9 s se nakresli cara pres pismena slova a pak vybledne. */
+    fun demoTrail(word: String = "ahoj") {
         if (preview && previewTouch) return
-        val a = demoLetter('a') ?: return
-        val b = demoLetter('h') ?: return
-        val c = demoLetter('o') ?: return
+        val pts = ArrayList<Key>()
+        for (ch in word) {
+            val k = demoKeyFor(ch) ?: continue
+            if (pts.isEmpty() || pts[pts.size - 1] !== k) pts.add(k)
+        }
+        if (pts.size < 2) return
         handler.removeCallbacksAndMessages(demoToken)
-        // Lomena cara a -> h -> o do bufferu vzorku (stejny jako u skutecneho tahu).
-        val half = DEMO_TRAIL_POINTS / 2
+        // Lomena cara pres klavesy slova do bufferu vzorku (stejny jako u skutecneho tahu).
+        val segs = pts.size - 1
         for (i in 0 until DEMO_TRAIL_POINTS) {
-            val from = if (i < half) a else b
-            val to = if (i < half) b else c
-            val t = (if (i < half) i else i - half) / (half - 1f)
+            val f = i * segs / (DEMO_TRAIL_POINTS - 1f)
+            val si = min(segs - 1, f.toInt())
+            val t = f - si
+            val from = pts[si]
+            val to = pts[si + 1]
             val fx = from.vx + from.vw / 2f
             val fy = from.y + from.h / 2f
             samples[i * 3] = fx + (to.vx + to.vw / 2f - fx) * t
@@ -2557,13 +2647,13 @@ class KeyboardView(context: Context) : View(context) {
     }
 
     /** Ukazka stisku (nahled v nastaveni): za sebou se stisknou a pusti 4 klavesy. */
-    fun demoPress() {
+    fun demoPress(word: String = "ahoj") {
         if (preview && previewTouch) return
         handler.removeCallbacksAndMessages(demoToken)
         for (k in keys) press(k, false)
         var step = 0
-        for (c in "ahoj") {
-            val k = demoLetter(c) ?: continue
+        for (c in word) {
+            val k = demoKeyFor(c) ?: continue
             val at = SystemClock.uptimeMillis() + step * DEMO_PRESS_STEP_MS
             handler.postAtTime({ press(k, true) }, demoToken, at)
             handler.postAtTime({ press(k, false) }, demoToken, at + DEMO_PRESS_STEP_MS * 3 / 5)
@@ -2617,23 +2707,24 @@ class KeyboardView(context: Context) : View(context) {
     fun stripTopFor(key: Key): Float = if (altsDemo && popupKey === key) popupTop else key.y
 
     /** Ukazka barvy po projeti tahem (nahled v nastaveni): par pismen vybledne z barvy po projeti. */
-    fun demoPassed() {
+    fun demoPassed(word: String = "aho") {
         val now = SystemClock.uptimeMillis()
-        for (c in "aho") demoLetter(c)?.passedFadeAt = now
+        for (c in word) demoKeyFor(c)?.passedFadeAt = now
         invalidate()
     }
 
     /** Ukazka neonu po klepnuti (nahled v nastaveni): par pismenovych klaves se rozsviti a doznivaji. */
-    fun demoNeon() {
+    fun demoNeon(word: String = "ahoj") {
         val now = SystemClock.uptimeMillis()
-        if (tapTextCol != 0 || outlineTapCol != 0) for (c in "ahoj") demoLetter(c)?.tapAt = now
+        if (tapTextCol != 0 || outlineTapCol != 0) for (c in word) demoKeyFor(c)?.tapAt = now
         if (neonEnabled) {
             if (paintEffect) {
-                demoPaint()
+                demoPaint(word)
             } else {
                 var n = 0
-                for (k in keys) {
-                    if (k.isLetter && n < 4 && k.code.toChar() in "ahoj") {
+                for (ch in word) {
+                    val k = demoKeyFor(ch)
+                    if (k != null && n < 6) {
                         if (glitchEffect) startGlitch(k, now + n * 140L) else if (ghostEffect) { k.neonCol = nextNeon(); k.ghostAt = now + n * 140L } else if (orbitEffect) { k.neonCol = nextNeon(); k.orbitStart = random.nextFloat(); k.orbitAt = now + n * 140L } else if (popEffect) { k.neonCol = nextNeon(); k.popSeed = random.nextFloat() * 2f * PI.toFloat(); k.popAt = now + n * 140L } else { k.neonCol = nextNeon(); k.neonAt = now }
                         n++
                     }
@@ -2688,12 +2779,12 @@ class KeyboardView(context: Context) : View(context) {
     }
 
     /** Ukazka efektu "barvy" (nahled v nastaveni): par pismenovych klaves se obarvi za sebou. */
-    fun demoPaint() {
+    fun demoPaint(word: String = "ahoj") {
         if (!paintEffect || (preview && previewTouch)) return
         java.util.Arrays.fill(paintIdx, -1)
         paintNext = 0
         val now = SystemClock.uptimeMillis()
-        for (c in "ahoj") demoLetter(c)?.let { paintKey(it, now) }
+        for (c in word) demoKeyFor(c)?.let { paintKey(it, now) }
         paintUndoSlot = -1
         invalidate()
     }

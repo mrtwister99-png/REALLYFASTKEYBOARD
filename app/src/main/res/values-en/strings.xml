@@ -102,7 +102,7 @@
     <string name="custom_key">Key color</string>
     <string name="custom_text">Text color</string>
     <string name="preview">Preview</string>
-    <string name="key_height">Keyboard height</string>
+    <string name="key_height">Key height</string>
     <string name="styles">Ready-made styles</string>
     <string name="key_radius">Key corner radius</string>
     <string name="key_popup">Letter bubble on key press</string>
@@ -229,7 +229,6 @@
     <string name="color_default">Default</string>
     <string name="color_rainbow">Rainbow</string>
     <string name="style_slots">My styles</string>
-    <string name="style_slots_hint">Styles 1–5 are at the top; tap one to select and load it. The Save button at the bottom right stores the current look in the selected style, the arrow at the bottom left undoes changes.</string>
     <string name="style_slot_n">Style %1$d</string>
     <string name="style_saved">Look saved to style %1$d</string>
     <string name="style_loaded">Style %1$d loaded</string>
@@ -370,20 +369,17 @@
     <string name="cat_swipe_line_hint">Pixel = squares along the trail. Pass starts 0.25 s later, letter rotates and returns.</string>
     <string name="cat_swipe_pass_hint">Pass animation + successful word.</string>
     <string name="cat_swipe_2">II. Pass color + second colors</string>
-    <string name="cat_keys_hint">Tap a key = edit letter, hold = macro. Keyboard shows only here and in TEST.</string>
+    <string name="cat_keys_hint">Tap a key = edit letter, hold = macro.</string>
     <string name="sec_fast">Quick</string>
     <string name="sec_layout_dims">Dimensions</string>
     <string name="sec_layout_pos">Position &amp; weight</string>
-    <string name="sec_key_font">Key font</string>
     <string name="sec_waiting_colors">Waiting colors + leftovers</string>
     <string name="trail_style_dashed">Dashed</string>
     <string name="trail_style_pixel">Pixel</string>
     <string name="trail_width">Trail width</string>
-    <string name="keyboard_height">Keyboard height</string>
-    <string name="preview_test_close">X TEST</string>
+    <string name="keyboard_height">Keyboard height (% of screen)</string>
     <string name="font_system">System</string>
     <string name="key_font_label">Font</string>
-    <string name="key_font_hint">Put your own fonts into app/src/main/assets/fonts/ - they will appear here.</string>
     <string name="waiting_key_height">Single key height</string>
     <string name="waiting_key_width">Single key width</string>
     <string name="waiting_key_gap">Gap between keys</string>
@@ -394,4 +390,46 @@
     <string name="unit_auto">auto</string>
     <string name="sec_waiting_key">Single key</string>
     <string name="swipe_glow">Pass animation</string>
+    <string name="hint_font_label">Hint font</string>
+    <string name="font_sample">fAZT! Hello 123</string>
+    <string name="tip_number_row">Number row above the letters. Turning it off makes the keyboard shorter.</string>
+    <string name="tip_language">Dictionary and suggestions language. The space bar shows the chosen one.</string>
+    <string name="tip_layout">QWERTZ or QWERTY: swaps the Y and Z keys.</string>
+    <string name="tip_keyboard_height">Keyboard height as a percentage of the screen height.</string>
+    <string name="tip_key_height">Height of a single key.</string>
+    <string name="tip_key_width">Width of a single key. Auto stretches it to fill the row.</string>
+    <string name="tip_key_radius">Corner roundness of the keys.</string>
+    <string name="tip_key_gap">Gap between keys in a row.</string>
+    <string name="tip_row_gap">Gap between key rows.</string>
+    <string name="tip_key_text">Size of the characters on the keys.</string>
+    <string name="tip_hint_size">Size of the small hint in the key corner.</string>
+    <string name="tip_key_font">Font of the characters on the keys. Each font is shown right in the list.</string>
+    <string name="tip_hint_font">Font of the small hint in the key corner.</string>
+    <string name="tip_label_weight">Weight of the letters on the keys.</string>
+    <string name="tip_digit_weight">Weight of the digits.</string>
+    <string name="tip_emoji_key">Where the emoji key sits: left, right or hidden.</string>
+    <string name="tip_macro_key">Where the macro key sits: left, right or hidden.</string>
+    <string name="tip_hint_color">Color of the small hint. Auto derives it from the text color.</string>
+    <string name="tip_colors_base">Background, key and text colors. Changing them switches the theme to custom.</string>
+    <string name="tip_outline_color">Key outline color. Auto = no outline.</string>
+    <string name="tip_outline_width">Thickness of the key outline.</string>
+    <string name="tip_accent">Accent color: Enter, active Shift and highlights in settings.</string>
+    <string name="tip_popup_color">Color of the bubble above a pressed key.</string>
+    <string name="tip_alts_color">Color of the character strip shown when holding a key.</string>
+    <string name="tip_digit_colors">Custom key and character colors for the number row.</string>
+    <string name="tip_colors2">Second color: the first color blends smoothly into this one.</string>
+    <string name="tip_tap_effect">Animation played after tapping a key.</string>
+    <string name="tip_neon_color">Color of the tap animation.</string>
+    <string name="tip_tap_text">Character color after a tap. It fades after a moment.</string>
+    <string name="tip_outline_tap">Key outline color after a tap.</string>
+    <string name="tip_swipe_trail">Trail behind your finger when swiping.</string>
+    <string name="tip_trail_style">Trail look: line, dashed, fire or pixels.</string>
+    <string name="tip_trail_color">Color of the trail behind your finger.</string>
+    <string name="tip_trail_width">Thickness of the trail.</string>
+    <string name="tip_swipe_glow">After a swipe the letters of the word light up.</string>
+    <string name="tip_glow_style">Animation of the word letters after a swipe.</string>
+    <string name="tip_glow_color">Color of the word animation after a swipe.</string>
+    <string name="tip_passed">Colors of a key your finger has already passed during a swipe.</string>
+    <string name="tip_hover">Colors of the key directly under your finger during a swipe.</string>
+    <string name="tip_preset">Ready-made themes. Tap one to use its colors.</string>
 </resources>
