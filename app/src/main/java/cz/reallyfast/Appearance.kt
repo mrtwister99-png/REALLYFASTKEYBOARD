@@ -85,6 +85,11 @@ class AppearanceActivity : SettingsScreen() {
     private lateinit var extraTab: LinearLayout
     private var shownTab = 0
     private var extraOpen = false
+    private var expandedCat = -1
+    private val catBodies = ArrayList<LinearLayout>()
+    private val catArrows = ArrayList<TextView>()
+    private var floatingTestWrap: LinearLayout? = null
+    private var testCloseWrap: LinearLayout? = null
     private val pills = ArrayList<TextView>()
     private var shownMode = KeyboardView.MODE_LETTERS
     private val hintRange = FloatArray(4)
@@ -131,10 +136,21 @@ class AppearanceActivity : SettingsScreen() {
         header.addView(headTop, rowParams())
         slotBar = buildSlotBar()
         header.addView(slotBar, rowParams())
-        // Pevna hlavicka: pod styly patri i Zpet / Ulozit, at jsou porad nahore a neplavou dole.
-        actionRow = buildActionRow()
-        header.addView(actionRow, rowParams())
         root.addView(header, rowParams())
+        // Velke plovouci TEST uprostred, mirne pod tlacitkem TEST v hlavicce. Klavesnice neni videt, dokud se netestuje.
+        val floatWrap = LinearLayout(this)
+        floatWrap.gravity = Gravity.CENTER
+        floatWrap.setPadding(dp(16f), dp(10f), dp(16f), dp(6f))
+        val floatTest = label(getString(R.string.preview_test), 17f)
+        floatTest.typeface = Typeface.DEFAULT_BOLD
+        floatTest.gravity = Gravity.CENTER
+        floatTest.setPadding(dp(48f), dp(18f), dp(48f), dp(18f))
+        floatTest.background = rounded(accent, dp(32f).toFloat())
+        floatTest.setTextColor(if (Theme.luminance(accent) > 0.55f) 0xFF111113.toInt() else 0xFFFFFFFF.toInt())
+        floatTest.setOnClickListener { if (!testMode) startTest() }
+        floatWrap.addView(floatTest)
+        root.addView(floatWrap, rowParams())
+        floatingTestWrap = floatWrap
 
         val scroll = ScrollView(this)
         tabScroll = scroll
@@ -221,10 +237,27 @@ class AppearanceActivity : SettingsScreen() {
         kv.swipeAllowed = false
         kv.voiceAllowed = false
         box.addView(kv, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
-        // Zpet / Ulozit uz jsou v pevne hlavicce nahore, tady se nepridavaji znovu.
+        // Nad nahledem: vlevo Zpet (vraci zmeny vzhledu), vpravo Ulozit (do vybraneho stylu); oba sviti az po zmene.
+        actionRow = buildActionRow()
+        root.addView(actionRow, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
         root.addView(box, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
         preview = kv
         previewBox = box
+        previewBox.visibility = View.GONE
+        // Cervene X TEST nad klavesnici - ukonci test.
+        val closeWrap = LinearLayout(this)
+        closeWrap.gravity = Gravity.END
+        closeWrap.setPadding(dp(16f), dp(6f), dp(16f), dp(4f))
+        val closeBtn = label(getString(R.string.preview_test_close), 14f, 0xFFFFFFFF.toInt())
+        closeBtn.typeface = Typeface.DEFAULT_BOLD
+        closeBtn.gravity = Gravity.CENTER
+        closeBtn.setPadding(dp(22f), dp(10f), dp(22f), dp(10f))
+        closeBtn.background = rounded(0xFFD32F2F.toInt(), dp(24f).toFloat())
+        closeBtn.setOnClickListener { if (testMode) stopTest() }
+        closeWrap.addView(closeBtn)
+        closeWrap.visibility = View.GONE
+        root.addView(closeWrap, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+        testCloseWrap = closeWrap
         rootView = root
         updatePreview()
 
@@ -298,10 +331,13 @@ class AppearanceActivity : SettingsScreen() {
     /** Skutecna klavesnice otevrena = nahled schovany; behem upravy klavesy zustane radek s tlacitky. */
     private fun applyImeLayout() {
         val editing = editor != null
-        previewBox.visibility = if (imeVisible && !editing) View.GONE else View.VISIBLE
+        // Klavesnice je videt jen pri testu nebo pri konfiguraci klaves (kategorie 5). Jinak schovana.
+        val showPreview = testMode || expandedCat == 5 || editing
+        previewBox.visibility = if (showPreview && !(imeVisible && !editing)) View.VISIBLE else View.GONE
         preview.visibility = if (imeVisible && editing) View.GONE else View.VISIBLE
-        slotBar.visibility = previewBox.visibility
-        actionRow.visibility = previewBox.visibility
+        floatingTestWrap?.visibility = if (testMode) View.GONE else View.VISIBLE
+        testCloseWrap?.visibility = if (testMode) View.VISIBLE else View.GONE
+        actionRow.visibility = View.VISIBLE
     }
 
     /** Radek nahledu: pri uprave klavesy tri tlacitka, jinak napsany text a TEST. */
@@ -333,6 +369,7 @@ class AppearanceActivity : SettingsScreen() {
             preview.setMode(KeyboardView.MODE_LETTERS)
         }
         preview.listener = testListener
+        applyImeLayout()
         preview.swipeAllowed = true
         // Zapne zkusebni rezim a zaregistruje geometrii nahledu pro swipe decoder.
         preview.previewTouch = true
@@ -343,6 +380,7 @@ class AppearanceActivity : SettingsScreen() {
 
     private fun stopTest() {
         testMode = false
+        applyImeLayout()
         preview.previewTouch = false
         preview.swipeAllowed = false
         preview.listener = null
@@ -416,6 +454,7 @@ class AppearanceActivity : SettingsScreen() {
         override fun onVoiceStop() {}
         override fun onVoiceDelete() {}
         override fun onVoiceResume() {}
+        override fun onVoiceAgain() {}
     }
 
     // ------------------------------------------------------------------ poloha male napovedy a hlavniho znaku
@@ -516,63 +555,250 @@ class AppearanceActivity : SettingsScreen() {
     // ------------------------------------------------------------------ obsah
 
     private fun build(container: LinearLayout) {
-        // Bez nadpisu Appearance / Settings: pevna hlavicka je jen zalozky + styly.
-
-        // Dve zalozky: "Hlavni" (vse) a "Waiting ..." (zamcena, dokud se neodemkne).
+        // Zadné záložky: jen kategorie 0.-5. + Waiting jako poslední zamčená kategorie. Hlavička 1-5 + TEST zůstává pořád nahoře.
         extraOpen = Lantern.lit(this)
-        val tabs = LinearLayout(this)
-        val tabNames = listOf(R.string.tab_main, R.string.tab_waiting)
-        for ((i, n) in tabNames.withIndex()) {
-            val p = label(getString(n), 14f)
-            p.gravity = Gravity.CENTER
-            p.setPadding(dp(4f), dp(10f), dp(4f), dp(10f))
-            if (i == 0) {
-                p.setOnClickListener { showTab(0) }
-            } else if (extraOpen) {
-                p.setOnClickListener { showTab(1) }
-            } else {
-                p.compoundDrawablePadding = dp(6f)
-                p.setCompoundDrawablesRelative(LockDrawable(dp(12f), dp(14f)), null, null, null)
-                p.setOnClickListener { Toast.makeText(this, R.string.tab_locked, Toast.LENGTH_SHORT).show() }
-            }
-            tabPills.add(p)
-            val lp = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
-            if (i > 0) lp.leftMargin = dp(6f)
-            tabs.addView(p, lp)
-        }
-        val tlp = rowParams()
-        tlp.topMargin = dp(14f)
-        headTop.addView(tabs, tlp)
-
-        mainTab = LinearLayout(this)
-        mainTab.orientation = LinearLayout.VERTICAL
-        extraTab = LinearLayout(this)
-        extraTab.orientation = LinearLayout.VERTICAL
-        extraTab.visibility = View.GONE
-        container.addView(mainTab, rowParams())
-        container.addView(extraTab, rowParams())
-        buildMain(mainTab)
-        if (extraOpen) buildExtra(extraTab)
-        // Uplne dole pod obema zalozkami: ulozeni soucasneho vzhledu do vybraneho slotu stylu.
+        buildCategory(container, 0, getString(R.string.cat_fast))
+        buildCategory(container, 1, getString(R.string.cat_layout))
+        buildCategory(container, 2, getString(R.string.cat_colors))
+        buildCategory(container, 3, getString(R.string.cat_tap_anim))
+        buildCategory(container, 4, getString(R.string.cat_swipe))
+        buildCategory(container, 5, getString(R.string.cat_keys))
+        buildCategory(container, 6, getString(R.string.cat_waiting), locked = !extraOpen)
         updateActions()
         hintText(container, getString(R.string.style_slots_hint))
         applyPickMode()
         if (extraOpen && intent?.getBooleanExtra(Lantern.MOTH, false) == true) {
             intent?.removeExtra(Lantern.MOTH)
-            confirmDialog(getString(R.string.downgrade_done), getString(R.string.notice_ok), null, false, 0xFF22C55E.toInt()) { showTab(1) }
+            confirmDialog(getString(R.string.downgrade_done), getString(R.string.notice_ok), null, false, 0xFF22C55E.toInt()) { expandCat(6) }
         }
         paintPills()
+        applyImeLayout()
     }
 
-    private fun showTab(i: Int) {
-        if (i == shownTab) return
-        if (adjusting) finishAdjust()
-        currentBubble?.hide(immediate = true)
-        shownTab = i
-        mainTab.visibility = if (i == 0) View.VISIBLE else View.GONE
-        extraTab.visibility = if (i == 1) View.VISIBLE else View.GONE
-        tabScroll.scrollTo(0, 0)
-        paintPills()
+    /** Jedna kategorie: hlavička + sbalený obsah + nahoře uprostřed živá ukázka (stejný výřez q-z / a-g, jiná animace). */
+    private fun buildCategory(container: LinearLayout, index: Int, titleText: String, locked: Boolean = false) {
+        val card = cardBox(container)
+        (card.layoutParams as LinearLayout.LayoutParams).topMargin = dp(12f)
+        val head = LinearLayout(this)
+        head.gravity = Gravity.CENTER_VERTICAL
+        head.minimumHeight = dp(56f)
+        head.setPadding(dp(16f), dp(8f), dp(16f), dp(8f))
+        head.addView(label(titleText, 16f), LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+        val arrow = label("›", 24f, dim)
+        head.addView(arrow)
+        card.addView(head, rowParams())
+        val body = LinearLayout(this)
+        body.orientation = LinearLayout.VERTICAL
+        body.visibility = View.GONE
+        card.addView(body, rowParams())
+        catBodies.add(body)
+        catArrows.add(arrow)
+        head.setOnClickListener {
+            if (locked) { Toast.makeText(this, R.string.tab_locked, Toast.LENGTH_SHORT).show(); return@setOnClickListener }
+            if (expandedCat == index) collapseCat(index) else expandCat(index)
+        }
+        // Obsah podle kategorie - plní se až při prvním rozbalení, ať je start rychlý.
+        head.setTag(index)
+    }
+
+    private fun expandCat(index: Int) {
+        for (i in catBodies.indices) { if (i != index) collapseCat(i) }
+        expandedCat = index
+        val body = catBodies[index]
+        catArrows[index].text = "⌄"
+        body.visibility = View.VISIBLE
+        if (body.childCount == 0) {
+            // Ukázka nahoře uprostřed v každé kategorii.
+            val pv = MiniPreviewView(this, index)
+            val lp = LinearLayout.LayoutParams(dp(320f), dp(112f))
+            lp.gravity = Gravity.CENTER_HORIZONTAL
+            lp.topMargin = dp(8f); lp.bottomMargin = dp(10f)
+            body.addView(pv, lp)
+            when (index) {
+                0 -> buildCatFast(body)
+                1 -> buildCatLayout(body)
+                2 -> buildCatColors(body)
+                3 -> buildCatTap(body)
+                4 -> buildCatSwipe(body)
+                5 -> buildCatKeys(body)
+                6 -> buildCatWaiting(body)
+            }
+        }
+        applyImeLayout()
+        tabScroll.post { tabScroll.scrollTo(0, 0) }
+    }
+
+    private fun collapseCat(index: Int) {
+        if (index !in catBodies.indices) return
+        catBodies[index].visibility = View.GONE
+        catArrows[index].text = "›"
+        if (expandedCat == index) expandedCat = -1
+        applyImeLayout()
+    }
+
+    /** 0. Rychle: připravené styly, jazyk, řada číslic, oddělovač, jemný stín, obrys speciálních. */
+    private fun buildCatFast(box: LinearLayout) {
+        var s = section(box, getString(R.string.sec_fast))
+        presetRow(s)
+        choiceRow(s, R.string.language, "language", listOf("cs", "en", "cs+en"), listOf(getString(R.string.lang_cs), getString(R.string.lang_en), getString(R.string.lang_both)))
+        choiceRow(s, R.string.layout, "layout", listOf("qwertz", "qwerty"), listOf("QWERTZ", "QWERTY"))
+        switchRow(s, R.string.show_number_row, "show_number_row")
+        switchRow(s, R.string.number_divider, "number_divider", hintRes = R.string.number_divider_hint, dependsOn = "show_number_row")
+        switchRow(s, R.string.key_shadow, "key_shadow", hintRes = R.string.key_shadow_hint)
+        switchRow(s, R.string.special_outline, "special_outline", hintRes = R.string.special_outline_hint)
+    }
+
+    /** 1. Rozložení a písmo. */
+    private fun buildCatLayout(box: LinearLayout) {
+        var s = section(box, getString(R.string.sec_layout_dims))
+        sliderRow(s, R.string.keyboard_height, "keyboard_height_percent", 30, 55, 1) { getString(R.string.unit_percent, it) }
+        sliderRow(s, R.string.key_height, "key_height_dp", 48, 72, 1) { getString(R.string.unit_dp, it) }
+        sliderRow(s, R.string.waiting_key_width, "key_width_dp", 0, 120, 1) { if (it == 0) getString(R.string.unit_auto) else getString(R.string.unit_dp, it) }
+        sliderRow(s, R.string.key_radius, "key_radius_dp", 2, 22, 1) { getString(R.string.unit_dp, it) }
+        sliderRow(s, R.string.key_gap, "key_gap_dp", 0, 10, 1) { getString(R.string.unit_dp, it) }
+        sliderRow(s, R.string.row_gap, "row_gap_dp", 2, 16, 1) { getString(R.string.unit_dp, it) }
+        sliderRow(s, R.string.key_text_size, "key_text_percent", 70, 200, 1) { getString(R.string.unit_percent, it) }
+        sliderRow(s, R.string.hint_size, "hint_percent", 60, 180, 1) { getString(R.string.unit_percent, it) }
+        s = section(box, getString(R.string.sec_layout_pos))
+        labelAdjustButton = adjustRow(s, R.string.label_pos, R.string.label_adjust, true)
+        hintAdjustButton = adjustRow(s, R.string.layout_hint_pos, R.string.hint_adjust, false)
+        colorRow(s, R.string.hint_color, "hint_color", allowAuto = true)
+        sliderRow(s, R.string.label_weight, "label_weight", 100, 900, 1, 100) { it.toString() }
+        sliderRow(s, R.string.digit_weight, "digit_weight", 100, 900, 1, 100) { it.toString() }
+        s = section(box, getString(R.string.sec_key_font))
+        run {
+            val fonts = ArrayList<String>(); fonts.add("system")
+            try { val list = assets.list("fonts") ?: emptyArray(); for (f in list) if (f.endsWith(".ttf", true) || f.endsWith(".otf", true) || f.endsWith(".ttc", true)) fonts.add(f) } catch (_: Throwable) {}
+            fonts.sortWith(compareBy({ it != "system" }, { it }))
+            val labels = ArrayList<String>(); for (f in fonts) labels.add(if (f == "system") getString(R.string.font_system) else f)
+            choiceRow(s, R.string.key_font_label, fonts, labels, { RustBridge.settings.json.optString("key_font", "system").let { if (it in fonts) it else "system" } }, { v -> update("key_font", v) })
+        }
+        hintText(s, getString(R.string.key_font_hint))
+        s = section(box, getString(R.string.sec_bottom_row))
+        val places = listOf("left", "right", "hidden")
+        val placeLabels = listOf(getString(R.string.key_place_left), getString(R.string.key_place_right), getString(R.string.key_place_hidden))
+        choiceRow(s, R.string.emoji_key_label, "emoji_key", places, placeLabels)
+        choiceRow(s, R.string.macro_key_label, "macro_key", places, placeLabels)
+        hintText(s, getString(R.string.bottom_row_hint))
+    }
+
+    /** 2. Barvy: I. základní, II. bublina / držení / číslice, III. druhé barvy. */
+    private fun buildCatColors(box: LinearLayout) {
+        var s = section(box, getString(R.string.cat_colors_1))
+        colorRow(s, R.string.custom_background, "custom_background")
+        colorRow(s, R.string.custom_key, "custom_key")
+        colorRow(s, R.string.custom_text, "custom_text")
+        colorRow(s, R.string.hint_color, "hint_color", allowAuto = true)
+        colorRow(s, R.string.outline_color, "outline_color", allowAuto = true)
+        colorRow(s, R.string.accent_color, "accent_color")
+        s = section(box, getString(R.string.cat_colors_2))
+        hintText(s, getString(R.string.cat_colors_2_hint))
+        colorRow(s, R.string.popup_color, "popup_color", allowAuto = true)
+        colorRow(s, R.string.alts_color, "alts_color", allowAuto = true)
+        colorRow(s, R.string.digit_key_color, "digit_key_color", allowAuto = true)
+        colorRow(s, R.string.digit_text_color, "digit_text_color", allowAuto = true)
+        s = section(box, getString(R.string.cat_colors_3))
+        colorRow(s, R.string.background_color2, "background_color2", allowAuto = true, allowRainbow = true)
+        colorRow(s, R.string.key_color2, "key_color2", allowAuto = true, allowRainbow = true)
+        colorRow(s, R.string.text_color2, "text_color2", allowAuto = true, allowRainbow = true)
+        colorRow(s, R.string.outline_color2, "outline_color2", allowAuto = true, allowRainbow = true)
+        colorRow(s, R.string.digit_key_color, "digit_key_color", allowAuto = true)
+        colorRow(s, R.string.digit_text_color, "digit_text_color", allowAuto = true)
+    }
+
+    /** 3. Animace po kliknutí: I. výběr + barva efektu (rovnou 3 barvy), II. obrys+znak, III. druhé barvy. */
+    private fun buildCatTap(box: LinearLayout) {
+        var s = section(box, getString(R.string.cat_tap_1))
+        dropdownRow(s, R.string.tap_effect_label, listOf("none", "neon", "glitch", "paint", "ghost", "orbit", "pop", "cut", "slide"),
+            listOf(getString(R.string.effect_none), getString(R.string.tap_effect_neon), getString(R.string.tap_effect_glitch), getString(R.string.tap_effect_paint), getString(R.string.tap_effect_ghost), getString(R.string.tap_effect_orbit), getString(R.string.tap_effect_pop), getString(R.string.glow_style_cut), getString(R.string.tap_effect_slide)),
+            { val j = RustBridge.settings.json; if (j.optBoolean("key_glow")) j.optString("tap_effect") else "none" },
+            { v -> if (v == "none") update("key_glow", false) else updateAll("key_glow" to true, "tap_effect" to v) })
+        hintText(s, getString(R.string.cat_tap_1_hint))
+        // Při výběru animace se rovnou ukážou 3 výběry barev (vybarvení).
+        colorRow(s, R.string.neon_color, "neon_color")
+        colorRow(s, R.string.tap_text_color, "tap_text_color", allowAuto = true)
+        colorRow(s, R.string.outline_tap_color, "outline_tap_color", allowAuto = true)
+        s = section(box, getString(R.string.cat_tap_2))
+        colorRow(s, R.string.outline_tap_color, "outline_tap_color", allowAuto = true)
+        colorRow(s, R.string.tap_text_color, "tap_text_color", allowAuto = true)
+        s = section(box, getString(R.string.cat_tap_3))
+        colorRow(s, R.string.key_color2, "key_color2", allowAuto = true, allowRainbow = true)
+        colorRow(s, R.string.text_color2, "text_color2", allowAuto = true, allowRainbow = true)
+        colorRow(s, R.string.outline_color2, "outline_color2", allowAuto = true, allowRainbow = true)
+        colorRow(s, R.string.neon_color2, "neon_color2", allowAuto = true, allowRainbow = true)
+        colorRow(s, R.string.tap_text_color2, "tap_text_color2", allowAuto = true)
+        colorRow(s, R.string.outline_tap_color2, "outline_tap_color2", allowAuto = true)
+    }
+
+    /** 4. Swipe: I. linka + průchod + úspěšné slovo, II. průchod barvy + druhé barvy. */
+    private fun buildCatSwipe(box: LinearLayout) {
+        var s = section(box, getString(R.string.cat_swipe_1))
+        switchRow(s, R.string.swipe_trail, "swipe_trail")
+        choiceRow(s, R.string.trail_style_label, "trail_style", listOf("line", "dashed", "fire", "pixel"),
+            listOf(getString(R.string.trail_style_line), getString(R.string.trail_style_dashed), getString(R.string.trail_style_fire), getString(R.string.trail_style_pixel)))
+        hintText(s, getString(R.string.cat_swipe_line_hint))
+        colorRow(s, R.string.trail_color, "trail_color", allowAuto = true)
+        colorRow(s, R.string.trail_color2, "trail_color2", allowAuto = true)
+        sliderRow(s, R.string.trail_width, "trail_width_dp", 1, 12, 1) { getString(R.string.unit_dp, it) }
+        hintText(s, getString(R.string.cat_swipe_pass_hint))
+        switchRow(s, R.string.swipe_glow, "swipe_glow")
+        choiceRow(s, R.string.glow_style_label, listOf("none", "neon", "glitch", "paint", "ghost", "orbit", "pop", "cut", "slide"),
+            listOf(getString(R.string.anim_none), getString(R.string.tap_effect_neon), getString(R.string.tap_effect_glitch), getString(R.string.tap_effect_paint), getString(R.string.tap_effect_ghost), getString(R.string.tap_effect_orbit), getString(R.string.tap_effect_pop), getString(R.string.glow_style_cut), getString(R.string.tap_effect_slide)),
+            { val j = RustBridge.settings.json; if (j.optBoolean("swipe_glow")) j.optString("glow_style") else "none" },
+            { v -> if (v == "none") update("swipe_glow", false) else updateAll("swipe_glow" to true, "glow_style" to v) })
+        colorRow(s, R.string.glow_color, "glow_color", allowRainbow = extraOpen)
+        colorRow(s, R.string.glow_color2, "glow_color2", allowAuto = true)
+        s = section(box, getString(R.string.cat_swipe_2))
+        colorRow(s, R.string.passed_text_color, "passed_text_color", allowAuto = true, dependsOn = "swipe_glow")
+        colorRow(s, R.string.outline_passed_color, "outline_passed_color", allowAuto = true, dependsOn = "swipe_glow")
+        colorRow(s, R.string.hover_text_color, "hover_text_color", allowAuto = true, dependsOn = "swipe_glow")
+        colorRow(s, R.string.outline_hover_color, "outline_hover_color", allowAuto = true, dependsOn = "swipe_glow")
+        colorRow(s, R.string.key_color2, "key_color2", allowAuto = true, allowRainbow = true)
+        colorRow(s, R.string.text_color2, "text_color2", allowAuto = true, allowRainbow = true)
+        colorRow(s, R.string.outline_color2, "outline_color2", allowAuto = true, allowRainbow = true)
+    }
+
+    /** 5. Konfigurace klávesnice: vyjede klávesnice, klik + podržení = úprava písmenka / makra. */
+    private fun buildCatKeys(box: LinearLayout) {
+        var s = section(box, getString(R.string.sec_keys))
+        box.addView(label(getString(R.string.layout_hint), 14f, dim).also { it.setPadding(0, dp(10f), 0, dp(4f)) }, rowParams())
+        val modes = listOf(KeyboardView.MODE_LETTERS to R.string.layout_mode_letters, KeyboardView.MODE_SYMBOLS to R.string.layout_mode_symbols, KeyboardView.MODE_SYMBOLS2 to R.string.layout_mode_symbols2)
+        val row = LinearLayout(this)
+        for ((i, m) in modes.withIndex()) {
+            val p = label(getString(m.second), 14f); p.gravity = Gravity.CENTER; p.setPadding(dp(4f), dp(10f), dp(4f), dp(10f))
+            p.setOnClickListener { if (adjusting) return@setOnClickListener; currentBubble?.hide(immediate = true); shownMode = m.first; preview.setMode(m.first); paintPills() }
+            pills.add(p); val lp = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f); if (i > 0) lp.leftMargin = dp(6f); row.addView(p, lp)
+        }
+        val rlp = rowParams(); rlp.topMargin = dp(10f); rlp.bottomMargin = dp(6f); box.addView(row, rlp)
+        statusView = label("", 14f, dim).also { it.setPadding(0, dp(10f), 0, dp(6f)); box.addView(it, rowParams()) }
+        cancelSwapView = buttonRow(box, getString(R.string.layout_swap_cancel), accent) { cancelSwap() }
+        cancelSwapView?.visibility = View.GONE
+        buttonRow(box, getString(R.string.layout_reset), danger) { confirmDanger(getString(R.string.layout_reset_confirm), getString(R.string.layout_reset_do)) { cancelSwap(); writeMaps(LinkedHashMap(), LinkedHashMap(), resetSwaps = true, clearMacros = true) } }
+        hintText(box, getString(R.string.cat_keys_hint))
+        updateStatus()
+    }
+
+    /** Waiting jako poslední kategorie, pořád zamčená: + barva obrysu a druhé barvy efektu (zbytky). */
+    private fun buildCatWaiting(box: LinearLayout) {
+        var s = section(box, getString(R.string.sec_waiting_key))
+        sliderRow(s, R.string.waiting_key_height, "key_height_dp", 48, 72, 1) { getString(R.string.unit_dp, it) }
+        sliderRow(s, R.string.waiting_key_width, "key_width_dp", 0, 120, 1) { if (it == 0) getString(R.string.unit_auto) else getString(R.string.unit_dp, it) }
+        sliderRow(s, R.string.waiting_key_gap, "key_gap_dp", 0, 10, 1) { getString(R.string.unit_dp, it) }
+        hintText(s, getString(R.string.waiting_key_gap_hint))
+        switchRow(s, R.string.waiting_char_outline, "char_outline", hintRes = R.string.waiting_char_outline_hint)
+        s = section(box, getString(R.string.sec_waiting_colors))
+        colorRow(s, R.string.outline_color, "outline_color", allowAuto = true)
+        sliderRow(s, R.string.outline_width, "outline_width_dp", 1, 6, 1) { getString(R.string.unit_dp, it) }
+        colorRow(s, R.string.neon_color2, "neon_color2", allowAuto = true, allowRainbow = true)
+        colorRow(s, R.string.glow_color2, "glow_color2", allowAuto = true)
+        colorRow(s, R.string.trail_color2, "trail_color2", allowAuto = true)
+        colorRow(s, R.string.tap_text_color2, "tap_text_color2", allowAuto = true)
+        colorRow(s, R.string.outline_color2, "outline_color2", allowAuto = true, allowRainbow = true)
+        colorRow(s, R.string.outline_tap_color2, "outline_tap_color2", allowAuto = true)
+        colorRow(s, R.string.paint_color1, "paint_color1")
+        colorRow(s, R.string.paint_color2, "paint_color2")
+        colorRow(s, R.string.paint_color3, "paint_color3")
+        hintText(s, getString(R.string.paint_hint))
     }
 
     /**
@@ -599,14 +825,6 @@ class AppearanceActivity : SettingsScreen() {
         hintText(box, getString(R.string.outline_color2_hint))
         colorRow(box, R.string.outline_tap_color2, "outline_tap_color2", allowAuto = true)
         hintText(box, getString(R.string.tap2_hint))
-
-        // Waiting: samostatna klavesa - vyska + sirka + mezera (0 = okraj vedle okraje) + obrys znaku.
-        box = section(tabBox, getString(R.string.sec_waiting_key))
-        sliderRow(box, R.string.waiting_key_height, "key_height_dp", 48, 72, 1) { getString(R.string.unit_dp, it) }
-        sliderRow(box, R.string.waiting_key_width, "key_width_dp", 0, 120, 1) { if (it == 0) getString(R.string.unit_auto) else getString(R.string.unit_dp, it) }
-        sliderRow(box, R.string.waiting_key_gap, "key_gap_dp", 0, 10, 1) { getString(R.string.unit_dp, it) }
-        hintText(box, getString(R.string.waiting_key_gap_hint))
-        switchRow(box, R.string.waiting_char_outline, "char_outline", hintRes = R.string.waiting_char_outline_hint)
 
         box = section(tabBox, getString(R.string.sec_extra_states))
         hintText(box, getString(R.string.states_hint)).setPadding(0, dp(10f), 0, dp(6f))
@@ -678,7 +896,7 @@ class AppearanceActivity : SettingsScreen() {
         box = section(tabBox, getString(R.string.sec_dimensions))
         sliderRow(box, R.string.key_height, "key_height_dp", 48, 72, 1) { getString(R.string.unit_dp, it) }
         sliderRow(box, R.string.key_radius, "key_radius_dp", 2, 22, 1) { getString(R.string.unit_dp, it) }
-        sliderRow(box, R.string.key_text_size, "key_text_percent", 70, 200, 1) { getString(R.string.unit_percent, it) }
+        sliderRow(box, R.string.key_text_size, "key_text_percent", 70, 150, 1) { getString(R.string.unit_percent, it) }
 
         // Klavesy a efekty (zakladni: zapnout / vybrat)
         box = section(tabBox, getString(R.string.sec_effects))
@@ -703,14 +921,11 @@ class AppearanceActivity : SettingsScreen() {
             { v -> if (v == "none") update("key_glow", false) else updateAll("key_glow" to true, "tap_effect" to v) })
         hintText(box, getString(R.string.tap_effect_ring_hint))
         colorRow(box, R.string.neon_color, "neon_color")
-        // Animace po uspesnem tahu: stejny vyber jako efekt po klepnuti (hned za sebou v nastaveni).
-        choiceRow(box, R.string.glow_style_label, listOf("none", "neon", "glitch", "paint", "ghost", "orbit", "pop", "cut", "slide"),
+        choiceRow(box, R.string.glow_style_label, listOf("none", "blink", "fill", "fly", "cut"),
             listOf(
-                getString(R.string.anim_none), getString(R.string.tap_effect_neon),
-                getString(R.string.tap_effect_glitch), getString(R.string.tap_effect_paint),
-                getString(R.string.tap_effect_ghost), getString(R.string.tap_effect_orbit),
-                getString(R.string.tap_effect_pop), getString(R.string.glow_style_cut),
-                getString(R.string.tap_effect_slide),
+                getString(R.string.anim_none), getString(R.string.glow_style_blink),
+                getString(R.string.glow_style_fill), getString(R.string.glow_style_fly),
+                getString(R.string.glow_style_cut),
             ),
             { val j = RustBridge.settings.json; if (j.optBoolean("swipe_glow")) j.optString("glow_style") else "none" },
             { v -> if (v == "none") update("swipe_glow", false) else updateAll("swipe_glow" to true, "glow_style" to v) })
@@ -720,15 +935,6 @@ class AppearanceActivity : SettingsScreen() {
         // Pokrocile (sbalene): polohy, detaily, druhe barvy, obrys, barvy efektu
         val advCard = cardBox(tabBox)
         (advCard.layoutParams as LinearLayout.LayoutParams).topMargin = dp(26f)
-        // Pokrocile: kdyz je rozbalene, obrys karty sviti v accent barve.
-        fun paintAdvCard() {
-            advCard.background = GradientDrawable().apply {
-                setColor(card)
-                cornerRadius = dp(16f).toFloat()
-                if (advancedOpen) setStroke(dp(2f), accent) else setStroke(dp(1f), 0x22000000)
-            }
-        }
-        paintAdvCard()
         val advHead = LinearLayout(this)
         advHead.gravity = Gravity.CENTER_VERTICAL
         advHead.minimumHeight = dp(56f)
@@ -744,7 +950,6 @@ class AppearanceActivity : SettingsScreen() {
             advancedOpen = !advancedOpen
             adv.visibility = if (advancedOpen) View.VISIBLE else View.GONE
             advArrow.text = if (advancedOpen) "⌄" else "›"
-            paintAdvCard()
         }
         buildAdvanced(adv)
 
@@ -812,6 +1017,106 @@ class AppearanceActivity : SettingsScreen() {
             }
         }
         updateStatus()
+    }
+
+    /**
+     * Mini ukázka nahoře v každé kategorii: stejný výřez q w e r t z / a s d f g, jiná animace podle kategorie.
+     * Běží v loopu (slovo "fazt"): 0-2 statické klávesy, 3 klepnutí, 4 swipe + průchod o 0,25 s + rotace, 5 statické, 6 statické.
+     */
+    private inner class MiniPreviewView(ctx: android.content.Context, private val cat: Int) : View(ctx) {
+        private val rnd = kotlin.random.Random(1234)
+        private val startMs = SystemClock.uptimeMillis()
+        private val paint = Paint(Paint.ANTI_ALIAS_FLAG)
+        private val tPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { textAlign = Paint.Align.CENTER; typeface = Typeface.DEFAULT_BOLD }
+        private val topRow = listOf("q", "w", "e", "r", "t", "z")
+        private val botRow = listOf("a", "s", "d", "f", "g")
+        init { postOnAnimation(object : Runnable { override fun run() { invalidate(); if (isAttachedToWindow) postOnAnimation(this) } }) }
+        override fun onDraw(canvas: Canvas) {
+            super.onDraw(canvas)
+            val th = Theme.from(RustBridge.settings)
+            val now = SystemClock.uptimeMillis()
+            val t = ((now - startMs) % 3600L) / 3600f
+            val w = width.toFloat(); val h = height.toFloat()
+            val gap = 4f * resources.displayMetrics.density
+            val kw = (w - gap * 7f) / 6f; val kh = (h - gap * 3f) / 2f
+            val keyCol = th.key; val txtCol = th.text
+            fun keyRect(col: Int, row: Int): android.graphics.RectF {
+                val x = gap + col * (kw + gap) + if (row == 1) kw * 0.4f else 0f
+                val y = gap + row * (kh + gap)
+                return android.graphics.RectF(x, y, x + kw, y + kh)
+            }
+            // Slovo fazt: f(1,3) a(1,0) z(0,5) t(0,4)
+            val pathPts = listOf(Pair(1, 3), Pair(1, 0), Pair(0, 5), Pair(0, 4))
+            for (row in 0..1) {
+                val letters = if (row == 0) topRow else botRow
+                for (c in letters.indices) {
+                    val r = keyRect(c, row)
+                    val isPath = pathPts.any { it.first == row && it.second == c }
+                    var col = keyCol
+                    if (cat == 4 && isPath) {
+                        // Průchod o 0,25 s později: každé písmenko se rozsvítí až po zpoždění.
+                        val idx = pathPts.indexOfFirst { it.first == row && it.second == c }
+                        val delay = 0.25f + idx * 0.2f
+                        if (t in delay..(delay + 0.45f)) col = Theme.blend(keyCol, th.accent, 0.55f)
+                    }
+                    paint.color = col; paint.style = Paint.Style.FILL
+                    canvas.drawRoundRect(r, 10f * resources.displayMetrics.density, 10f * resources.displayMetrics.density, paint)
+                    // Rotace projetého písmenka v kategorii 4: +10° kroky, vydrž 0,25 s, zpět.
+                    var rot = 0f
+                    if (cat == 4 && isPath) {
+                        val idx = pathPts.indexOfFirst { it.first == row && it.second == c }
+                        val delay = 0.25f + idx * 0.2f
+                        val lt = t - delay
+                        if (lt in 0f..0.9f) {
+                            val target = 120f
+                            rot = when {
+                                lt < 0.3f -> target * (lt / 0.3f)
+                                lt < 0.55f -> target
+                                lt < 0.85f -> target * (1f - (lt - 0.55f) / 0.3f)
+                                else -> 0f
+                            }
+                        }
+                    }
+                    tPaint.color = txtCol; tPaint.textSize = kh * 0.52f
+                    if (rot != 0f) { canvas.save(); canvas.rotate(rot, r.centerX(), r.centerY()) }
+                    canvas.drawText(letters[c], r.centerX(), r.centerY() - (tPaint.ascent() + tPaint.descent()) / 2f, tPaint)
+                    if (rot != 0f) canvas.restore()
+                    if (cat == 3 && row == 1 && c == 3) {
+                        // Klepnutí: pulz na f.
+                        val q = (t * 2f) % 1f
+                        paint.style = Paint.Style.STROKE; paint.strokeWidth = 2f * resources.displayMetrics.density
+                        paint.color = (th.accent and 0x00FFFFFF) or ((255f * (1f - q)).toInt() shl 24)
+                        canvas.drawCircle(r.centerX(), r.centerY(), (kw * 0.6f + q * kw * 0.5f), paint)
+                        paint.style = Paint.Style.FILL
+                    }
+                }
+            }
+            if (cat == 4) {
+                // Linka fazt: klasická / čárkovaná / oheň / pixel podle nastavení, v loopu.
+                val style = RustBridge.settings.json.optString("trail_style", "line")
+                paint.style = Paint.Style.STROKE; paint.strokeWidth = 4f * resources.displayMetrics.density; paint.strokeCap = Paint.Cap.ROUND
+                paint.color = Theme.parse(RustBridge.settings.json.optString("trail_color", ""), th.accent)
+                var px = 0f; var py = 0f
+                for ((idx, p) in pathPts.withIndex()) {
+                    val r = keyRect(p.second, p.first)
+                    val x = r.centerX(); val y = r.centerY()
+                    if (idx > 0) {
+                        if (style == "pixel") {
+                            paint.style = Paint.Style.FILL
+                            val steps = 10
+                            for (s2 in 0..steps) { val fx = px + (x - px) * s2 / steps.toFloat(); val fy = py + (y - py) * s2 / steps.toFloat(); canvas.drawRect(fx - 3f, fy - 3f, fx + 3f, fy + 3f, paint) }
+                            paint.style = Paint.Style.STROKE
+                        } else if (style == "dashed") {
+                            val steps = 8
+                            for (s2 in 0 until steps step 2) { val fx1 = px + (x - px) * s2 / steps.toFloat(); val fy1 = py + (y - py) * s2 / steps.toFloat(); val fx2 = px + (x - px) * (s2 + 1) / steps.toFloat(); val fy2 = py + (y - py) * (s2 + 1) / steps.toFloat(); canvas.drawLine(fx1, fy1, fx2, fy2, paint) }
+                        } else {
+                            canvas.drawLine(px, py, x, y, paint)
+                        }
+                    }
+                    px = x; py = y
+                }
+            }
+        }
     }
 
     // ------------------------------------------------------------------ vlastni styly (sloty)
@@ -930,9 +1235,17 @@ class AppearanceActivity : SettingsScreen() {
         }
     }
 
-    /** Klepnuti na slot: rovnou prepne a nacte styl, bez ptani na neulozene zmeny. */
+    /**
+     * Klepnuti na slot: rovnou prepne a nacte styl. Ma-li soucasny styl neulozene zmeny, zeptá se, zda
+     * ho opravdu zmenit bez ulozeni (Ano = prepnout, Ne = zustat).
+     */
     private fun pickSlot(i: Int) {
-        switchTo(i)
+        val unsaved = if (chosenSlot in 0 until STYLE_SLOTS) !slotMatches(chosenSlot) else (0 until STYLE_SLOTS).none { slotMatches(it) }
+        if (unsaved) {
+            confirmDialog(getString(R.string.style_switch_unsaved), getString(R.string.yes), getString(R.string.no), false) { switchTo(i) }
+        } else {
+            switchTo(i)
+        }
     }
 
     private fun switchTo(i: Int) {
@@ -967,14 +1280,15 @@ class AppearanceActivity : SettingsScreen() {
             p.background = rounded(if (on) a else field, dp(12f).toFloat())
             p.setTextColor(if (on) onA else text)
         }
-        paint(tabPills[0], shownTab == 0)
+        if (tabPills.isNotEmpty()) paint(tabPills[0], true)
         if (extraOpen) {
-            paint(tabPills[1], shownTab == 1)
+            if (tabPills.size > 1) paint(tabPills[1], false)
         } else {
-            // Zamcena zalozka: ztlumena, nelze ji otevrit.
-            tabPills[1].background = rounded(field, dp(12f).toFloat())
-            tabPills[1].setTextColor(dim)
-            tabPills[1].alpha = 0.55f
+            if (tabPills.size > 1) {
+                tabPills[1].background = rounded(field, dp(12f).toFloat())
+                tabPills[1].setTextColor(dim)
+                tabPills[1].alpha = 0.55f
+            }
         }
         val order = listOf(KeyboardView.MODE_LETTERS, KeyboardView.MODE_SYMBOLS, KeyboardView.MODE_SYMBOLS2)
         for ((i, p) in pills.withIndex()) paint(p, order[i] == shownMode)
@@ -1152,20 +1466,6 @@ class AppearanceActivity : SettingsScreen() {
         charEdit.filters = arrayOf(InputFilter.LengthFilter(1))
         charEdit.setSelectAllOnFocus(true)
         charEdit.setText(key.label)
-        // Editor znaku: klik + podrzeni = zvyrazneny obrys 2x + accent barva.
-        fun highlightHold(v: View, base: android.graphics.drawable.Drawable?) {
-            v.setOnLongClickListener {
-                v.background = GradientDrawable().apply {
-                    setColor(0)
-                    setStroke(dp(3f), accent)
-                    cornerRadius = dp(10f).toFloat()
-                }
-                true
-            }
-            v.setOnClickListener { v.background = base }
-        }
-        val charBase = charEdit.background
-        highlightHold(charEdit, charBase)
         val left = LinearLayout(this)
         left.orientation = LinearLayout.VERTICAL
         left.addView(label(getString(R.string.key_editor_click), 12f, dim).also { it.setPadding(0, 0, 0, dp(4f)) })
@@ -1181,8 +1481,6 @@ class AppearanceActivity : SettingsScreen() {
         altsEdit.inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS
         altsEdit.filters = arrayOf(InputFilter.LengthFilter(MAX_ALTS_EDIT))
         altsEdit.setText(preAlts)
-        val altsBase = altsEdit.background
-        highlightHold(altsEdit, altsBase)
         val right = LinearLayout(this)
         right.orientation = LinearLayout.VERTICAL
         right.addView(label(getString(R.string.key_editor_hold), 12f, dim).also { it.setPadding(0, 0, 0, dp(4f)) })

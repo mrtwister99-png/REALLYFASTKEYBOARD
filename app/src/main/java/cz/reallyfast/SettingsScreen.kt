@@ -228,17 +228,12 @@ abstract class SettingsScreen : BaseScreen() {
         val value = label("", 14f, dim)
         head.addView(value)
         col.addView(head, rowParams())
-        // Radek: sipka - | posuvnik | sipka +. Palec je 175 % puvodni velikosti (35 dp misto 20 dp).
         val seekRow = LinearLayout(this)
-        seekRow.gravity = Gravity.CENTER_VERTICAL
+        seekRow.gravity = android.view.Gravity.CENTER_VERTICAL
+        val minus = label("‹", 24f, dim).apply { setPadding(dp(4f), 0, dp(8f), 0) }
+        val plus = label("›", 24f, dim).apply { setPadding(dp(8f), 0, dp(4f), 0) }
+        seekRow.addView(minus)
         val seek = SeekBar(this)
-        // Vetsi palec: vlastni drawable 35 dp (175 % z 20 dp), at se lip trefuje.
-        seek.thumb = GradientDrawable().apply {
-            shape = GradientDrawable.OVAL
-            setColor(accent)
-            setSize(dp(35f), dp(35f))
-            setStroke(dp(1.5f), 0x66FFFFFF)
-        }
         seek.max = (max - min) / step
         fun current(): Int {
             val j = RustBridge.settings.json
@@ -270,25 +265,10 @@ abstract class SettingsScreen : BaseScreen() {
                 commit(sb.progress * step + min)
             }
         })
-        // Sipky na koncich: kazda posune o 1 dilek (step), orizne na min/max.
-        fun arrow(text: String, delta: Int): TextView {
-            val a = label(text, 22f, accent)
-            a.gravity = Gravity.CENTER
-            a.setPadding(dp(10f), dp(2f), dp(10f), dp(2f))
-            a.setOnClickListener {
-                val cur = current()
-                val next = (cur + delta * step).coerceIn(min, max)
-                if (next != cur) {
-                    seek.progress = (next - min) / step
-                    commit(next)
-                    value.text = format(next)
-                }
-            }
-            return a
-        }
-        seekRow.addView(arrow("\u2039", -1), LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+        minus.setOnClickListener { val v = (current() - step).coerceAtLeast(min); seek.progress = (v - min) / step; commit(v); value.text = format(v) }
+        plus.setOnClickListener { val v = (current() + step).coerceAtMost(max); seek.progress = (v - min) / step; commit(v); value.text = format(v) }
         seekRow.addView(seek, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
-        seekRow.addView(arrow("\u203A", 1), LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+        seekRow.addView(plus)
         col.addView(seekRow, rowParams())
         box.addView(col, rowParams())
         refreshers.add {

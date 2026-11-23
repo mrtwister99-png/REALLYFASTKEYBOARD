@@ -349,13 +349,49 @@
     <string name="key_macro_on_hold">On hold</string>
     <string name="key_editor_macro_click">Tap: %1$s</string>
     <string name="key_editor_macro_hold">Hold: %1$s</string>
-    <string name="unit_auto">auto</string>
-    <string name="sec_waiting_key">Single key</string>
+    <string name="voice_again">Speak again</string>
+    <string name="word_saved_banner">word %1$s saved!</string>
+    <string name="cat_fast">0. Quick</string>
+    <string name="cat_layout">1. Layout &amp; font</string>
+    <string name="cat_colors">2. Colors</string>
+    <string name="cat_tap_anim">3. Tap animation</string>
+    <string name="cat_swipe">4. Swipe</string>
+    <string name="cat_keys">5. Key setup</string>
+    <string name="cat_waiting">Waiting</string>
+    <string name="cat_colors_1">I. Basic</string>
+    <string name="cat_colors_2">II. Bubble / hold / digits</string>
+    <string name="cat_colors_2_hint">Bubble = letter above key, hold = color while holding, digits = number keys and chars.</string>
+    <string name="cat_colors_3">III. Second color</string>
+    <string name="cat_tap_1">I. Pick animation</string>
+    <string name="cat_tap_1_hint">Picking an animation shows 3 coloring colors at once.</string>
+    <string name="cat_tap_2">II. Outline &amp; char</string>
+    <string name="cat_tap_3">III. Second key, char, outline color</string>
+    <string name="cat_swipe_1">I. Trail + pass + word</string>
+    <string name="cat_swipe_line_hint">Pixel = squares along the trail. Pass starts 0.25 s later, letter rotates and returns.</string>
+    <string name="cat_swipe_pass_hint">Pass animation + successful word.</string>
+    <string name="cat_swipe_2">II. Pass color + second colors</string>
+    <string name="cat_keys_hint">Tap a key = edit letter, hold = macro. Keyboard shows only here and in TEST.</string>
+    <string name="sec_fast">Quick</string>
+    <string name="sec_layout_dims">Dimensions</string>
+    <string name="sec_layout_pos">Position &amp; weight</string>
+    <string name="sec_key_font">Key font</string>
+    <string name="sec_waiting_colors">Waiting colors + leftovers</string>
+    <string name="trail_style_dashed">Dashed</string>
+    <string name="trail_style_pixel">Pixel</string>
+    <string name="trail_width">Trail width</string>
+    <string name="keyboard_height">Keyboard height</string>
+    <string name="preview_test_close">X TEST</string>
+    <string name="font_system">System</string>
+    <string name="key_font_label">Font</string>
+    <string name="key_font_hint">Put your own fonts into app/src/main/assets/fonts/ - they will appear here.</string>
     <string name="waiting_key_height">Single key height</string>
     <string name="waiting_key_width">Single key width</string>
     <string name="waiting_key_gap">Gap between keys</string>
-    <string name="waiting_key_gap_hint">0 = key edge next to key edge. When the keyboard is wider and keys are small, this slider makes the big gap.</string>
+    <string name="waiting_key_gap_hint">0 = key edge next to key edge.</string>
     <string name="waiting_char_outline">Character outline</string>
-    <string name="waiting_char_outline_hint">The character on the key gets a thin outline in the key outline color.</string>
+    <string name="waiting_char_outline_hint">Char on key gets a thin outline in key outline color.</string>
     <string name="tap_effect_slide">Slide</string>
+    <string name="unit_auto">auto</string>
+    <string name="sec_waiting_key">Single key</string>
+    <string name="swipe_glow">Pass animation</string>
 </resources>

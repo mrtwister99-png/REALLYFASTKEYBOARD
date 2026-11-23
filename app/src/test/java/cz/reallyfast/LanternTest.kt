@@ -13,132 +13,115 @@ class LanternTest {
         override var lit = false
     }
 
-    private var now = 10_000L
     private var finishedCount = 0
     private val store = Mem()
-    private val walk = Lantern.Walk(store, { now }) { finishedCount++ }
+    private val walk = Lantern.Walk(store, { 10_000L }) { finishedCount++ }
 
-    private fun json(sens: Double = 1.0, vib: Int = 10, hold: Int = 300, h: Int = 56, r: Int = 12, t: Int = 100) =
-        JSONObject().put("swipe_sensitivity", sens).put("vibration_ms", vib).put("long_press_delay_ms", hold)
-            .put("key_height_dp", h).put("key_radius_dp", r).put("key_text_percent", t)
+    private val word = Lantern.Walk.tag(Lantern.Walk.LEARNED_WORD)
+    private val name = Lantern.Walk.tag(Lantern.Walk.MACRO_NAME)
+    private val body = Lantern.Walk.tag(Lantern.Walk.MACRO_BODY)
+    private val short = Lantern.Walk.tag(Lantern.Walk.MACRO_SHORT)
 
-    private fun step(ms: Long = 100) {
-        now += ms
+    private fun base() = JSONObject()
+        .put("gesture_swipe_down_hide", true).put("gesture_swipe_up_caps", true).put("gesture_space_cursor", true)
+        .put("long_press_delay_ms", 300).put("predictions", true).put("swipe_trail", true).put("outline_width_dp", 2)
+
+    /** Provede jednu zmenu nastaveni a vrati novy stav. */
+    private fun change(from: JSONObject, key: String, value: Any): JSONObject {
+        val to = JSONObject(from.toString()).put(key, value)
+        walk.moved(from, to)
+        return to
     }
 
-    /** Projde nastavenim az ke kroku 3 (stav po tri zmenach nastaveni). */
-    private fun toThree(): JSONObject {
-        val a = json()
-        val b = json(sens = 1.33)
-        walk.moved(a, b)
-        step()
-        val c = json(sens = 1.33, vib = 33)
-        walk.moved(b, c)
-        step()
-        val d = json(sens = 1.33, vib = 33, hold = 333)
-        walk.moved(c, d)
-        return d
+    /** Projde zmenami nastaveni az do stavu po peti krocich. */
+    private fun toFive(): JSONObject {
+        var j = base()
+        j = change(j, "gesture_swipe_down_hide", false)
+        j = change(j, "gesture_swipe_up_caps", false)
+        j = change(j, "gesture_space_cursor", false)
+        j = change(j, "long_press_delay_ms", Lantern.Walk.num(Lantern.Walk.HOLD))
+        j = change(j, "predictions", false)
+        return j
+    }
+
+    /** Projde postupem az do stavu po deviti krocich (zbyvaji dve pouziti makra). */
+    private fun toNine(): JSONObject {
+        var j = toFive()
+        walk.learned(word)
+        walk.written(name, body, short)
+        j = change(j, "swipe_trail", false)
+        j = change(j, "outline_width_dp", 6)
+        return j
     }
 
     @Test
     fun fullWalkUnlocks() {
-        val d = toThree()
-        assertEquals(3, store.rank)
-
-        walk.voiced("33")
-        walk.learned(" 33 ")
-        walk.written("33", "666", "/33")
+        toFive()
+        assertEquals(5, store.rank)
+        walk.learned(word)
         assertEquals(6, store.rank)
-
-        val e = JSONObject(d.toString()).put("key_height_dp", 66).put("key_radius_dp", 11).put("key_text_percent", 133)
-        step()
-        walk.moved(d, e)
-        walk.stored(2, e)
+        walk.written(name, body, short)
         assertEquals(7, store.rank)
-
-        walk.pasted()
-        walk.expanded("/33", "666")
+        toNineTail()
         assertEquals(9, store.rank)
         assertFalse(store.lit)
-        step(2000)
-        walk.expanded("/33", "666")
+        walk.expanded(short, body)
+        assertEquals(10, store.rank)
+        assertTrue(walk.macroClicked(short, body))
         assertTrue(store.lit)
         assertEquals(1, finishedCount)
+    }
+
+    private fun toNineTail() {
+        var j = base()
+        j = j.put("gesture_swipe_down_hide", false).put("gesture_swipe_up_caps", false).put("gesture_space_cursor", false)
+            .put("long_press_delay_ms", Lantern.Walk.num(Lantern.Walk.HOLD)).put("predictions", false)
+        j = change(j, "swipe_trail", false)
+        change(j, "outline_width_dp", 6)
     }
 
     @Test
     fun outOfOrderEventsAreIgnored() {
-        walk.voiced("33")
-        walk.learned("33")
-        walk.written("33", "666", "/33")
-        walk.pasted()
-        walk.expanded("/33", "666")
+        walk.learned(word)
+        walk.written(name, body, short)
+        walk.expanded(short, body)
         assertEquals(0, store.rank)
-        toThree()
-        walk.learned("33")
-        assertEquals(3, store.rank)
-    }
-
-    @Test
-    fun wrongValuesDoNotAdvance() {
-        toThree()
-        walk.voiced("34")
-        assertEquals(3, store.rank)
-        walk.voiced("33")
-        walk.learned("333")
-        assertEquals(4, store.rank)
-        walk.learned("33")
-        walk.written("33", "667", "/33")
+        toFive()
+        walk.written(name, body, short)
         assertEquals(5, store.rank)
     }
 
     @Test
+    fun wrongValuesDoNotAdvance() {
+        toFive()
+        walk.learned("jine slovo")
+        assertEquals(5, store.rank)
+        walk.learned(word)
+        walk.written(name, "jiny text", short)
+        assertEquals(6, store.rank)
+        walk.written(name, body, short)
+        assertEquals(7, store.rank)
+    }
+
+    @Test
     fun changingAnEarlierValueRestartsTheWalk() {
-        val d = toThree()
-        val broken = JSONObject(d.toString()).put("vibration_ms", 20)
-        step()
-        walk.moved(d, broken)
+        val j = toFive()
+        change(j, "gesture_swipe_down_hide", true)
         assertEquals(0, store.rank)
-        walk.voiced("33")
+        walk.learned(word)
         assertEquals(0, store.rank)
     }
 
     @Test
-    fun secondExpansionMustFollowTheFirstOne() {
-        val d = toThree()
-        walk.voiced("33")
-        walk.learned("33")
-        walk.written("33", "666", "/33")
-        val e = JSONObject(d.toString()).put("key_height_dp", 66).put("key_radius_dp", 11).put("key_text_percent", 133)
-        walk.moved(d, e)
-        walk.stored(2, e)
-        walk.pasted()
-        walk.expanded("/33", "666")
-        walk.expanded("/xx", "abc")
-        assertEquals(8, store.rank)
-        walk.expanded("/33", "666")
+    fun wrongMacroDoesNotResetTheCount() {
+        toNine()
         assertEquals(9, store.rank)
-        step(31_000)
-        walk.expanded("/33", "666")
+        walk.expanded(short, body)
+        walk.expanded("/xx", "abc")
+        assertEquals(10, store.rank)
         assertFalse(store.lit)
-        walk.expanded("/33", "666")
+        walk.expanded(short, body)
         assertTrue(store.lit)
         assertEquals(1, finishedCount)
-    }
-
-    @Test
-    fun savingTheWrongSlotOrLookDoesNotAdvance() {
-        val d = toThree()
-        walk.voiced("33")
-        walk.learned("33")
-        walk.written("33", "666", "/33")
-        walk.stored(2, d)
-        assertEquals(6, store.rank)
-        val e = JSONObject(d.toString()).put("key_height_dp", 66).put("key_radius_dp", 11).put("key_text_percent", 133)
-        walk.moved(d, e)
-        walk.stored(1, e)
-        assertEquals(6, store.rank)
-        walk.stored(2, e)
-        assertEquals(7, store.rank)
     }
 }

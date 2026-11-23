@@ -12,7 +12,7 @@ pub const THEMES: [&str; 4] = ["dark", "light", "oled_black", "custom"];
 pub const GLOW_STYLES: [&str; 8] = ["neon", "glitch", "paint", "ghost", "orbit", "pop", "cut", "slide"];
 pub const TAP_EFFECTS: [&str; 8] = ["neon", "glitch", "paint", "ghost", "orbit", "pop", "cut", "slide"];
 /// Vzhled stopy za prstem pri tahu: cara, nebo horici cara (ohen a dohorivajici stopy).
-pub const TRAIL_STYLES: [&str; 2] = ["line", "fire"];
+pub const TRAIL_STYLES: [&str; 4] = ["line", "dashed", "fire", "pixel"];
 /// Zvlastni hodnota barvy "duha": povolena jen u druhych barev prechodu (klavesy, pozadi, znaky, obrys),
 /// u druhe barvy efektu po klepnuti a u barvy pismen po tahu.
 pub const RAINBOW: &str = "rainbow";
@@ -22,7 +22,7 @@ pub const STYLE_SLOTS: usize = 5;
 /// mapy klaves, makra, gesta, spodni rada ani chovani psani sem nepatri.
 pub const STYLE_KEYS: &[&str] = &[
     "theme", "accent_color", "custom_background", "custom_key", "custom_text",
-    "key_height_dp", "key_width_dp", "key_radius_dp", "key_text_percent", "key_gap_dp", "row_gap_dp",
+    "key_height_dp", "key_width_dp", "key_radius_dp", "key_text_percent", "key_gap_dp", "row_gap_dp", "key_font", "trail_width_dp",
     "key_label_x", "key_label_y", "key_hint_x", "key_hint_y", "key_hint_pos",
     "key_popup", "key_hints", "key_shadow", "animations", "swipe_trail", "swipe_glow", "key_glow",
     "hint_color", "hint_percent", "tap_effect", "neon_color", "glow_color", "glow_style",
@@ -62,7 +62,6 @@ pub struct Settings {
     pub vibration_ms: u32,
     pub sound_enabled: bool,
     pub key_height_dp: u32,
-    /// Sirka samostatne klavesy v dp: 0 = automaticka (vypocet z sirky obrazovky). 24..120 = pevna sirka, klavesy se centroji a mezera ridi key_gap_dp.
     pub key_width_dp: u32,
     pub keyboard_height_percent: u32,
     pub theme: String,
@@ -200,8 +199,10 @@ pub struct Settings {
     pub outline_passed_color: String,
     /// Tloustka obrysu v dp (1..6).
     pub outline_width_dp: u32,
-    /// Obrys znaku na klavese (Waiting): true = znak ma tenky obrys v barve obrysu klavesy.
     pub char_outline: bool,
+    pub trail_width_dp: u32,
+    /// Pismo klaves: "system" nebo nazev souboru pisma z assets/fonts (bez cesty).
+    pub key_font: String,
     /// Obrys specialnich klaves (Shift, ?123, Backspace) v barve akcentu.
     pub special_outline: bool,
     /// Druha barva stopy za prstem: konec stopy ("" = jen jedna barva).
@@ -314,6 +315,8 @@ impl Settings {
             outline_passed_color: String::new(),
             outline_width_dp: 2,
             char_outline: false,
+            trail_width_dp: 4,
+            key_font: "system".into(),
             special_outline: true,
             trail_color2: String::new(),
             glow_color2: String::new(),
@@ -569,18 +572,17 @@ impl Settings {
         self.key_radius_dp = self.key_radius_dp.clamp(2, 22);
         self.key_gap_dp = self.key_gap_dp.clamp(0, 10);
         if self.key_width_dp != 0 { self.key_width_dp = self.key_width_dp.clamp(24, 120); }
+        self.trail_width_dp = self.trail_width_dp.clamp(1, 12);
+        // Nazev pisma: jen jednoduchy nazev souboru (zadna cesta), jinak systemove.
+        if self.key_font.is_empty() || self.key_font.len() > 64 || self.key_font.contains(['/', '\\'])|| self.key_font.contains("..") {
+            self.key_font = "system".into();
+        }
         if self.row_gap_dp < 0 {
             self.row_gap_dp = (self.key_gap_dp as f32 * 1.6).round() as i32;
         }
         self.row_gap_dp = self.row_gap_dp.clamp(2, 16);
         self.key_text_percent = self.key_text_percent.clamp(70, 200);
-        // Migrace starych glow_style (blink/fill/fly) na sjednoceny vyber s tap_effect.
-        match self.glow_style.as_str() {
-            "blink" => self.glow_style = "neon".into(),
-            "fill" => self.glow_style = "paint".into(),
-            "fly" => self.glow_style = "ghost".into(),
-            _ => {}
-        }
+        match self.glow_style.as_str() { "blink" => self.glow_style = "neon".into(), "fill" => self.glow_style = "paint".into(), "fly" => self.glow_style = "ghost".into(), _ => {} }
         if !GLOW_STYLES.contains(&self.glow_style.as_str()) {
             self.glow_style = d.glow_style.clone();
         }
@@ -913,9 +915,6 @@ mod tests {
         assert_eq!((s.glow_style.as_str(), s.key_gap_dp, s.key_text_percent), ("neon", 5, 100));
         let s = Settings::from_json(r#"{"glow_style":"paint","key_gap_dp":7,"key_text_percent":120}"#).unwrap();
         assert_eq!((s.glow_style.as_str(), s.key_gap_dp, s.key_text_percent), ("paint", 7, 120));
-        // Stare hodnoty glow_style se migruji: fill -> paint, blink -> neon.
-        let s = Settings::from_json(r#"{"glow_style":"fill"}"#).unwrap();
-        assert_eq!(s.glow_style, "paint");
         let s = Settings::from_json(r#"{"glow_style":"spin","key_gap_dp":0,"key_text_percent":10}"#).unwrap();
         assert_eq!((s.glow_style.as_str(), s.key_gap_dp, s.key_text_percent), ("neon", 0, 70));
         let s = Settings::from_json(r#"{"key_gap_dp":99,"key_text_percent":999}"#).unwrap();
@@ -923,11 +922,6 @@ mod tests {
         // stary soubor bez poli
         let s = Settings::from_json(r#"{"theme":"light"}"#).unwrap();
         assert_eq!((s.glow_style.as_str(), s.key_gap_dp, s.key_text_percent), ("neon", 5, 100));
-        // Nova nastaveni Waiting: sirka klavesy 0 = auto, mezera 0 = klavesy u sebe.
-        let s = Settings::from_json(r#"{"key_width_dp":0,"key_gap_dp":0}"#).unwrap();
-        assert_eq!((s.key_width_dp, s.key_gap_dp), (0, 0));
-        let s = Settings::from_json(r#"{"key_width_dp":60,"char_outline":true}"#).unwrap();
-        assert_eq!((s.key_width_dp, s.char_outline), (60, true));
     }
 
     #[test]

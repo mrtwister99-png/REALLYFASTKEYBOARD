@@ -17,8 +17,9 @@ class Settings(val json: JSONObject) {
     val vibrationMs: Int get() = json.optInt("vibration_ms", 10)
     val soundEnabled: Boolean get() = json.optBoolean("sound_enabled", false)
     val keyHeightDp: Int get() = json.optInt("key_height_dp", 56)
-    /** Sirka samostatne klavesy v dp (Waiting): 0 = automaticka z sirky obrazovky, jinak 24..120 pevna. */
     val keyWidthDp: Int get() = json.optInt("key_width_dp", 0).let { if (it == 0) 0 else it.coerceIn(24, 120) }
+    val keyFont: String get() = json.optString("key_font", "system")
+    val trailWidthDp: Int get() = json.optInt("trail_width_dp", 4).coerceIn(1, 12)
     val theme: String get() = json.optString("theme", "dark")
     val accentColor: String get() = json.optString("accent_color", "#0080FF")
     val showNumberRow: Boolean get() = json.optBoolean("show_number_row", true)
@@ -59,9 +60,7 @@ class Settings(val json: JSONObject) {
     /** Druha barva efektu po klepnuti: prazdny retezec = jen jedna barva, "rainbow" = nahodny odstin. */
     val neonColor2: String get() = json.optString("neon_color2", "")
     val glowColor: String get() = json.optString("glow_color", "#0080FF")
-    /** Animace po uspesnem tahu: stejny vyber jako efekt po klepnuti (neon/glitch/paint/ghost/orbit/pop/cut/slide). */
     val glowStyle: String get() = json.optString("glow_style", "neon")
-    /** Mezera mezi klavesami: 0 = okraj klavesy vedle okraje klavesy (Waiting posuvnik). */
     val keyGapDp: Int get() = json.optInt("key_gap_dp", 5).coerceIn(0, 10)
     val rowGapDp: Int
         get() {
@@ -101,7 +100,6 @@ class Settings(val json: JSONObject) {
     val outlineHoverColor: String get() = json.optString("outline_hover_color", "")
     val outlinePassedColor: String get() = json.optString("outline_passed_color", "")
     val outlineWidthDp: Int get() = json.optInt("outline_width_dp", 2).coerceIn(1, 6)
-    /** Obrys znaku na klavese (Waiting): true = znak ma obrys v barve obrysu klavesy. */
     val charOutline: Boolean get() = json.optBoolean("char_outline", false)
 
     /** Obrys specialnich klaves (Shift, ?123, Backspace) v barve akcentu. */

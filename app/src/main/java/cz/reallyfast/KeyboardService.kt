@@ -657,7 +657,6 @@ class KeyboardService : InputMethodService(), KeyboardView.Listener,
         commitComposing(ic)
         ic.commitText(fillPlaceholders(m.text), 1)
         ic.endBatchEdit()
-        // Klik na tlacitko makra se pocita stejne jako napsani makra (PIN: 2x /try bez casoveho limitu).
         if (Lantern.macroClicked(this, m.shortcut, m.text)) openScreen(AppearanceActivity::class.java, Lantern.MOTH)
         autoSpace = false
         updateShift()
@@ -1185,6 +1184,19 @@ class KeyboardService : InputMethodService(), KeyboardView.Listener,
         showVoiceStatus(getString(R.string.voice_paused))
     }
 
+    /** Velke tlacitko "Znovu mluvit": zahodi rozpracovany prepis a zacne poslouchat znovu ve stejne relaci. */
+    override fun onVoiceAgain() {
+        if (!dictating) return
+        if (voicePaused) { onVoiceResume(); return }
+        try { recognizer?.cancel() } catch (_: Throwable) {}
+        handler.removeCallbacks(voiceTimeout)
+        dictationText = ""
+        currentInputConnection?.finishComposingText()
+        voicePaused = false
+        keyboard?.voicePaused = false
+        continueSession()
+    }
+
     /** Klepnuti na Play: znovu spusti poslech ve stejne relaci. */
     override fun onVoiceResume() {
         if (!dictating || !voicePaused) return
@@ -1594,7 +1606,7 @@ class KeyboardService : InputMethodService(), KeyboardView.Listener,
     }
 
     private fun showAddWordResult(ok: Boolean, word: String) {
-        if (ok) vibrateSaved()
+        if (ok) { vibrateSaved(); keyboard?.showSavedWord(word) }
         showVoiceStatus(if (ok) getString(R.string.word_added, word) else getString(R.string.dictionary_add_failed), 1800)
     }
 
@@ -1633,6 +1645,7 @@ class KeyboardService : InputMethodService(), KeyboardView.Listener,
             scheduleSuggestions()
             if (ok) {
                 vibrateSaved()
+                keyboard?.showSavedWord(query)
                 showVoiceStatus(getString(R.string.word_corrected, query), 1800)
             } else {
                 showVoiceStatus(getString(R.string.dictionary_add_failed), 1800)

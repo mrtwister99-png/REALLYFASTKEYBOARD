@@ -349,13 +349,49 @@
     <string name="key_macro_on_hold">Na podržení</string>
     <string name="key_editor_macro_click">Klik: %1$s</string>
     <string name="key_editor_macro_hold">Podržení: %1$s</string>
-    <string name="unit_auto">auto</string>
-    <string name="sec_waiting_key">Samostatná klávesa</string>
+    <string name="voice_again">Znovu mluvit</string>
+    <string name="word_saved_banner">slovo %1$s je uloženo!</string>
+    <string name="cat_fast">0. Rychle</string>
+    <string name="cat_layout">1. Rozložení a písmo</string>
+    <string name="cat_colors">2. Barvy</string>
+    <string name="cat_tap_anim">3. Animace po kliknutí</string>
+    <string name="cat_swipe">4. Swipe</string>
+    <string name="cat_keys">5. Konfigurace klávesnice</string>
+    <string name="cat_waiting">Waiting</string>
+    <string name="cat_colors_1">I. Základní</string>
+    <string name="cat_colors_2">II. Bublina / držení / číslice</string>
+    <string name="cat_colors_2_hint">Bublina = písmenko nad klávesou, držení = barva když držíš, číslice = klávesy a znaky čísel.</string>
+    <string name="cat_colors_3">III. Druhá barva</string>
+    <string name="cat_tap_1">I. Výběr animace</string>
+    <string name="cat_tap_1_hint">Při výběru animace se rovnou ukážou 3 barvy vybarvení.</string>
+    <string name="cat_tap_2">II. Obrys a znak</string>
+    <string name="cat_tap_3">III. Druhá barva klávesy, znaku, obrysu</string>
+    <string name="cat_swipe_1">I. Linka + průchod + úspěšné slovo</string>
+    <string name="cat_swipe_line_hint">Pixelová = čtverečky podél tahu. Průchod začne o 0,25 s později, písmenko se otočí a vrátí.</string>
+    <string name="cat_swipe_pass_hint">Animace průchodu + úspěšné slovo.</string>
+    <string name="cat_swipe_2">II. Barva průchodu + druhé barvy</string>
+    <string name="cat_keys_hint">Klik na klávesu = úprava písmenka, podržení = makro. Klávesnice je vidět jen tady a při TESTu.</string>
+    <string name="sec_fast">Rychle</string>
+    <string name="sec_layout_dims">Rozměry</string>
+    <string name="sec_layout_pos">Poloha a tloušťka</string>
+    <string name="sec_key_font">Písmo kláves</string>
+    <string name="sec_waiting_colors">Barvy Waiting + zbytky</string>
+    <string name="trail_style_dashed">Čárkovaná</string>
+    <string name="trail_style_pixel">Pixelová</string>
+    <string name="trail_width">Šířka linky</string>
+    <string name="keyboard_height">Výška klávesnice</string>
+    <string name="preview_test_close">X TEST</string>
+    <string name="font_system">Systémové</string>
+    <string name="key_font_label">Písmo</string>
+    <string name="key_font_hint">Vlastní fonty dej do složky app/src/main/assets/fonts/ - pak se tu samy objeví.</string>
     <string name="waiting_key_height">Výška samostatné klávesy</string>
     <string name="waiting_key_width">Šířka samostatné klávesy</string>
     <string name="waiting_key_gap">Mezera mezi klávesami</string>
-    <string name="waiting_key_gap_hint">0 = okraj klávesy vedle okraje klávesy. Když je klávesnice větší a klávesy malé, velkou mezeru udělá právě tento posuvník.</string>
+    <string name="waiting_key_gap_hint">0 = okraj klávesy vedle okraje klávesy.</string>
     <string name="waiting_char_outline">Obrys znaku</string>
     <string name="waiting_char_outline_hint">Znak na klávese má tenký obrys v barvě obrysu klávesy.</string>
     <string name="tap_effect_slide">Slide</string>
+    <string name="unit_auto">auto</string>
+    <string name="sec_waiting_key">Samostatná klávesa</string>
+    <string name="swipe_glow">Animace průchodu</string>
 </resources>
