@@ -349,4 +349,13 @@
     <string name="key_macro_on_hold">Na podržení</string>
     <string name="key_editor_macro_click">Klik: %1$s</string>
     <string name="key_editor_macro_hold">Podržení: %1$s</string>
+    <string name="unit_auto">auto</string>
+    <string name="sec_waiting_key">Samostatná klávesa</string>
+    <string name="waiting_key_height">Výška samostatné klávesy</string>
+    <string name="waiting_key_width">Šířka samostatné klávesy</string>
+    <string name="waiting_key_gap">Mezera mezi klávesami</string>
+    <string name="waiting_key_gap_hint">0 = okraj klávesy vedle okraje klávesy. Když je klávesnice větší a klávesy malé, velkou mezeru udělá právě tento posuvník.</string>
+    <string name="waiting_char_outline">Obrys znaku</string>
+    <string name="waiting_char_outline_hint">Znak na klávese má tenký obrys v barvě obrysu klávesy.</string>
+    <string name="tap_effect_slide">Slide</string>
 </resources>

@@ -131,6 +131,9 @@ class AppearanceActivity : SettingsScreen() {
         header.addView(headTop, rowParams())
         slotBar = buildSlotBar()
         header.addView(slotBar, rowParams())
+        // Pevna hlavicka: pod styly patri i Zpet / Ulozit, at jsou porad nahore a neplavou dole.
+        actionRow = buildActionRow()
+        header.addView(actionRow, rowParams())
         root.addView(header, rowParams())
 
         val scroll = ScrollView(this)
@@ -218,9 +221,7 @@ class AppearanceActivity : SettingsScreen() {
         kv.swipeAllowed = false
         kv.voiceAllowed = false
         box.addView(kv, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
-        // Nad nahledem: vlevo Zpet (vraci zmeny vzhledu), vpravo Ulozit (do vybraneho stylu); oba sviti az po zmene.
-        actionRow = buildActionRow()
-        root.addView(actionRow, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+        // Zpet / Ulozit uz jsou v pevne hlavicce nahore, tady se nepridavaji znovu.
         root.addView(box, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
         preview = kv
         previewBox = box
@@ -515,7 +516,7 @@ class AppearanceActivity : SettingsScreen() {
     // ------------------------------------------------------------------ obsah
 
     private fun build(container: LinearLayout) {
-        title(headTop, getString(R.string.appearance_open))
+        // Bez nadpisu Appearance / Settings: pevna hlavicka je jen zalozky + styly.
 
         // Dve zalozky: "Hlavni" (vse) a "Waiting ..." (zamcena, dokud se neodemkne).
         extraOpen = Lantern.lit(this)
@@ -599,6 +600,14 @@ class AppearanceActivity : SettingsScreen() {
         colorRow(box, R.string.outline_tap_color2, "outline_tap_color2", allowAuto = true)
         hintText(box, getString(R.string.tap2_hint))
 
+        // Waiting: samostatna klavesa - vyska + sirka + mezera (0 = okraj vedle okraje) + obrys znaku.
+        box = section(tabBox, getString(R.string.sec_waiting_key))
+        sliderRow(box, R.string.waiting_key_height, "key_height_dp", 48, 72, 1) { getString(R.string.unit_dp, it) }
+        sliderRow(box, R.string.waiting_key_width, "key_width_dp", 0, 120, 1) { if (it == 0) getString(R.string.unit_auto) else getString(R.string.unit_dp, it) }
+        sliderRow(box, R.string.waiting_key_gap, "key_gap_dp", 0, 10, 1) { getString(R.string.unit_dp, it) }
+        hintText(box, getString(R.string.waiting_key_gap_hint))
+        switchRow(box, R.string.waiting_char_outline, "char_outline", hintRes = R.string.waiting_char_outline_hint)
+
         box = section(tabBox, getString(R.string.sec_extra_states))
         hintText(box, getString(R.string.states_hint)).setPadding(0, dp(10f), 0, dp(6f))
         colorRow(box, R.string.tap_text_color, "tap_text_color", allowAuto = true)
@@ -669,7 +678,7 @@ class AppearanceActivity : SettingsScreen() {
         box = section(tabBox, getString(R.string.sec_dimensions))
         sliderRow(box, R.string.key_height, "key_height_dp", 48, 72, 1) { getString(R.string.unit_dp, it) }
         sliderRow(box, R.string.key_radius, "key_radius_dp", 2, 22, 1) { getString(R.string.unit_dp, it) }
-        sliderRow(box, R.string.key_text_size, "key_text_percent", 70, 150, 1) { getString(R.string.unit_percent, it) }
+        sliderRow(box, R.string.key_text_size, "key_text_percent", 70, 200, 1) { getString(R.string.unit_percent, it) }
 
         // Klavesy a efekty (zakladni: zapnout / vybrat)
         box = section(tabBox, getString(R.string.sec_effects))
@@ -694,11 +703,14 @@ class AppearanceActivity : SettingsScreen() {
             { v -> if (v == "none") update("key_glow", false) else updateAll("key_glow" to true, "tap_effect" to v) })
         hintText(box, getString(R.string.tap_effect_ring_hint))
         colorRow(box, R.string.neon_color, "neon_color")
-        choiceRow(box, R.string.glow_style_label, listOf("none", "blink", "fill", "fly", "cut"),
+        // Animace po uspesnem tahu: stejny vyber jako efekt po klepnuti (hned za sebou v nastaveni).
+        choiceRow(box, R.string.glow_style_label, listOf("none", "neon", "glitch", "paint", "ghost", "orbit", "pop", "cut", "slide"),
             listOf(
-                getString(R.string.anim_none), getString(R.string.glow_style_blink),
-                getString(R.string.glow_style_fill), getString(R.string.glow_style_fly),
-                getString(R.string.glow_style_cut),
+                getString(R.string.anim_none), getString(R.string.tap_effect_neon),
+                getString(R.string.tap_effect_glitch), getString(R.string.tap_effect_paint),
+                getString(R.string.tap_effect_ghost), getString(R.string.tap_effect_orbit),
+                getString(R.string.tap_effect_pop), getString(R.string.glow_style_cut),
+                getString(R.string.tap_effect_slide),
             ),
             { val j = RustBridge.settings.json; if (j.optBoolean("swipe_glow")) j.optString("glow_style") else "none" },
             { v -> if (v == "none") update("swipe_glow", false) else updateAll("swipe_glow" to true, "glow_style" to v) })
@@ -708,6 +720,15 @@ class AppearanceActivity : SettingsScreen() {
         // Pokrocile (sbalene): polohy, detaily, druhe barvy, obrys, barvy efektu
         val advCard = cardBox(tabBox)
         (advCard.layoutParams as LinearLayout.LayoutParams).topMargin = dp(26f)
+        // Pokrocile: kdyz je rozbalene, obrys karty sviti v accent barve.
+        fun paintAdvCard() {
+            advCard.background = GradientDrawable().apply {
+                setColor(card)
+                cornerRadius = dp(16f).toFloat()
+                if (advancedOpen) setStroke(dp(2f), accent) else setStroke(dp(1f), 0x22000000)
+            }
+        }
+        paintAdvCard()
         val advHead = LinearLayout(this)
         advHead.gravity = Gravity.CENTER_VERTICAL
         advHead.minimumHeight = dp(56f)
@@ -723,6 +744,7 @@ class AppearanceActivity : SettingsScreen() {
             advancedOpen = !advancedOpen
             adv.visibility = if (advancedOpen) View.VISIBLE else View.GONE
             advArrow.text = if (advancedOpen) "⌄" else "›"
+            paintAdvCard()
         }
         buildAdvanced(adv)
 
@@ -908,17 +930,9 @@ class AppearanceActivity : SettingsScreen() {
         }
     }
 
-    /**
-     * Klepnuti na slot: rovnou prepne a nacte styl. Ma-li soucasny styl neulozene zmeny, zeptá se, zda
-     * ho opravdu zmenit bez ulozeni (Ano = prepnout, Ne = zustat).
-     */
+    /** Klepnuti na slot: rovnou prepne a nacte styl, bez ptani na neulozene zmeny. */
     private fun pickSlot(i: Int) {
-        val unsaved = if (chosenSlot in 0 until STYLE_SLOTS) !slotMatches(chosenSlot) else (0 until STYLE_SLOTS).none { slotMatches(it) }
-        if (unsaved) {
-            confirmDialog(getString(R.string.style_switch_unsaved), getString(R.string.yes), getString(R.string.no), false) { switchTo(i) }
-        } else {
-            switchTo(i)
-        }
+        switchTo(i)
     }
 
     private fun switchTo(i: Int) {
@@ -1138,6 +1152,20 @@ class AppearanceActivity : SettingsScreen() {
         charEdit.filters = arrayOf(InputFilter.LengthFilter(1))
         charEdit.setSelectAllOnFocus(true)
         charEdit.setText(key.label)
+        // Editor znaku: klik + podrzeni = zvyrazneny obrys 2x + accent barva.
+        fun highlightHold(v: View, base: android.graphics.drawable.Drawable?) {
+            v.setOnLongClickListener {
+                v.background = GradientDrawable().apply {
+                    setColor(0)
+                    setStroke(dp(3f), accent)
+                    cornerRadius = dp(10f).toFloat()
+                }
+                true
+            }
+            v.setOnClickListener { v.background = base }
+        }
+        val charBase = charEdit.background
+        highlightHold(charEdit, charBase)
         val left = LinearLayout(this)
         left.orientation = LinearLayout.VERTICAL
         left.addView(label(getString(R.string.key_editor_click), 12f, dim).also { it.setPadding(0, 0, 0, dp(4f)) })
@@ -1153,6 +1181,8 @@ class AppearanceActivity : SettingsScreen() {
         altsEdit.inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS
         altsEdit.filters = arrayOf(InputFilter.LengthFilter(MAX_ALTS_EDIT))
         altsEdit.setText(preAlts)
+        val altsBase = altsEdit.background
+        highlightHold(altsEdit, altsBase)
         val right = LinearLayout(this)
         right.orientation = LinearLayout.VERTICAL
         right.addView(label(getString(R.string.key_editor_hold), 12f, dim).also { it.setPadding(0, 0, 0, dp(4f)) })

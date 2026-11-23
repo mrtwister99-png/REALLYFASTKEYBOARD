@@ -657,6 +657,8 @@ class KeyboardService : InputMethodService(), KeyboardView.Listener,
         commitComposing(ic)
         ic.commitText(fillPlaceholders(m.text), 1)
         ic.endBatchEdit()
+        // Klik na tlacitko makra se pocita stejne jako napsani makra (PIN: 2x /try bez casoveho limitu).
+        if (Lantern.macroClicked(this, m.shortcut, m.text)) openScreen(AppearanceActivity::class.java, Lantern.MOTH)
         autoSpace = false
         updateShift()
         scheduleSuggestions()

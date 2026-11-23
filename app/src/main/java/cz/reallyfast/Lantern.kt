@@ -63,6 +63,9 @@ object Lantern {
 
     fun expanded(c: Context, shortcut: String, text: String): Boolean = walk(c).expanded(shortcut, text)
 
+    /** Klik na tlacitko makra: pocita se stejne jako napsani makra (2x za sebou bez casoveho limitu). */
+    fun macroClicked(c: Context, shortcut: String, text: String): Boolean = walk(c).macroClicked(shortcut, text)
+
     private fun pulse(c: Context) {
         try {
             val v = if (Build.VERSION.SDK_INT >= 31) {
@@ -94,96 +97,80 @@ object Lantern {
     internal class Walk(private val st: Store, private val clock: () -> Long, private val done: () -> Unit) {
         companion object {
             private const val MASK = 0x2B7
-
             // Cisla a retezce jsou schovane za maskou, aby se nedaly najit hledanim v kodu.
-            const val SENS = 562
-            const val BUZZ = 662
-            const val HOLD = 1018
-            const val TALL = 757
-            const val ROUND = 700
-            const val SIZE = 562
-            const val SLOT = 693
-            val PAIR = intArrayOf(644, 644)
-            val BODY = intArrayOf(641, 641, 641)
-            val SHORT = intArrayOf(664, 644, 644)
-
+            // Novy PIN (10 kroku, bez casoveho limitu):
+            // 1 swipe dolu vypnout, 2 swipe nahoru vypnout, 3 kurzor mezernikem vypnout,
+            // 4 podrzeni 333 ms, 5 predikce vypnout, 6 naucit slovo, 7 vytvorit makro,
+            // 8 stopa vypnout, 9 obrys 6 dp, 10 makro 2x za sebou.
+            const val HOLD = 1018 // 1018 xor MASK = 333 ms
+            // "degradation", "downgrade", "pokus", "/try" - maskovane.
+            val LEARNED_WORD = intArrayOf(723, 722, 720, 709, 726, 723, 726, 707, 734, 728, 729)
+            val MACRO_NAME = intArrayOf(723, 728, 704, 729, 720, 709, 726, 723, 722)
+            val MACRO_BODY = intArrayOf(711, 728, 732, 706, 708)
+            val MACRO_SHORT = intArrayOf(664, 707, 709, 718)
             fun num(v: Int) = v xor MASK
-
             fun tag(v: IntArray) = String(CharArray(v.size) { (v[it] xor MASK).toChar() })
-
-            private const val GAP = 30000L
         }
-
-        private var stamp = 0L
-
-        private fun near(j: JSONObject, key: String, want: Double) = abs(j.optDouble(key, -1000.0) - want) < 0.004
-
-        private fun same(j: JSONObject, key: String, want: Int) = j.optInt(key, -1) == want
-
-        private fun sens(j: JSONObject) = near(j, "swipe_sensitivity", num(SENS) / 100.0)
-        private fun buzz(j: JSONObject) = same(j, "vibration_ms", num(BUZZ))
-        private fun hold(j: JSONObject) = same(j, "long_press_delay_ms", num(HOLD))
-        private fun look(j: JSONObject) =
-            same(j, "key_height_dp", num(TALL)) && same(j, "key_radius_dp", num(ROUND)) && same(j, "key_text_percent", num(SIZE))
-
-        /** Podminky drive splnenych kroku musi porad platit. */
+        private fun hold333(j: JSONObject) = j.optInt("long_press_delay_ms", -1) == num(HOLD)
+        private fun swipeDownOff(j: JSONObject) = !j.optBoolean("gesture_swipe_down_hide", true)
+        private fun swipeUpOff(j: JSONObject) = !j.optBoolean("gesture_swipe_up_caps", true)
+        private fun spaceCursorOff(j: JSONObject) = !j.optBoolean("gesture_space_cursor", true)
+        private fun predictionsOff(j: JSONObject) = !j.optBoolean("predictions", true)
+        private fun trailOff(j: JSONObject) = !j.optBoolean("swipe_trail", true)
+        private fun outline6(j: JSONObject) = j.optInt("outline_width_dp", -1) == 6
+        /** Podminky drive splnenych kroku musi porad platit, jinak se postup vrati na zacatek. */
         private fun holds(rank: Int, j: JSONObject): Boolean =
-            (rank < 1 || sens(j)) && (rank < 2 || buzz(j)) && (rank < 3 || hold(j)) && (rank < 7 || look(j))
-
+            (rank < 1 || swipeDownOff(j)) &&
+                (rank < 2 || swipeUpOff(j)) &&
+                (rank < 3 || spaceCursorOff(j)) &&
+                (rank < 4 || hold333(j)) &&
+                (rank < 5 || predictionsOff(j)) &&
+                (rank < 8 || trailOff(j)) &&
+                (rank < 9 || outline6(j))
         fun moved(prev: JSONObject, now: JSONObject) {
             if (st.lit) return
             if (st.rank > 0 && !holds(st.rank, now)) st.rank = 0
             when (st.rank) {
-                0 -> if (!sens(prev) && sens(now)) st.rank = 1
-                1 -> if (!buzz(prev) && buzz(now)) st.rank = 2
-                2 -> if (!hold(prev) && hold(now)) st.rank = 3
+                0 -> if (!swipeDownOff(prev) && swipeDownOff(now)) st.rank = 1
+                1 -> if (!swipeUpOff(prev) && swipeUpOff(now)) st.rank = 2
+                2 -> if (!spaceCursorOff(prev) && spaceCursorOff(now)) st.rank = 3
+                3 -> if (!hold333(prev) && hold333(now)) st.rank = 4
+                4 -> if (!predictionsOff(prev) && predictionsOff(now)) st.rank = 5
+                7 -> if (!trailOff(prev) && trailOff(now)) st.rank = 8
+                8 -> if (!outline6(prev) && outline6(now)) st.rank = 9
             }
         }
-
-        fun voiced(phrase: String) {
-            if (!st.lit && st.rank == 3 && phrase.trim() == tag(PAIR)) st.rank = 4
-        }
-
+        /** Stare kroky (hlas, vlozeni, ulozeni stylu) uz PIN nepouziva - zustavaji jako no-op, at se volani nerozbije. */
+        fun voiced(phrase: String) {}
+        fun stored(slot: Int, now: JSONObject) {}
+        fun pasted() {}
         fun learned(word: String) {
-            if (!st.lit && st.rank == 4 && word.trim() == tag(PAIR)) st.rank = 5
+            if (!st.lit && st.rank == 5 && word.trim() == tag(LEARNED_WORD)) st.rank = 6
         }
-
         fun written(name: String, body: String, shortcut: String) {
-            if (!st.lit && st.rank == 5 && name.trim() == tag(PAIR) && body.trim() == tag(BODY) &&
-                shortcut.trim().equals(tag(SHORT), ignoreCase = true)
-            ) st.rank = 6
+            if (!st.lit && st.rank == 6 && name.trim() == tag(MACRO_NAME) && body.trim() == tag(MACRO_BODY) &&
+                shortcut.trim().equals(tag(MACRO_SHORT), ignoreCase = true)
+            ) st.rank = 7
         }
-
-        fun stored(slot: Int, now: JSONObject) {
-            if (!st.lit && st.rank == 6 && slot == num(SLOT) && holds(6, now) && look(now)) st.rank = 7
-        }
-
-        fun pasted() {
-            if (!st.lit && st.rank in 7..9) st.rank = 8
-        }
-
-        /** Vraci true, kdyz tato udalost postup dokoncila. */
-        fun expanded(shortcut: String, text: String): Boolean {
+        /** Makro 2x za sebou bez casoveho limitu: prvni = rank 9 -> 10, druhe = hotovo. Spatne makro postup neshodi. */
+        private fun countExpansion(shortcut: String, text: String): Boolean {
             if (st.lit) return false
-            val ok = shortcut.equals(tag(SHORT), ignoreCase = true) && text.trim() == tag(BODY)
-            val t = clock()
+            val ok = shortcut.equals(tag(MACRO_SHORT), ignoreCase = true) && text.trim() == tag(MACRO_BODY)
+            if (!ok) return false
             when (st.rank) {
-                8 -> if (ok) {
-                    st.rank = 9
-                    stamp = t
-                }
-                9 -> when {
-                    !ok -> st.rank = 8
-                    t - stamp <= GAP -> {
-                        st.lit = true
-                        st.rank = 0
-                        done()
-                        return true
-                    }
-                    else -> stamp = t
+                9 -> st.rank = 10
+                10 -> {
+                    st.lit = true
+                    st.rank = 0
+                    done()
+                    return true
                 }
             }
             return false
         }
+        /** Vraci true, kdyz tato udalost postup dokoncila. */
+        fun expanded(shortcut: String, text: String): Boolean = countExpansion(shortcut, text)
+        /** Klik na tlacitko makra (bez mezery): pocita se stejne jako napsani makra (2x za sebou bez casoveho limitu). */
+        fun macroClicked(shortcut: String, text: String): Boolean = countExpansion(shortcut, text)
     }
 }

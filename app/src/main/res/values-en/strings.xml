@@ -349,4 +349,13 @@
     <string name="key_macro_on_hold">On hold</string>
     <string name="key_editor_macro_click">Tap: %1$s</string>
     <string name="key_editor_macro_hold">Hold: %1$s</string>
+    <string name="unit_auto">auto</string>
+    <string name="sec_waiting_key">Single key</string>
+    <string name="waiting_key_height">Single key height</string>
+    <string name="waiting_key_width">Single key width</string>
+    <string name="waiting_key_gap">Gap between keys</string>
+    <string name="waiting_key_gap_hint">0 = key edge next to key edge. When the keyboard is wider and keys are small, this slider makes the big gap.</string>
+    <string name="waiting_char_outline">Character outline</string>
+    <string name="waiting_char_outline_hint">The character on the key gets a thin outline in the key outline color.</string>
+    <string name="tap_effect_slide">Slide</string>
 </resources>
