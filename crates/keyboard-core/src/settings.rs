@@ -9,10 +9,10 @@ pub const LANGUAGES: [&str; 3] = ["cs", "en", "cs+en"];
 pub const LAYOUTS: [&str; 2] = ["qwertz", "qwerty"];
 pub const KEY_PLACES: [&str; 3] = ["left", "right", "hidden"];
 pub const THEMES: [&str; 4] = ["dark", "light", "oled_black", "custom"];
-pub const GLOW_STYLES: [&str; 8] = ["neon", "glitch", "paint", "ghost", "orbit", "pop", "cut", "slide"];
+pub const GLOW_STYLES: [&str; 3] = ["neon", "paint", "ghost"];
 pub const TAP_EFFECTS: [&str; 8] = ["neon", "glitch", "paint", "ghost", "orbit", "pop", "cut", "slide"];
 /// Vzhled stopy za prstem pri tahu: cara, nebo horici cara (ohen a dohorivajici stopy).
-pub const TRAIL_STYLES: [&str; 4] = ["line", "dashed", "fire", "pixel"];
+pub const TRAIL_STYLES: [&str; 5] = ["line", "dashed", "fire", "pixel", "flip"];
 /// Zvlastni hodnota barvy "duha": povolena jen u druhych barev prechodu (klavesy, pozadi, znaky, obrys),
 /// u druhe barvy efektu po klepnuti a u barvy pismen po tahu.
 pub const RAINBOW: &str = "rainbow";
@@ -28,6 +28,7 @@ pub const STYLE_KEYS: &[&str] = &[
     "hint_color", "hint_percent", "tap_effect", "neon_color", "glow_color", "glow_style",
     "popup_color", "alts_color", "number_divider", "trail_color", "trail_style", "text_color2",
     "digit_text_color", "digit_key_color", "key_color2", "background_color2",
+    "digit_key_color2", "digit_text_color2", "digit_outline_color2", "slide_dir",
     "paint_color1", "paint_color2", "paint_color3",
     "passed_text_color", "tap_text_color", "hover_text_color", "label_weight", "digit_weight",
     "neon_color2", "outline_color", "outline_color2", "outline_tap_color", "outline_hover_color",
@@ -167,9 +168,15 @@ pub struct Settings {
     pub digit_text_color: String,
     /// Barva cislicovych klaves ("" = automaticka).
     pub digit_key_color: String,
-    /// Druha barva klaves: prechod shora (barva klavesy) dolu (tato barva); "" = vypnuto.
+    /// Druhe barvy cislicovych klaves, jejich znaku a obrysu: prechod zleva doprava; "" = vypnuto.
+    pub digit_key_color2: String,
+    pub digit_text_color2: String,
+    pub digit_outline_color2: String,
+    /// Smer efektu Slide ve stupnich (0 = doprava, po 30 stupnich, 0..330).
+    pub slide_dir: u32,
+    /// Druha barva klaves: prechod zleva (barva klavesy) doprava (barva klavesy) dolu (tato barva); "" = vypnuto.
     pub key_color2: String,
-    /// Druha barva pozadi: prechod shora (pozadi) dolu (tato barva); "" = vypnuto.
+    /// Druha barva pozadi: prechod zleva (pozadi) doprava (tato barva); "" = vypnuto.
     pub background_color2: String,
     /// Tri barvy efektu "paint" (klepnuti obarvi klavesu dalsi barvou v poradi).
     pub paint_color1: String,
@@ -299,6 +306,10 @@ impl Settings {
             digit_text_color: String::new(),
             digit_key_color: String::new(),
             key_color2: String::new(),
+            digit_key_color2: String::new(),
+            digit_text_color2: String::new(),
+            digit_outline_color2: String::new(),
+            slide_dir: 0,
             background_color2: String::new(),
             paint_color1: "#0080FF".into(),
             paint_color2: "#FF5100".into(),
@@ -574,7 +585,7 @@ impl Settings {
         self.clipboard_ttl_minutes = self.clipboard_ttl_minutes.clamp(1, 1440);
         self.key_radius_dp = self.key_radius_dp.clamp(2, 22);
         self.key_gap_dp = self.key_gap_dp.clamp(0, 10);
-        if self.key_width_dp != 0 { self.key_width_dp = self.key_width_dp.clamp(24, 120); }
+        if self.key_width_dp != 0 { self.key_width_dp = self.key_width_dp.clamp(24, 48); }
         self.trail_width_dp = self.trail_width_dp.clamp(1, 12);
         // Nazev pisma: jen jednoduchy nazev souboru (zadna cesta), jinak systemove.
         if self.key_font.is_empty() || self.key_font.len() > 64 || self.key_font.contains(['/', '\\'])|| self.key_font.contains("..") {
@@ -661,6 +672,10 @@ impl Settings {
         fix_optional_color_or_rainbow(&mut self.text_color2);
         fix_optional_color(&mut self.digit_text_color);
         fix_optional_color(&mut self.digit_key_color);
+        fix_optional_color_or_rainbow(&mut self.digit_key_color2);
+        fix_optional_color_or_rainbow(&mut self.digit_text_color2);
+        fix_optional_color_or_rainbow(&mut self.digit_outline_color2);
+        self.slide_dir = (self.slide_dir.min(359) / 30) * 30;
         fix_optional_color_or_rainbow(&mut self.key_color2);
         fix_optional_color_or_rainbow(&mut self.background_color2);
         fix_color(&mut self.paint_color1, &d.paint_color1);
@@ -771,6 +786,29 @@ mod tests {
         assert_eq!(s.vibration_ms, 0);
         assert_eq!(s.key_height_dp, 56);
         assert!(s.swipe_enabled);
+    }
+
+    #[test]
+    fn second_digit_colors_and_slide_direction() {
+        let d = Settings::default();
+        assert_eq!((d.digit_key_color2.as_str(), d.digit_text_color2.as_str(), d.digit_outline_color2.as_str(), d.slide_dir), ("", "", "", 0));
+        let s = Settings::from_json(r##"{"digit_key_color2":"#ff0000","digit_text_color2":"rainbow","digit_outline_color2":"x","slide_dir":95}"##).unwrap();
+        assert_eq!((s.digit_key_color2.as_str(), s.digit_text_color2.as_str(), s.digit_outline_color2.as_str(), s.slide_dir), ("#FF0000", "rainbow", "", 90));
+        let s = Settings::from_json(r#"{"slide_dir":900}"#).unwrap();
+        assert_eq!(s.slide_dir, 330);
+        for k in ["digit_key_color2", "digit_text_color2", "digit_outline_color2", "slide_dir"] {
+            assert!(STYLE_KEYS.contains(&k), "{k}");
+        }
+    }
+
+    #[test]
+    fn key_width_is_limited() {
+        let s = Settings::from_json(r#"{"key_width_dp":120}"#).unwrap();
+        assert_eq!(s.key_width_dp, 48);
+        let s = Settings::from_json(r#"{"key_width_dp":5}"#).unwrap();
+        assert_eq!(s.key_width_dp, 24);
+        let s = Settings::from_json(r#"{"key_width_dp":0}"#).unwrap();
+        assert_eq!(s.key_width_dp, 0);
     }
 
     #[test]
@@ -1321,10 +1359,18 @@ mod tests {
     }
 
     #[test]
-    fn cut_glow_style_and_removed_face_effect() {
-        let s = Settings::from_json(r#"{"glow_style":"cut"}"#).unwrap();
-        assert_eq!(s.glow_style, "cut");
-        assert_eq!(Settings::from_json(&s.to_json()).unwrap().glow_style, "cut");
+    fn removed_glow_styles_and_face_effect() {
+        // Zrusene styly po tahu se vrati na neon, zachovane zustavaji.
+        for old in ["cut", "slide", "glitch", "orbit", "pop"] {
+            let s = Settings::from_json(&format!(r#"{{"glow_style":"{old}"}}"#)).unwrap();
+            assert_eq!(s.glow_style, "neon");
+        }
+        for ok in ["neon", "paint", "ghost"] {
+            let s = Settings::from_json(&format!(r#"{{"glow_style":"{ok}"}}"#)).unwrap();
+            assert_eq!(s.glow_style, ok);
+        }
+        let s = Settings::from_json(r#"{"trail_style":"flip"}"#).unwrap();
+        assert_eq!(s.trail_style, "flip");
         // Zruseny efekt Oblicej se vrati na vychozi neon.
         let s = Settings::from_json(r#"{"tap_effect":"face"}"#).unwrap();
         assert_eq!(s.tap_effect, "neon");

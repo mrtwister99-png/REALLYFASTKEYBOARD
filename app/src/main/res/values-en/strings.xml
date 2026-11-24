@@ -348,7 +348,7 @@
     <string name="key_macro_on_hold">On hold</string>
     <string name="key_editor_macro_click">Tap: %1$s</string>
     <string name="key_editor_macro_hold">Hold: %1$s</string>
-    <string name="voice_again">Speak again</string>
+    <string name="voice_again">Send</string>
     <string name="word_saved_banner">word %1$s saved!</string>
     <string name="cat_fast">0. Quick</string>
     <string name="cat_layout">1. Layout &amp; font</string>
@@ -362,11 +362,10 @@
     <string name="cat_colors_2_hint">Bubble = letter above key, hold = color while holding, digits = number keys and chars.</string>
     <string name="cat_colors_3">III. Second color</string>
     <string name="cat_tap_1">I. Pick animation</string>
-    <string name="cat_tap_1_hint">Picking an animation shows 3 coloring colors at once.</string>
     <string name="cat_tap_2">II. Outline &amp; char</string>
     <string name="cat_tap_3">III. Second key, char, outline color</string>
     <string name="cat_swipe_1">I. Trail + pass + word</string>
-    <string name="cat_swipe_line_hint">Pixel = squares along the trail. Pass starts 0.25 s later, letter rotates and returns.</string>
+    <string name="cat_swipe_line_hint">Pixel = squares along the swipe. Letter flip: no trail, the letters you pass turn 90-180 degrees and back.</string>
     <string name="cat_swipe_pass_hint">Pass animation + successful word.</string>
     <string name="cat_swipe_2">II. Pass color + second colors</string>
     <string name="cat_keys_hint">Tap a key = edit letter, hold = macro.</string>
@@ -388,6 +387,7 @@
     <string name="waiting_char_outline_hint">Char on key gets a thin outline in key outline color.</string>
     <string name="tap_effect_slide">Slide</string>
     <string name="unit_auto">auto</string>
+    <string name="unit_degrees">%1$d °</string>
     <string name="sec_waiting_key">Single key</string>
     <string name="swipe_glow">Pass animation</string>
     <string name="hint_font_label">Hint font</string>
@@ -423,7 +423,7 @@
     <string name="tip_tap_text">Character color after a tap. It fades after a moment.</string>
     <string name="tip_outline_tap">Key outline color after a tap.</string>
     <string name="tip_swipe_trail">Trail behind your finger when swiping.</string>
-    <string name="tip_trail_style">Trail look: line, dashed, fire or pixels.</string>
+    <string name="tip_trail_style">Trail look: line, dashed, fire, pixels, or flipping the letters you pass.</string>
     <string name="tip_trail_color">Color of the trail behind your finger.</string>
     <string name="tip_trail_width">Thickness of the trail.</string>
     <string name="tip_swipe_glow">After a swipe the letters of the word light up.</string>
@@ -432,4 +432,15 @@
     <string name="tip_passed">Colors of a key your finger has already passed during a swipe.</string>
     <string name="tip_hover">Colors of the key directly under your finger during a swipe.</string>
     <string name="tip_preset">Ready-made themes. Tap one to use its colors.</string>
+    <string name="color_hex">Color hex code</string>
+    <string name="slide_dir">Slide effect direction</string>
+    <string name="digit_key_color2">Second color of number keys</string>
+    <string name="digit_text_color2">Second color of number characters</string>
+    <string name="digit_outline_color2">Second color of number outlines</string>
+    <string name="glow_style_paint">Fill</string>
+    <string name="glow_style_ghost">Text</string>
+    <string name="trail_style_flip">Letter flip</string>
+    <string name="sec_waiting_second">Second colors (left to right)</string>
+    <string name="tip_slide_dir">Direction the character slides away and back after a tap (in 30 degree steps).</string>
+    <string name="tip_digit_colors2">Second number color: the first color blends left to right into this one.</string>
 </resources>

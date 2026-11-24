@@ -94,12 +94,12 @@ Počet nastavení: **94**.
 | `animations` | `true` | zap / vyp | Plynulé animace (stisk, přechody panelů, návrhy). | Hlavní → Klávesy a efekty |
 | `special_outline` | `true` | zap / vyp | Obrys speciálních kláves (Shift, ?123, ⌫) v barvě akcentu. | Hlavní → Klávesy a efekty |
 | `swipe_trail` | `true` | zap / vyp | Stopa za prstem při tahu. | Hlavní → Klávesy a efekty |
-| `trail_style` | `line` | `line`, `fire` | Vzhled stopy za prstem: `line` = čára, `fire` = hořící čára (plamen za prstem, žhavé stopy hoří méně a méně a po zvednutí prstu cela dohoří). | Hlavní → Klávesy a efekty |
+| `trail_style` | `line` | `line`, `dashed`, `fire`, `pixel`, `flip` | Vzhled stopy za prstem: čára, čárkovaná, hořící čára, pixely, nebo `flip` = žádná stopa, projetá písmena se otočí o 90–180° (doleva nebo doprava) a vrátí. | Animace → Swipe I |
 | `swipe_glow` | `true` | zap / vyp | Rozsvícení kláves při tahu a animace po úspěšném tahu (zapíná se výběrem animace). | Hlavní → Animace po úspěšném tahu |
 | `key_glow` | `true` | zap / vyp | Efekt po klepnutí (zapíná se výběrem efektu). | Hlavní → Efekt při klepnutí |
 | `tap_effect` | `neon` | `neon`, `glitch`, `paint`, `ghost`, `orbit`, `pop` | Který efekt se spustí po klepnutí (když je zapnutý `key_glow`). `orbit` (obrys proběhne kolem klávesy) a `pop` (písmeno se rozprskne na jiskry s náhodnými směry, rychlostmi, časy a zakřivením drah a znovu se zrodí). | Hlavní → Efekt při klepnutí (rozbalovací seznam) |
 | `neon_color` | `#0080FF` | `#RRGGBB` | Barva efektu po klepnutí (Neon, Glitch, Duch). | Hlavní → Klávesy a efekty |
-| `glow_style` | `blink` | `blink`, `fill`, `fly`, `cut` | Animace po úspěšném tahu (když je zapnutý `swipe_glow`). `fly` = písmena složí slovo nad klávesnicí; `cut` = slovo se složí a každé písmeno se rozřízne (náhodně ve 30–70 % výšky) a obě půlky odpadnou od řezu. | Hlavní → Animace po úspěšném tahu |
+| `glow_style` | `neon` | `neon`, `paint`, `ghost` | Animace po úspěšném tahu (když je zapnutý `swipe_glow`): Neon, Výplň (`paint`), Text (`ghost` = písmena složí slovo nad klávesnicí). Starší hodnoty se převedou na `neon`. | Animace → Swipe I |
 | `glow_color` | `#0080FF` | `#RRGGBB` nebo `rainbow` | Barva písmen po úspěšném tahu. Smí být `rainbow`. | Hlavní (duha jen s Waiting) |
 
 ## Pokročilé barvy a obrys (úroveň 2)
@@ -112,6 +112,10 @@ Počet nastavení: **94**.
 | `alts_color` | *(prázdné)* | `#RRGGBB` nebo prázdné | Barva lišty znaků při podržení klávesy; prázdná = automatická. | Pokročilé → Rozměry a detaily |
 | `digit_text_color` | *(prázdné)* | `#RRGGBB` nebo prázdné | Barva znaků číslicových kláves; prázdná = automatická. | Pokročilé → Číslice |
 | `digit_key_color` | *(prázdné)* | `#RRGGBB` nebo prázdné | Barva číslicových kláves; prázdná = automatická. | Pokročilé → Číslice |
+| `digit_key_color2` | *(prázdné)* | `#RRGGBB`, `rainbow` nebo prázdné | Druhá barva kláves čísel: přechod zleva doprava. | Barvy II |
+| `digit_text_color2` | *(prázdné)* | `#RRGGBB`, `rainbow` nebo prázdné | Druhá barva znaků čísel (přechod zleva doprava). | Barvy II |
+| `digit_outline_color2` | *(prázdné)* | `#RRGGBB`, `rainbow` nebo prázdné | Druhá barva obrysu čísel (přechod zleva doprava). | Barvy II |
+| `slide_dir` | `0` | `0`–`330` po 30 | Směr efektu Slide ve stupních (0 = doprava). | Animace → Klepnutí I |
 | `outline_color` | *(prázdné)* | `#RRGGBB` nebo prázdné | Barva stálého obrysu kláves; prázdná = bez obrysu. | Pokročilé → Obrys kláves |
 | `outline_width_dp` | `2` | 1 – 6 | Tloušťka obrysu (dp). | Pokročilé → Obrys kláves |
 | `paint_color1` | `#0080FF` | `#RRGGBB` | Efekt Barvy: první barva v pořadí. | Pokročilé → Efekty |

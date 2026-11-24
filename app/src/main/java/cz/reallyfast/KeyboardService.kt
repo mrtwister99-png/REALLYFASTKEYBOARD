@@ -1184,17 +1184,14 @@ class KeyboardService : InputMethodService(), KeyboardView.Listener,
         showVoiceStatus(getString(R.string.voice_paused))
     }
 
-    /** Velke tlacitko "Znovu mluvit": zahodi rozpracovany prepis a zacne poslouchat znovu ve stejne relaci. */
-    override fun onVoiceAgain() {
+    /** Po dokonceni diktovani se stiskne Enter (tlacitko Odeslat). */
+    private var sendAfterVoice = false
+
+    /** Velke tlacitko "Odeslat": dokonci rozpracovany prepis a pak stiskne Enter (odeslani zpravy). */
+    override fun onVoiceSend() {
         if (!dictating) return
-        if (voicePaused) { onVoiceResume(); return }
-        try { recognizer?.cancel() } catch (_: Throwable) {}
-        handler.removeCallbacks(voiceTimeout)
-        dictationText = ""
-        currentInputConnection?.finishComposingText()
-        voicePaused = false
-        keyboard?.voicePaused = false
-        continueSession()
+        sendAfterVoice = true
+        onVoiceStop()
     }
 
     /** Klepnuti na Play: znovu spusti poslech ve stejne relaci. */
@@ -1323,13 +1320,16 @@ class KeyboardService : InputMethodService(), KeyboardView.Listener,
         return dictationPrefix + cased
     }
 
-    private fun endDictation() {
+    private fun endDictation(allowSend: Boolean = true) {
         handler.removeCallbacks(voiceTimeout)
         dictating = false
         voicePaused = false
         keyboard?.voicePaused = false
         keyboard?.dictating = false
         keyboard?.voiceLevel = 0f
+        val send = sendAfterVoice && allowSend
+        sendAfterVoice = false
+        if (send) enter()
     }
 
     /** Okamzite ukonceni bez vysledku (psani, schovani klavesnice). Rozepsany prepis zustane v textu. */
@@ -1342,7 +1342,7 @@ class KeyboardService : InputMethodService(), KeyboardView.Listener,
             // ignorovat
         }
         currentInputConnection?.finishComposingText()
-        endDictation()
+        endDictation(false)
         voiceStatus = false
         scheduleSuggestions()
     }

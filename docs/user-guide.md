@@ -98,7 +98,7 @@ spodní tlačítka…); ostatní klávesy se na chvilku ztlumí. U animací po k
 
 ### Hlavička: Zpět, Test, Uložit a styly 1–5
 
-Vlevo nahoře je **Zpět**, vpravo **Test** (vyzkoušíš psaní a swipe přímo v náhledu) a **Uložit**. Pod nimi je **posuvník** se styly **1 2 3 4 5**; kulička jezdí plynule, styl se vybere po puštění.
+Vlevo nahoře je **Zpět**, vpravo **Uložit** (a v kategorii 5 také **Test**). Pod nimi jsou čtvercová tlačítka se styly **1 2 3 4 5**. V kategoriích 0–4 je náhled stále v zkušebním režimu, takže si na něm můžeš psát a tahat; v animacích běží dokola ukázka slov FAZT a ahoj (občas NEČUM) a po 3 s bez dotyku se po tvém psaní znovu rozběhne.
 Dokud je neuložíš, má styl 1 výchozí vzhled a styly 2–5 stejný vzhled s jednou jinou barvou (modrá, zelená, tmavě modrá, růžová) a základními efekty. Vybraný styl se pamatuje i po zavření obrazovky.
 
 - **Výběr stylu** rovnou přepne a načte ho. Má-li aktuální styl neuložené změny, aplikace se zeptá, zda ho opravdu změnit bez uložení (Ano / Ne).

@@ -80,6 +80,7 @@ class KeyboardView(context: Context) : View(context) {
         /** Cas posledniho klepnuti (pro barvu znaku po klepnuti); 0 = zadne. */
         var tapAt = 0L
         var cutAt = 0L
+        var cutTilt = 0f
         var slideAt = 0L
         var passAt = 0L
         var passTarget = 0f
@@ -127,8 +128,8 @@ class KeyboardView(context: Context) : View(context) {
         fun onVoiceDelete()
         /** Tlacitko Play na pozastavene obrazovce diktovani: znovu spustit poslech. */
         fun onVoiceResume()
-        /** Velke tlacitko "Znovu mluvit" vpravo uprostred pri mluveni. */
-        fun onVoiceAgain()
+        /** Velke tlacitko "Odeslat" vpravo uprostred pri diktovani: dokonci prepis a stiskne Enter. */
+        fun onVoiceSend()
     }
 
     companion object {
@@ -265,6 +266,10 @@ class KeyboardView(context: Context) : View(context) {
         private const val FIRE_COLD = 0xFFB3200A.toInt()
         // Styl "rez": po dopadu slovo chvili drzi, pak se kazde pismeno rozrizne (30-70 % vysky, nahodny sklon) a poloviny odpadnou.
         private const val CUT_HOLD_MS = 320L
+        private const val CUT_FLY_MS = 420L
+        private const val CUT_GAP_MS = 140L
+        private const val CUT_BORN_MS = 360L
+        private const val CUT_TOTAL_MS = CUT_FLY_MS + CUT_GAP_MS + CUT_BORN_MS
         private const val CUT_FALL_MS = 800L
         // Styl "slovo": pismena vzletnou z klaves, slozi slovo, chvili drzi a vybledou.
         private const val FLY_MS = 450L
@@ -280,6 +285,7 @@ class KeyboardView(context: Context) : View(context) {
         private const val FILL_HOLD_MS = 150L
         private const val FILL_OUT_MS = 300L
         private const val DEMO_POPUP_MS = 700L
+        private const val DEMO_FONT_MS = 1800L
         private const val DEMO_TRAIL_MS = 900L
         private const val DEMO_TRAIL_STEPS = 12
         private const val DEMO_TRAIL_POINTS = 36
@@ -511,6 +517,18 @@ class KeyboardView(context: Context) : View(context) {
     private var outlineShader: LinearGradient? = null
     private val outlinePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE }
     private var keyShader: LinearGradient? = null
+    // Druhe barvy cislic (klavesy, znak, obrys): prechod zleva doprava, stavi se jen pri zmene.
+    private var digitKeyCol2 = 0
+    private var digitTextCol2 = 0
+    private var digitOutlineCol2 = 0
+    private var digitKeyShader: LinearGradient? = null
+    private var digitTextShader: LinearGradient? = null
+    private var digitOutlineShader: LinearGradient? = null
+    private val gradMatrix = android.graphics.Matrix()
+    // Smer efektu Slide (kosinus a sinus uhlu) a styl stopy "otoceni pismen".
+    private var slideCos = 1f
+    private var slideSin = 0f
+    private var flipTrail = false
     private var bgShader: LinearGradient? = null
     // Prekryti stisku / neonu / zare pres prechod klavesy: barva a pruhlednost slozena z kroku `tint`.
     private var gradKey = false
@@ -640,10 +658,10 @@ class KeyboardView(context: Context) : View(context) {
     }
     /** Rotace projeteho pismenka: cil 0-223 stupnu nahodne na jednu stranu, krok 10 stupnu, vydrz 0,25 s, zpet. */
     private fun passRotation(k: Key, now: Long): Float {
-        if (!k.passed) return 0f
+        if (!flipTrail || !k.passed) return 0f
         val dt = now - k.passAt
         if (dt < 250L) return 0f // pruchod zacne o 0,25 s pozdeji
-        if (k.passTarget == 0f) { val mag = 20f + random.nextFloat() * 203f; k.passTarget = if (random.nextBoolean()) mag else -mag }
+        if (k.passTarget == 0f) { val mag = 90f + random.nextFloat() * 90f; k.passTarget = if (random.nextBoolean()) mag else -mag }
         val target = k.passTarget
         val up = kotlin.math.abs(target) / 10f * 30L // 30 ms na 10 stupnu
         val hold = 250L
@@ -685,8 +703,10 @@ class KeyboardView(context: Context) : View(context) {
         slideEffect = s.tapEffect == "slide"
         orbitEffect = s.tapEffect == "orbit"
         popEffect = s.tapEffect == "pop"
-        glowCutStyle = s.glowStyle == "cut"
-        glowSlideStyle = s.glowStyle == "slide"
+        val slideRad = Math.toRadians(s.slideDir.toDouble())
+        slideCos = Math.cos(slideRad).toFloat()
+        slideSin = Math.sin(slideRad).toFloat()
+        flipTrail = s.trailStyle == "flip"
         charOutlineOn = s.charOutline
         keyWidthDp = s.keyWidthDp
         dashedTrail = s.trailStyle == "dashed"
@@ -713,6 +733,9 @@ class KeyboardView(context: Context) : View(context) {
         paintCols[2] = Theme.parse(s.paintColor3, 0xFF6A02E8.toInt())
         digitTextCol = Theme.parse(s.digitTextColor, 0)
         digitKeyCol = Theme.parse(s.digitKeyColor, 0)
+        digitKeyCol2 = Theme.parse(s.digitKeyColor2, 0)
+        digitTextCol2 = Theme.parse(s.digitTextColor2, 0)
+        digitOutlineCol2 = Theme.parse(s.digitOutlineColor2, 0)
         keyCol2 = Theme.parse(s.keyColor2, 0)
         bgCol2 = Theme.parse(s.backgroundColor2, 0)
         keyRainbow = s.keyColor2 == Theme.RAINBOW
@@ -745,7 +768,7 @@ class KeyboardView(context: Context) : View(context) {
         outlineHoverCol = Theme.parse(s.outlineHoverColor, 0)
         outlinePassedCol = Theme.parse(s.outlinePassedColor, 0)
         outlineW = s.outlineWidthDp * density
-        outlineOn = outlineCol != 0 || outlineTapCol != 0 || outlineHoverCol != 0 || outlinePassedCol != 0 || specialOutline
+        outlineOn = digitOutlineCol2 != 0 || outlineCol != 0 || outlineTapCol != 0 || outlineHoverCol != 0 || outlinePassedCol != 0 || specialOutline
         glowRainbow = s.glowColor == Theme.RAINBOW
         glowColor = if (glowRainbow) Theme.RAINBOW_COLORS[0] else Theme.parse(s.glowColor, 0xFF0080FF.toInt())
         glowText = textOn(glowColor)
@@ -793,36 +816,37 @@ class KeyboardView(context: Context) : View(context) {
         padX = gapDp * 0.5f * density
         padY = rowGapDp * 0.5f * density
         if (rowH > 1f) padY = min(padY, rowH * 0.3f)
-        val effUnitW = if (keyWidthDp > 0) keyWidthDp * density else unitW
+        val effUnitW = if (keyWidthDp > 0) min(keyWidthDp * density, unitW) else unitW
         val base = min(rowH * 0.40f, effUnitW * 0.52f) * textPercent / 100f
         val innerH = max(1f, rowH - 2f * padY)
         val innerW = max(1f, effUnitW - 2f * padX)
         labelSize = min(base, min(innerH * 0.70f, innerW * 0.85f))
         // Prechod klavesy je vystredeny na stred klavesy (onDraw posune platno), pozadi pokryva cely pohled.
-        val gh = max(1f, rowH - 2f * padY)
+        // Vsechny prechody jdou zleva doprava: jednotkovy shader (-1..1) se pri kresleni natahne na sirku klavesy (gradMatrix).
         keyShader = when {
-            keyRainbow -> LinearGradient(0f, -gh / 2f, 0f, gh / 2f, Theme.rainbowFrom(theme.key), null, Shader.TileMode.CLAMP)
-            keyCol2 != 0 -> LinearGradient(0f, -gh / 2f, 0f, gh / 2f, theme.key, keyCol2, Shader.TileMode.CLAMP)
+            keyRainbow -> LinearGradient(-1f, 0f, 1f, 0f, Theme.rainbowFrom(theme.key), null, Shader.TileMode.CLAMP)
+            keyCol2 != 0 -> LinearGradient(-1f, 0f, 1f, 0f, theme.key, keyCol2, Shader.TileMode.CLAMP)
             else -> null
         }
         outlineShader = when {
             outlineCol == 0 -> null
-            outlineRainbow -> LinearGradient(0f, -gh / 2f, 0f, gh / 2f, Theme.rainbowFrom(outlineCol), null, Shader.TileMode.CLAMP)
-            outlineCol2 != 0 -> LinearGradient(0f, -gh / 2f, 0f, gh / 2f, outlineCol, outlineCol2, Shader.TileMode.CLAMP)
+            outlineRainbow -> LinearGradient(-1f, 0f, 1f, 0f, Theme.rainbowFrom(outlineCol), null, Shader.TileMode.CLAMP)
+            outlineCol2 != 0 -> LinearGradient(-1f, 0f, 1f, 0f, outlineCol, outlineCol2, Shader.TileMode.CLAMP)
             else -> null
         }
-        // Prechod znaku: od horniho okraje pismene k dolnimu (vyska ~0,72 velikosti), vystredeny na nulu jako prechod klavesy.
-        val gl = labelSize * 0.36f
         textShader = when {
-            gl <= 0f -> null
-            textRainbow -> LinearGradient(0f, -gl, 0f, gl, Theme.rainbowFrom(theme.text), null, Shader.TileMode.CLAMP)
-            textCol2 != 0 -> LinearGradient(0f, -gl, 0f, gl, theme.text, textCol2, Shader.TileMode.CLAMP)
+            labelSize <= 0f -> null
+            textRainbow -> LinearGradient(-1f, 0f, 1f, 0f, Theme.rainbowFrom(theme.text), null, Shader.TileMode.CLAMP)
+            textCol2 != 0 -> LinearGradient(-1f, 0f, 1f, 0f, theme.text, textCol2, Shader.TileMode.CLAMP)
             else -> null
         }
+        digitKeyShader = if (digitKeyCol2 != 0) LinearGradient(-1f, 0f, 1f, 0f, if (digitKeyCol != 0) digitKeyCol else theme.key, digitKeyCol2, Shader.TileMode.CLAMP) else null
+        digitTextShader = if (digitTextCol2 != 0) LinearGradient(-1f, 0f, 1f, 0f, if (digitTextCol != 0) digitTextCol else theme.text, digitTextCol2, Shader.TileMode.CLAMP) else null
+        digitOutlineShader = if (digitOutlineCol2 != 0) LinearGradient(-1f, 0f, 1f, 0f, if (outlineCol != 0) outlineCol else theme.accent, digitOutlineCol2, Shader.TileMode.CLAMP) else null
         bgShader = when {
-            height <= 0 -> null
-            bgRainbow -> LinearGradient(0f, 0f, 0f, height.toFloat(), Theme.rainbowFrom(theme.background), null, Shader.TileMode.CLAMP)
-            bgCol2 != 0 -> LinearGradient(0f, 0f, 0f, height.toFloat(), theme.background, bgCol2, Shader.TileMode.CLAMP)
+            width <= 0 -> null
+            bgRainbow -> LinearGradient(0f, 0f, width.toFloat(), 0f, Theme.rainbowFrom(theme.background), null, Shader.TileMode.CLAMP)
+            bgCol2 != 0 -> LinearGradient(0f, 0f, width.toFloat(), 0f, theme.background, bgCol2, Shader.TileMode.CLAMP)
             else -> null
         }
     }
@@ -1132,7 +1156,7 @@ class KeyboardView(context: Context) : View(context) {
             // Jadro neni k dispozici: klavesnice zustane prazdna, ale nespadne.
         }
         val adjusted = if (keyWidthDp > 0 && parsed.isNotEmpty()) {
-            val fixed = keyWidthDp * density; val unit = width / 10f
+            val unit = width / 10f; val fixed = min(keyWidthDp * density, unit)
             parsed.map { k -> val units = if (unit > 0f) k.vw / unit else 1f; val newVw = fixed * units.coerceIn(1f, 5f); val centre = k.vx + k.vw / 2f; val newVx = (centre - newVw / 2f).coerceIn(k.x, maxOf(k.x, k.x + k.w - newVw)); Key(k.x, k.y, k.w, k.h, newVx, newVw, k.code, k.kind, k.label, k.alts, k.desc, k.src) }
         } else parsed
         keys = adjusted
@@ -1320,20 +1344,33 @@ class KeyboardView(context: Context) : View(context) {
                     }
                 }
             }
-            val digitOwn = k.isDigit && digitKeyCol != 0
+            val digitOwn = k.isDigit && (digitKeyCol != 0 || digitKeyCol2 != 0)
             val base = when {
                 accentKey -> theme.accent
-                digitOwn -> digitKeyCol
+                digitOwn -> if (digitKeyCol != 0) digitKeyCol else theme.key
                 k.kind == KIND_CHAR || k.kind == KIND_SPACE -> theme.key
                 else -> theme.keySpecial
             }
-            val shader = keyShader
-            gradKey = shader != null && !accentKey && !digitOwn && (k.kind == KIND_CHAR || k.kind == KIND_SPACE)
+            val shader = if (digitOwn) digitKeyShader else keyShader
+            gradKey = shader != null && !accentKey && (k.kind == KIND_CHAR || k.kind == KIND_SPACE)
+            // Rez: klavesa se rozpuli, pulky odletí a po prodleve se klavesa narodi znovu (cutS = meritko klavesy).
+            var cutT = -1L
+            var cutS = 1f
+            if (k.cutAt != 0L) {
+                cutT = now - k.cutAt
+                if (cutT >= CUT_TOTAL_MS) {
+                    k.cutAt = 0L
+                    cutT = -1L
+                } else {
+                    animating = true
+                    if (cutT < 0L) cutT = -1L else cutS = cutScale(cutT)
+                }
+            }
             ovA = 0f
             ovR = 0f
             ovG = 0f
             ovB = 0f
-            val scale = 1f - 0.04f * p
+            val scale = (1f - 0.04f * p) * cutS
             val cx = k.vx + k.vw / 2f
             val cy = k.y + k.h / 2f
             val hw = (k.vw / 2f - padX) * scale
@@ -1413,6 +1450,7 @@ class KeyboardView(context: Context) : View(context) {
                 canvas.translate(0f, cy)
                 rect.set(cx - hw, -hh, cx + hw, hh)
                 fill.color = WHITE
+                shader?.let { gradMatrix.setScale(hw, 1f); gradMatrix.postTranslate(cx, 0f); it.setLocalMatrix(gradMatrix) }
                 fill.shader = shader
                 canvas.drawRoundRect(rect, radius, radius, fill)
                 fill.shader = null
@@ -1474,7 +1512,9 @@ class KeyboardView(context: Context) : View(context) {
             if (outlineOn) {
                 // Obrys: zakladni barva (pripadne prechod), po projeti, po klepnuti, pod prstem (posledni vyhrava).
                 val special = specialOutline && (k.kind == KIND_SHIFT || k.kind == KIND_MODE || k.kind == KIND_BACKSPACE)
-                var oc = if (special) theme.accent else outlineCol
+                val digitOut = k.isDigit && digitOutlineShader != null
+                val baseOc = if (digitOut && outlineCol == 0) theme.accent else outlineCol
+                var oc = if (special) theme.accent else baseOc
                 if (k.passed && outlinePassedCol != 0) {
                     oc = outlinePassedCol
                 } else if (passedFade > 0f && outlinePassedCol != 0) {
@@ -1483,12 +1523,15 @@ class KeyboardView(context: Context) : View(context) {
                 if (tapF > 0f && outlineTapCol != 0) oc = mixArgb(oc, if (k.tapOut != 0) k.tapOut else outlineTapCol, tapF)
                 val over = (k.pressed && !k.passed) || (k.passed && k === hoverKey)
                 if (over && outlineHoverCol != 0) oc = outlineHoverCol
-                if (oc != 0) {
+                if (oc != 0 && cutS > 0f) {
                     val ins = outlineW / 2f
                     val r = max(0f, radius - ins)
                     outlinePaint.strokeWidth = outlineW
-                    val os = outlineShader
-                    if (os != null && oc == outlineCol && !dimKey) {
+                    val os = if (digitOut) digitOutlineShader else outlineShader
+                    if (os != null && oc == baseOc && !special && !dimKey) {
+                        gradMatrix.setScale(hw - ins, 1f)
+                        gradMatrix.postTranslate(cx, 0f)
+                        os.setLocalMatrix(gradMatrix)
                         // Prechod obrysu: shader je vystredeny na nulu, platno se posune na stred klavesy.
                         canvas.save()
                         canvas.translate(0f, cy)
@@ -1543,10 +1586,6 @@ class KeyboardView(context: Context) : View(context) {
                 }
             }
 
-            if (k.cutAt != 0L) {
-                val ct = now - k.cutAt
-                if (ct >= 450L) k.cutAt = 0L else { animating = true; val q = ct / 450f; val fall = q * q * hh * 1.6f; val alpha = ((255f * (1f - q)).toInt()).coerceIn(0, 255); fill.color = (theme.text and 0x00FFFFFF) or (alpha shl 24); canvas.save(); canvas.translate(-q * hw * 0.5f, fall); canvas.drawRoundRect(cx - hw, cy - hh, cx, cy + hh,radius, radius, fill); canvas.restore(); canvas.save(); canvas.translate(q * hw * 0.5f, fall); canvas.drawRoundRect(cx, cy - hh, cx + hw, cy + hh,radius, radius, fill); canvas.restore() }
-            }
             if (k.slideAt != 0L) { val st = now - k.slideAt; if (st >= 420L) k.slideAt = 0L else animating = true }
             if (deleteFillStart != 0L && deleteKey === k) {
                 val dt = now - deleteFillStart
@@ -1604,6 +1643,15 @@ class KeyboardView(context: Context) : View(context) {
                     }
                 }
             }
+            if (cutT >= 0L && cutS < 1f) {
+                // Klavesa je rozrezana nebo se jeste rodi: znak se meni spolu s klavesou.
+                popTime = 0L
+                popS = cutS
+                popA = cutS.coerceIn(0f, 1f)
+            }
+            if (cutT in 0L until CUT_FLY_MS) {
+                drawCutHalves(canvas, k, cx, cy, k.vw / 2f - padX, k.h / 2f - padY, radius, cutT / CUT_FLY_MS.toFloat(), keyColor, fg, upper)
+            }
             val face = if (k.macro != null) faceBitmaps[k.macroFace] else null
             when (k.kind) {
                 KIND_CHAR -> if (face != null && (drawHints || hintFocus)) {
@@ -1617,7 +1665,9 @@ class KeyboardView(context: Context) : View(context) {
                     }
                     textPaint.textSize = labelSize
                     // Prechod barvy znaku jen kdyz zadny docasny efekt nemeni barvu znaku.
-                    val grad = textShader != null && fg == baseFg && !accentKey && !(k.isDigit && digitTextCol != 0) &&
+                    val dts = k.isDigit && digitTextShader != null
+                    val gShader: Shader? = if (dts) digitTextShader else textShader
+                    val grad = gShader != null && fg == baseFg && !accentKey && (dts || !(k.isDigit && digitTextCol != 0)) &&
                         !(flyCount > 0 && flyLabel < 1f && isFlying(ki))
                     val n = labelChars(k.label, upper)
                     val shift = if (!hinted) 0f else labelSize * 0.06f * (1f - 2f * hintY.coerceIn(0f, 1f))
@@ -1625,21 +1675,35 @@ class KeyboardView(context: Context) : View(context) {
                     val offX = if (labelX == 0.5f) 0f else (labelX - 0.5f) * 2f * max(0f, hw - labelSize * 0.3f - 2f * density)
                     val offY = if (labelY == 0.5f) 0f else (labelY - 0.5f) * 2f * max(0f, hh - labelSize * 0.36f - 2f * density)
                     var slideDx = 0f
-                    if (k.slideAt != 0L) { val st = now - k.slideAt; val q = (st / 420f).coerceIn(0f, 1f); slideDx = if (q < 0.5f) (q * 2f) * (hw * 2f + 20f * density) else (1f - (q - 0.5f) * 2f) * (hw * 2f + 20f * density); textPaint.alpha = ((255f * (1f - q * 0.5f)).toInt()).coerceIn(0, 255) }
+                    var slideDy = 0f
+                    if (k.slideAt != 0L) {
+                        val st = now - k.slideAt
+                        val q = (st / 420f).coerceIn(0f, 1f)
+                        // Znak odjede ve zvolenem smeru (po 30 stupnich) a vrati se.
+                        val dist = kotlin.math.abs(slideCos) * hw * 2f + kotlin.math.abs(slideSin) * hh * 2f + 20f * density
+                        val f = if (q < 0.5f) q * 2f else 1f - (q - 0.5f) * 2f
+                        slideDx = slideCos * f * dist
+                        slideDy = slideSin * f * dist
+                        textPaint.alpha = ((255f * (1f - q * 0.5f)).toInt()).coerceIn(0, 255)
+                    }
                     var deleteDx = 0f
                     if (deleteFillStart != 0L && deleteKey === k) { val dt = now - deleteFillStart; if (dt > 300L) { val q = ((dt - 300L) / 400f).coerceIn(0f, 1f); val dir = if (cx < width / 2f) 1f else -1f; deleteDx = dir * q * (hw * 2f + 20f * density); textPaint.alpha = ((255f * (1f - q)).toInt()).coerceIn(0, 255) } }
                     val totalDx = slideDx + deleteDx
                     val passRot = passRotation(k, now)
+                    if (flipTrail && k.passed) animating = true
                     if (popTime >= 0L) {
                         canvas.save()
-                        canvas.scale(popS, popS, cx + offX, cy + offY + shift)
+                        canvas.scale(popS, popS, cx + offX, cy + offY + shift + slideDy)
                         textPaint.alpha = (textPaint.alpha * popA).toInt().coerceIn(0, 255)
                     }
                     if (grad) {
                         // Shader je vystredeny na nulu: platno se posune na stred znaku.
                         canvas.save()
-                        canvas.translate(0f, cy + offY + shift)
-                        textPaint.shader = textShader
+                        canvas.translate(0f, cy + offY + shift + slideDy)
+                        gradMatrix.setScale(labelSize * 0.45f, 1f)
+                        gradMatrix.postTranslate(cx + offX + totalDx, 0f)
+                        gShader?.setLocalMatrix(gradMatrix)
+                        textPaint.shader = gShader
                         if (passRot != 0f) canvas.rotate(passRot, cx + offX + totalDx, -(textPaint.ascent() + textPaint.descent()) / 2f)
                         if (charOutlineOn) { val sv = textPaint.style; textPaint.style = Paint.Style.STROKE; textPaint.strokeWidth = 1.5f * density; textPaint.color = outlineCol; canvas.drawText(charBuf, 0, n, cx + offX + totalDx, -(textPaint.ascent() + textPaint.descent()) / 2f, textPaint); textPaint.style = sv; textPaint.color = fg }
                         canvas.drawText(charBuf, 0, n, cx + offX + totalDx, -(textPaint.ascent() + textPaint.descent()) / 2f, textPaint)
@@ -1647,9 +1711,9 @@ class KeyboardView(context: Context) : View(context) {
                         textPaint.shader = null
                         canvas.restore()
                     } else {
-                        if (passRot != 0f) canvas.save().also { canvas.rotate(passRot, cx + offX + totalDx, cy + offY + shift - (textPaint.ascent() + textPaint.descent()) / 2f) }
-                        if (charOutlineOn) { val sv = textPaint.style; textPaint.style = Paint.Style.STROKE; textPaint.strokeWidth = 1.5f * density; textPaint.color = outlineCol; canvas.drawText(charBuf, 0, n, cx + offX + totalDx, cy + offY + shift - (textPaint.ascent() + textPaint.descent()) / 2f, textPaint); textPaint.style = sv; textPaint.color = fg }
-                        canvas.drawText(charBuf, 0, n, cx + offX + totalDx, cy + offY + shift - (textPaint.ascent() + textPaint.descent()) / 2f, textPaint)
+                        if (passRot != 0f) canvas.save().also { canvas.rotate(passRot, cx + offX + totalDx, cy + offY + shift + slideDy - (textPaint.ascent() + textPaint.descent()) / 2f) }
+                        if (charOutlineOn) { val sv = textPaint.style; textPaint.style = Paint.Style.STROKE; textPaint.strokeWidth = 1.5f * density; textPaint.color = outlineCol; canvas.drawText(charBuf, 0, n, cx + offX + totalDx, cy + offY + shift + slideDy - (textPaint.ascent() + textPaint.descent()) / 2f, textPaint); textPaint.style = sv; textPaint.color = fg }
+                        canvas.drawText(charBuf, 0, n, cx + offX + totalDx, cy + offY + shift + slideDy - (textPaint.ascent() + textPaint.descent()) / 2f, textPaint)
                         if (passRot != 0f) canvas.restore()
                     }
                     if (popTime >= 0L) canvas.restore()
@@ -1858,6 +1922,47 @@ class KeyboardView(context: Context) : View(context) {
      * Styl "rez" po dopadu slova: kazde pismeno se rozrizne ve 30-70 % vysky (nahodny sklon rezu) a obe poloviny
      * odpadnou od rezu (nahoru/dolu kolmo na rez, k tomu tiaz a nahodne natoceni). `q` = 0..1 postup padani. Bez alokace.
      */
+    /** Meritko klavesy po rezu: 0 behem letu pulek a prodlevy, pak se klavesa narodi (s malym presahem). */
+    private fun cutScale(t: Long): Float {
+        if (t < CUT_FLY_MS + CUT_GAP_MS) return 0f
+        val q = ((t - CUT_FLY_MS - CUT_GAP_MS) / CUT_BORN_MS.toFloat()).coerceIn(0f, 1f)
+        val x = q - 1f
+        return 1f + 2.70158f * x * x * x + 1.70158f * x * x
+    }
+
+    /** Dve pulky klavesy (se znakem) se rozletí do stran, padaji a miznou. Bez alokace. */
+    private fun drawCutHalves(canvas: Canvas, k: Key, cx: Float, cy: Float, hw: Float, hh: Float, radius: Float, q: Float, color: Int, fg: Int, upper: Boolean) {
+        val ease = q * q
+        val reach = hw * 0.9f * q
+        val fall = hh * 2.2f * ease
+        val a = (255f * (1f - ease)).toInt().coerceIn(0, 255)
+        val rad = Math.toRadians(k.cutTilt.toDouble())
+        val nx = kotlin.math.cos(rad).toFloat()
+        val ny = kotlin.math.sin(rad).toFloat()
+        val big = (hw + hh) * 2f
+        for (half in 0..1) {
+            val dir = if (half == 0) -1f else 1f
+            canvas.save()
+            canvas.translate(nx * reach * dir, ny * reach * dir + fall)
+            canvas.rotate(dir * 18f * q, cx, cy)
+            canvas.rotate(k.cutTilt, cx, cy)
+            if (half == 0) canvas.clipRect(cx - big, cy - big, cx, cy + big) else canvas.clipRect(cx, cy - big, cx + big, cy + big)
+            canvas.rotate(-k.cutTilt, cx, cy)
+            fill.color = (color and 0x00FFFFFF) or (a shl 24)
+            rect.set(cx - hw, cy - hh, cx + hw, cy + hh)
+            canvas.drawRoundRect(rect, radius, radius, fill)
+            if (k.kind == KIND_CHAR) {
+                textPaint.color = (fg and 0x00FFFFFF) or (a shl 24)
+                textPaint.typeface = labelFace
+                textPaint.textSize = labelSize
+                val n = labelChars(k.label, upper)
+                canvas.drawText(charBuf, 0, n, cx, cy - (textPaint.ascent() + textPaint.descent()) / 2f, textPaint)
+                textPaint.typeface = baseFace
+            }
+            canvas.restore()
+        }
+    }
+
     private fun drawCut(canvas: Canvas, q: Float, size: Float) {
         val landY = if (overflowTop > 0) -overflowTop / 2f else flyEndSize * 0.75f
         val dy = -(flyFill.ascent() + flyFill.descent()) / 2f
@@ -2117,7 +2222,7 @@ class KeyboardView(context: Context) : View(context) {
      * dozniva. Vraci true, dokud dobiha animace.
      */
     private fun drawTrail(canvas: Canvas, now: Long): Boolean {
-        if (!drawTrailEnabled || trailCount < 2) return false
+        if (!drawTrailEnabled || trailCount < 2 || flipTrail) return false
         if (fireTrail) return drawFire(canvas, now)
         if (pixelTrail) return drawPixelTrail(canvas, now)
         if (dashedTrail) return drawDashedTrail(canvas, now)
@@ -2336,7 +2441,9 @@ class KeyboardView(context: Context) : View(context) {
         textPaint.color = (popupFg and 0x00FFFFFF) or (alpha shl 24)
         textPaint.textSize = min(rowH * 0.56f, unitW * 0.72f)
         val n = labelChars(k.label, shiftState != SHIFT_OFF && mode == MODE_LETTERS)
+        textPaint.typeface = if (k.isDigit) digitFace else labelFace
         canvas.drawText(charBuf, 0, n, cx, mid - (textPaint.ascent() + textPaint.descent()) / 2f, textPaint)
+        textPaint.typeface = baseFace
         return running
     }
 
@@ -2501,16 +2608,6 @@ class KeyboardView(context: Context) : View(context) {
      */
     fun glowWord(word: String) {
         if (!glowEnabled || word.isEmpty()) return
-        if (glowCutStyle) {
-            val now = SystemClock.uptimeMillis(); var n = 0
-            for (ch in word) { val code = baseCode(ch); if (code !in 'a'.code..'z'.code) continue; for (k in keys) if (k.isLetter && k.code == code) { k.cutAt = now + n * 90L; n++; break } }
-            if (n > 0) invalidate(); return
-        }
-        if (glowSlideStyle) {
-            val now = SystemClock.uptimeMillis(); var n = 0
-            for (ch in word) { val code = baseCode(ch); if (code !in 'a'.code..'z'.code) continue; for (k in keys) if (k.isLetter && k.code == code) { k.slideAt = now + n * 90L; n++; break } }
-            if (n > 0) invalidate(); return
-        }
         if (glowFlyStyle) {
             startFly(word)
             return
@@ -2596,7 +2693,7 @@ class KeyboardView(context: Context) : View(context) {
 
     /** Ukazka bubliny nad klavesou (nahled v nastaveni): na ~0,7 s se objevi nad pismenem. */
     fun demoPopup() {
-        if (preview && previewTouch) return
+        if (touchMode != T_NONE) return
         val k = demoLetter('g') ?: keys.firstOrNull { it.kind == KIND_CHAR } ?: return
         handler.removeCallbacksAndMessages(demoToken)
         previewKey = null
@@ -2607,7 +2704,11 @@ class KeyboardView(context: Context) : View(context) {
 
     /** Ukazka stopy za prstem (nahled v nastaveni): na ~0,9 s se nakresli cara pres pismena slova a pak vybledne. */
     fun demoTrail(word: String = "ahoj") {
-        if (preview && previewTouch) return
+        if (touchMode != T_NONE) return
+        if (flipTrail) {
+            demoFlip(word)
+            return
+        }
         val pts = ArrayList<Key>()
         for (ch in word) {
             val k = demoKeyFor(ch) ?: continue
@@ -2646,9 +2747,51 @@ class KeyboardView(context: Context) : View(context) {
         invalidate()
     }
 
+    /** Ukazka stopy "otoceni": projeta pismena slova se za sebou otoci a vrati. */
+    private fun demoFlip(word: String) {
+        val now = SystemClock.uptimeMillis()
+        handler.removeCallbacksAndMessages(demoToken)
+        var n = 0
+        for (ch in word) {
+            val k = demoKeyFor(ch) ?: continue
+            k.passed = true
+            k.passAt = now + n * 140L
+            k.passTarget = 0f
+            n++
+            handler.postAtTime({
+                k.passed = false
+                k.passedFadeAt = SystemClock.uptimeMillis()
+                invalidate()
+            }, demoToken, now + n * 140L + 1700L)
+        }
+        invalidate()
+    }
+
+    /** Uzivatel se dotkl nahledu: zastavit rozehranou ukazku. */
+    fun stopDemos() {
+        handler.removeCallbacksAndMessages(demoToken)
+        if (touchMode == T_NONE) {
+            for (k in keys) {
+                if (k.pressed) press(k, false)
+                k.passed = false
+            }
+        }
+        trailHeld = false
+        trailCount = 0
+        glowCount = 0
+        flyCount = 0
+        spotUntil = 0L
+        previewKey = null
+        hideAltsDemo()
+        invalidate()
+    }
+
+    /** Zavola se pri kazdem polozeni prstu na nahled v zkusebnim rezimu (nastaveni). */
+    var onUserTouch: (() -> Unit)? = null
+
     /** Ukazka stisku (nahled v nastaveni): za sebou se stisknou a pusti 4 klavesy. */
     fun demoPress(word: String = "ahoj") {
-        if (preview && previewTouch) return
+        if (touchMode != T_NONE) return
         handler.removeCallbacksAndMessages(demoToken)
         for (k in keys) press(k, false)
         var step = 0
@@ -2682,11 +2825,28 @@ class KeyboardView(context: Context) : View(context) {
 
     /** Ukazka listy znaku pri podrzeni (nahled v nastaveni): na ~0,9 s se ukaze nad klavesou s variantami. */
     fun demoAlts() {
-        if (preview && previewTouch) return
+        if (touchMode != T_NONE) return
         val k = demoLetter('a')?.takeIf { it.alts.isNotEmpty() } ?: keys.firstOrNull { it.kind == KIND_CHAR && it.alts.isNotEmpty() } ?: return
         handler.removeCallbacksAndMessages(demoToken)
         showAltsDemo(k, k.alts)
         handler.postAtTime({ hideAltsDemo() }, demoToken, SystemClock.uptimeMillis() + DEMO_ALTS_MS)
+    }
+
+    /**
+     * Ukazka pisma (nahled v nastaveni): zaroven bublina nad jednou klavesou a lista variant nad klavesou
+     * s napovedou, aby bylo videt pismo klaves, napovedy, bubliny i listy.
+     */
+    fun demoFont() {
+        if (touchMode != T_NONE) return
+        val ka = demoLetter('a')?.takeIf { it.alts.isNotEmpty() } ?: keys.firstOrNull { it.kind == KIND_CHAR && it.alts.isNotEmpty() }
+        val kb = demoLetter('g') ?: keys.firstOrNull { it.kind == KIND_CHAR && it !== ka }
+        handler.removeCallbacksAndMessages(demoToken)
+        previewKey = null
+        if (ka != null) showAltsDemo(ka, ka.alts)
+        if (kb != null) startPreview(kb)
+        val end = SystemClock.uptimeMillis() + DEMO_FONT_MS
+        handler.postAtTime({ hideAltsDemo(); endPreview() }, demoToken, end)
+        invalidate()
     }
 
     fun hideAltsDemo() {
@@ -2940,8 +3100,15 @@ class KeyboardView(context: Context) : View(context) {
         textPaint.color = theme.onAccent; textPaint.textSize = 15f * density * fontScale; textPaint.typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
         val tw = textPaint.measureText(lbl); val iconS = 11f * density; val gap = 8f * density; val totalW = iconS * 1.7f + gap + tw
         val startX = ar.centerX() - totalW / 2f; val iconCx = startX + iconS * 0.85f; val iconCy = ar.centerY()
-        stroke.color = theme.onAccent; stroke.strokeWidth = 2f * density
-        drawMic(canvas, iconCx, iconCy, iconS); stroke.style = Paint.Style.STROKE
+        // Ikona odeslani: sipka doprava (vyplneny trojuhelnik s vykrojem).
+        path.reset()
+        path.moveTo(iconCx - iconS * 0.8f, iconCy - iconS * 0.8f)
+        path.lineTo(iconCx + iconS * 0.9f, iconCy)
+        path.lineTo(iconCx - iconS * 0.8f, iconCy + iconS * 0.8f)
+        path.lineTo(iconCx - iconS * 0.35f, iconCy)
+        path.close()
+        fill.color = theme.onAccent
+        canvas.drawPath(path, fill)
         canvas.drawText(lbl, startX + iconS * 1.7f + gap + tw / 2f, ar.centerY() - (textPaint.ascent() + textPaint.descent()) / 2f, textPaint)
         textPaint.typeface = baseFace
         return true
@@ -2960,6 +3127,7 @@ class KeyboardView(context: Context) : View(context) {
         fill.color = altsFill
         canvas.drawRoundRect(rect, radius, radius, fill)
         textPaint.textSize = min(rowH * 0.42f, unitW * 0.55f)
+        textPaint.typeface = labelFace
         val baseline = popupTop + rowH / 2f - (textPaint.ascent() + textPaint.descent()) / 2f
         for (i in 0 until n) {
             val cx = popupLeft + popupCell * (i + 0.5f)
@@ -2974,6 +3142,7 @@ class KeyboardView(context: Context) : View(context) {
             }
             canvas.drawText(popupAlts[i], cx, baseline, textPaint)
         }
+        textPaint.typeface = baseFace
     }
 
     // ------------------------------------------------------------------ dotyk
@@ -3006,6 +3175,7 @@ class KeyboardView(context: Context) : View(context) {
                     k.popAt = now
                 } else if (cutEffect) {
                     k.neonCol = nextNeon()
+                    k.cutTilt = (random.nextFloat() - 0.5f) * 50f
                     k.cutAt = now
                 } else if (slideEffect) {
                     k.neonCol = nextNeon()
@@ -3088,6 +3258,10 @@ class KeyboardView(context: Context) : View(context) {
 
     @SuppressLint("ClickableViewAccessibility") // klavesnice ma vlastni virtualni uzly pro TalkBack
     override fun onTouchEvent(e: MotionEvent): Boolean {
+        if (preview && previewTouch && e.actionMasked == MotionEvent.ACTION_DOWN) {
+            stopDemos()
+            onUserTouch?.invoke()
+        }
         if (preview && !previewTouch) {
             val pick = onKeyPick ?: return false
             if (e.actionMasked == MotionEvent.ACTION_UP) keyAt(e.x, e.y)?.let(pick)
@@ -3110,7 +3284,7 @@ class KeyboardView(context: Context) : View(context) {
                     stopVoiceDelete()
                     // prst, ktery diktovani spustil dlouhym stiskem, muze byt stale dole: jen dokoncit gesto
                     if (touchMode != T_NONE) cancelTouch()
-                    if (voiceAgainTouch2 && inVoiceAgainButton(e.x, e.y)) listener?.onVoiceAgain()
+                    if (voiceAgainTouch2 && inVoiceAgainButton(e.x, e.y)) listener?.onVoiceSend()
                     else if (voiceTouch && inVoiceButton(e.x, e.y, width - 32 * density)) listener?.onVoiceStop()
                     else if (voicePlayTouch && voicePaused && inPlayButton(e.x, e.y)) listener?.onVoiceResume()
                     voiceTouch = false

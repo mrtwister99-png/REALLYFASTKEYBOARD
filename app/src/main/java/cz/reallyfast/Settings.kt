@@ -17,7 +17,7 @@ class Settings(val json: JSONObject) {
     val vibrationMs: Int get() = json.optInt("vibration_ms", 10)
     val soundEnabled: Boolean get() = json.optBoolean("sound_enabled", false)
     val keyHeightDp: Int get() = json.optInt("key_height_dp", 56)
-    val keyWidthDp: Int get() = json.optInt("key_width_dp", 0).let { if (it == 0) 0 else it.coerceIn(24, 120) }
+    val keyWidthDp: Int get() = json.optInt("key_width_dp", 0).let { if (it == 0) 0 else it.coerceIn(24, 48) }
     val keyFont: String get() = json.optString("key_font", "system")
     val hintFont: String get() = json.optString("hint_font", "system")
     val trailWidthDp: Int get() = json.optInt("trail_width_dp", 4).coerceIn(1, 12)
@@ -79,6 +79,10 @@ class Settings(val json: JSONObject) {
     val digitTextColor: String get() = json.optString("digit_text_color", "")
     val digitKeyColor: String get() = json.optString("digit_key_color", "")
     val keyColor2: String get() = json.optString("key_color2", "")
+    val digitKeyColor2: String get() = json.optString("digit_key_color2", "")
+    val digitTextColor2: String get() = json.optString("digit_text_color2", "")
+    val digitOutlineColor2: String get() = json.optString("digit_outline_color2", "")
+    val slideDir: Int get() = json.optInt("slide_dir", 0).coerceIn(0, 330)
     val backgroundColor2: String get() = json.optString("background_color2", "")
     val paintColor1: String get() = json.optString("paint_color1", "#0080FF")
     val paintColor2: String get() = json.optString("paint_color2", "#FF5100")

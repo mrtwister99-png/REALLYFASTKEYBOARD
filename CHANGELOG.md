@@ -2,6 +2,12 @@
 
 Jedna věta za verzi, nejnovější nahoře. Čísla verzí odpovídají commitům (`vX.Y: …`).
 
+## 1.30 – 2026-11-25
+Styly 1–5 zpět jako čtverečky; náhled je v kategoriích 0–4 trvale zkušební (jde psát, ukázka se po 3 s znovu rozběhne), Test zůstal jen v kategorii 5; v Animacích a Swipe běží dokola ukázka slov FAZT/ahoj (2 % NEČUM) místo blikání; Slide má směr po 30°; Řez rozpůlí celou klávesu, půlky odletí a nová se zrodí; úspěšný tah má jen Neon / Výplň / Text; nový vzhled stopy „otočení písmen“ (90–180°); stopa a animace tahu se vybírají rozbalovacím seznamem; druhé barvy čísel (klávesy, znak, obrys); všechny druhé barvy jdou zleva doprava a v Waiting je mají všechny.
+
+## 1.29.2 – 2026-11-24
+Výběr barvy má hex pole (jde z něj kopírovat i do něj vložit kód); při diktování je místo „Znovu mluvit“ tlačítko Odeslat (dokončí přepis a stiskne Enter); šířka samostatné klávesy je omezena na 24–48 dp a nikdy nepřesáhne šířku svého místa; posuvníky rozměrů (výška klávesnice a kláves, šířka, velikost písma) v náhledu neblikají; výběr písma ukáže bublinu, lištu variant i nápovědu v novém písmu.
+
 ## 1.29 – 2026-11-23
 Přestavba obrazovky Vzhled: pevná hlavička (Zpět, Test, Uložit a posuvník stylů 1–5), náhled klávesnice vyjíždí plynule po rozbalení kategorie, kategorie mají tlačítka úrovní I–III, klepnutí na řádek ukáže nápovědu a v náhledu zabliká dotčená část v barvě akcentu (ostatní klávesy se ztlumí), ukázky animací píšou slova FAZT / ahoj (občas NEČUM); nové nastavení `hint_font` (písmo nápovědy), výběr písma ukazuje každé písmo samo sebou; tloušťka obrysu je dostupná v Barvách; zkušební tahy z Testu se nezapisují do záznamu tahů a při odchodu z obrazovky náhled plynule zajede.
 

@@ -11,6 +11,8 @@ import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.os.Build
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.os.SystemClock
 import android.text.Editable
 import android.text.InputFilter
@@ -66,7 +68,7 @@ class AppearanceActivity : SettingsScreen() {
     private lateinit var previewHost: LinearLayout
     private lateinit var backBtn: TextView
     private lateinit var saveBtn: TextView
-    private lateinit var profile: ProfileSlider
+    private val slotViews = ArrayList<StyleSlotView>()
     private var previewOpen = false
     private var leaving = false
     private var slideAnim: ValueAnimator? = null
@@ -112,6 +114,12 @@ class AppearanceActivity : SettingsScreen() {
     private var spotDone = ""
 
     private var testMode = false
+    // Zkusebni rezim zapnuty sam kategoriemi 0-4 (tlacitko Test je jen v kategorii 5).
+    private var autoTest = false
+    private var lastTouchAt = 0L
+    private val ui = Handler(Looper.getMainLooper())
+    private var loopIdx = 0
+    private val loopRun = Runnable { runLoopStep() }
     private val testTyped = StringBuilder()
     private var imeVisible = false
     private var adjusting = false
@@ -231,6 +239,7 @@ class AppearanceActivity : SettingsScreen() {
         kv.preview = true
         kv.swipeAllowed = false
         kv.voiceAllowed = false
+        kv.onUserTouch = { userTouched() }
         box.addView(kv, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
         host.addView(box, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
         root.addView(host, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
@@ -288,14 +297,24 @@ class AppearanceActivity : SettingsScreen() {
         top.addView(s, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, dp(42f)))
         header.addView(top, rowParams())
 
-        profile = ProfileSlider(this, STYLE_SLOTS) { pickSlot(it) }
+        val bar = LinearLayout(this)
+        bar.gravity = Gravity.CENTER
+        val size = dp(40f)
+        for (i in 0 until STYLE_SLOTS) {
+            val v = StyleSlotView(this, (i + 1).toString(), size)
+            v.contentDescription = getString(R.string.style_slot_n, i + 1)
+            v.setOnClickListener { pickSlot(i) }
+            slotViews.add(v)
+            val lp = LinearLayout.LayoutParams(size, size)
+            if (i > 0) lp.leftMargin = dp(10f)
+            bar.addView(v, lp)
+        }
         val remembered = getSharedPreferences(UI_PREFS, MODE_PRIVATE).getInt(KEY_CHOSEN_SLOT, -1)
         chosenSlot = (0 until STYLE_SLOTS).firstOrNull { slotMatches(it) }
             ?: remembered.takeIf { it in 0 until STYLE_SLOTS } ?: -1
-        val plp = LinearLayout.LayoutParams(resources.displayMetrics.widthPixels / 2, dp(52f))
-        plp.gravity = Gravity.CENTER_HORIZONTAL
-        plp.topMargin = dp(4f)
-        header.addView(profile, plp)
+        val plp = rowParams()
+        plp.topMargin = dp(6f)
+        header.addView(bar, plp)
         paintSlots()
         updateActions()
         return header
@@ -315,6 +334,7 @@ class AppearanceActivity : SettingsScreen() {
         // Odejiti z obrazovky ukonci nastavovani napovedy (bez ulozeni) i zkusebni rezim.
         if (adjusting) finishAdjust()
         if (testMode) stopTest()
+        ui.removeCallbacks(loopRun)
         super.onPause()
     }
 
@@ -370,7 +390,7 @@ class AppearanceActivity : SettingsScreen() {
         showTip(key, anchor)
         if (spotDone == key) {
             spotDone = ""
-        } else if (demoKind(key) == DEMO_NONE) {
+        } else if (demoKind(key) == DEMO_NONE && key !in NO_SPOT) {
             spotFor(key)
         }
     }
@@ -443,7 +463,7 @@ class AppearanceActivity : SettingsScreen() {
         editBar.visibility = if (on) View.VISIBLE else View.GONE
         captionView.visibility = if (on) View.GONE else View.VISIBLE // tlacitka dostanou celou sirku radku
         testView.visibility = if (on) View.GONE else View.VISIBLE
-        testButton.visibility = if (adjusting) View.GONE else View.VISIBLE
+        if (adjusting) testButton.visibility = View.GONE else applyTestButton()
         applyImeLayout()
     }
 
@@ -453,6 +473,72 @@ class AppearanceActivity : SettingsScreen() {
     }
 
     // ------------------------------------------------------------------ zkusebni rezim nahledu
+
+    private fun applyTestButton() {
+        testButton.visibility = if (expandedCat == CAT_KEYS && !adjusting) View.VISIBLE else View.GONE
+    }
+
+    /** Kategorie 0-4: nahled je trvale v zkusebnim rezimu (jde psat); kategorie 5 a zavrene: bez nej. */
+    private fun autoTestIfNeeded() {
+        if (leaving || adjusting || editor != null) return
+        if (expandedCat in 0 until CAT_KEYS) {
+            if (!testMode) {
+                startTest()
+                autoTest = testMode
+            }
+        } else if (autoTest && testMode) {
+            stopTest()
+        }
+        applyTestButton()
+        restartLoop(900L)
+    }
+
+    private fun explicitTest() = testMode && !autoTest
+
+    private fun userTouched() {
+        lastTouchAt = SystemClock.uptimeMillis()
+        ui.removeCallbacks(loopRun)
+        // Po dopsani (3 s bez doteku) se ukazka znovu rozbehne.
+        restartLoop(USER_IDLE_MS)
+    }
+
+    // ------------------------------------------------------------------ opakovana ukazka animaci (kategorie 3 a 4)
+
+    /** Ukazka bezi dokola jen v kategoriich animaci, kdyz je nahled otevreny a nic jineho se nedeje. */
+    private fun loopWanted(): Boolean =
+        (expandedCat == CAT_TAP || expandedCat == CAT_SWIPE) && previewOpen && !leaving && !adjusting && editor == null && !explicitTest() && !imeVisible
+
+    private fun restartLoop(delay: Long) {
+        ui.removeCallbacks(loopRun)
+        if (loopWanted()) ui.postDelayed(loopRun, delay)
+    }
+
+    /** Dve slova za sebou dokola: FAZT a ahoj (98 %), jednou za cas NEČUM (2 %). */
+    private fun loopWord(): String {
+        if (Random.nextInt(100) < 2) return "NE\u010cUM"
+        return if (loopIdx++ % 2 == 0) "FAZT" else "ahoj"
+    }
+
+    private fun runLoopStep() {
+        if (!loopWanted()) return
+        val idle = SystemClock.uptimeMillis() - lastTouchAt
+        if (idle < USER_IDLE_MS) {
+            ui.postDelayed(loopRun, USER_IDLE_MS - idle + 50L)
+            return
+        }
+        val word = loopWord()
+        if (expandedCat == CAT_TAP) {
+            preview.demoPress(word)
+            ui.postDelayed(loopRun, 2600L)
+        } else {
+            preview.demoTrail(word)
+            val stamp = lastTouchAt
+            ui.postDelayed({
+                if (loopWanted() && stamp == lastTouchAt) preview.glowWord(word)
+            }, 950L)
+            ui.postDelayed(loopRun, 3800L)
+        }
+    }
 
     private fun startTest() {
         if (adjusting) return
@@ -478,6 +564,7 @@ class AppearanceActivity : SettingsScreen() {
 
     private fun stopTest() {
         testMode = false
+        autoTest = false
         applyImeLayout()
         preview.previewTouch = false
         preview.swipeAllowed = false
@@ -552,7 +639,7 @@ class AppearanceActivity : SettingsScreen() {
         override fun onVoiceStop() {}
         override fun onVoiceDelete() {}
         override fun onVoiceResume() {}
-        override fun onVoiceAgain() {}
+        override fun onVoiceSend() {}
     }
 
     // ------------------------------------------------------------------ poloha male napovedy a hlavniho znaku
@@ -629,7 +716,7 @@ class AppearanceActivity : SettingsScreen() {
             preview.clearHintOverride()
         }
         hintPad.linear = false
-        testButton.visibility = View.VISIBLE
+        applyTestButton()
         testView.visibility = View.VISIBLE
         hintAdjustButton?.text = getString(R.string.hint_adjust)
         labelAdjustButton?.text = getString(R.string.label_adjust)
@@ -671,6 +758,7 @@ class AppearanceActivity : SettingsScreen() {
             confirmDialog(getString(R.string.downgrade_done), getString(R.string.notice_ok), null, false, 0xFF22C55E.toInt()) { expandCat(6) }
         }
         paintPills()
+        applyTestButton()
         applyImeLayout()
     }
 
@@ -745,6 +833,7 @@ class AppearanceActivity : SettingsScreen() {
         catBodies[index].visibility = View.VISIBLE
         // Vzdy se zacina prvni urovni.
         showLevel(index, 0)
+        autoTestIfNeeded()
         applyImeLayout()
         tabScroll.post { tabScroll.smoothScrollTo(0, max(0, catCards[index].top - dp(8f))) }
     }
@@ -753,7 +842,10 @@ class AppearanceActivity : SettingsScreen() {
         if (index !in catBodies.indices) return
         catBodies[index].visibility = View.GONE
         catArrows[index].text = "›"
-        if (expandedCat == index) expandedCat = -1
+        if (expandedCat == index) {
+            expandedCat = -1
+            autoTestIfNeeded()
+        }
         applyImeLayout()
     }
 
@@ -776,7 +868,7 @@ class AppearanceActivity : SettingsScreen() {
         val s = section(box, getString(R.string.sec_layout_dims))
         sliderRow(s, R.string.keyboard_height, "keyboard_height_percent", 30, 55, 1) { getString(R.string.unit_percent, it) }
         sliderRow(s, R.string.key_height, "key_height_dp", 48, 72, 1) { getString(R.string.unit_dp, it) }
-        sliderRow(s, R.string.waiting_key_width, "key_width_dp", 0, 120, 1) { if (it == 0) getString(R.string.unit_auto) else getString(R.string.unit_dp, it) }
+        sliderRow(s, R.string.waiting_key_width, "key_width_dp", 0, 48, 1) { if (it == 0) getString(R.string.unit_auto) else getString(R.string.unit_dp, it) }
         sliderRow(s, R.string.key_radius, "key_radius_dp", 2, 22, 1) { getString(R.string.unit_dp, it) }
         sliderRow(s, R.string.key_gap, "key_gap_dp", 0, 10, 1) { getString(R.string.unit_dp, it) }
         sliderRow(s, R.string.row_gap, "row_gap_dp", 2, 16, 1) { getString(R.string.unit_dp, it) }
@@ -824,6 +916,9 @@ class AppearanceActivity : SettingsScreen() {
         colorRow(s, R.string.alts_color, "alts_color", allowAuto = true)
         colorRow(s, R.string.digit_key_color, "digit_key_color", allowAuto = true)
         colorRow(s, R.string.digit_text_color, "digit_text_color", allowAuto = true)
+        colorRow(s, R.string.digit_key_color2, "digit_key_color2", allowAuto = true, allowRainbow = true)
+        colorRow(s, R.string.digit_text_color2, "digit_text_color2", allowAuto = true, allowRainbow = true)
+        colorRow(s, R.string.digit_outline_color2, "digit_outline_color2", allowAuto = true, allowRainbow = true)
     }
 
     /** 2. III. Druhe barvy. */
@@ -847,7 +942,7 @@ class AppearanceActivity : SettingsScreen() {
         dropdownRow(s, R.string.tap_effect_label, values, labels,
             { val j = RustBridge.settings.json; if (j.optBoolean("key_glow")) j.optString("tap_effect") else "none" },
             { v -> if (v == "none") update("key_glow", false) else updateAll("key_glow" to true, "tap_effect" to v) }, "tap_effect")
-        hintText(s, getString(R.string.cat_tap_1_hint))
+        sliderRow(s, R.string.slide_dir, "slide_dir", 0, 330, 1, 30) { getString(R.string.unit_degrees, it) }
         colorRow(s, R.string.neon_color, "neon_color")
         colorRow(s, R.string.tap_text_color, "tap_text_color", allowAuto = true)
         colorRow(s, R.string.outline_tap_color, "outline_tap_color", allowAuto = true)
@@ -875,18 +970,18 @@ class AppearanceActivity : SettingsScreen() {
     private fun buildSwipe1(box: LinearLayout) {
         val s = section(box, getString(R.string.cat_swipe_1))
         switchRow(s, R.string.swipe_trail, "swipe_trail")
-        choiceRow(s, R.string.trail_style_label, "trail_style", listOf("line", "dashed", "fire", "pixel"),
-            listOf(getString(R.string.trail_style_line), getString(R.string.trail_style_dashed), getString(R.string.trail_style_fire), getString(R.string.trail_style_pixel)))
+        val trailValues = listOf("line", "dashed", "fire", "pixel", "flip")
+        val trailLabels = listOf(getString(R.string.trail_style_line), getString(R.string.trail_style_dashed), getString(R.string.trail_style_fire), getString(R.string.trail_style_pixel), getString(R.string.trail_style_flip))
+        dropdownRow(s, R.string.trail_style_label, trailValues, trailLabels, { RustBridge.settings.json.optString("trail_style") }, { update("trail_style", it) }, "trail_style")
         hintText(s, getString(R.string.cat_swipe_line_hint))
         colorRow(s, R.string.trail_color, "trail_color", allowAuto = true)
         colorRow(s, R.string.trail_color2, "trail_color2", allowAuto = true)
         sliderRow(s, R.string.trail_width, "trail_width_dp", 1, 12, 1) { getString(R.string.unit_dp, it) }
         hintText(s, getString(R.string.cat_swipe_pass_hint))
         switchRow(s, R.string.swipe_glow, "swipe_glow")
-        val (values, labels) = tapEffects()
-        val glowLabels = ArrayList(labels)
-        glowLabels[0] = getString(R.string.anim_none)
-        choiceRow(s, R.string.glow_style_label, values, glowLabels,
+        val glowValues = listOf("none", "neon", "paint", "ghost")
+        val glowLabels = listOf(getString(R.string.anim_none), getString(R.string.tap_effect_neon), getString(R.string.glow_style_paint), getString(R.string.glow_style_ghost))
+        dropdownRow(s, R.string.glow_style_label, glowValues, glowLabels,
             { val j = RustBridge.settings.json; if (j.optBoolean("swipe_glow")) j.optString("glow_style") else "none" },
             { v -> if (v == "none") update("swipe_glow", false) else updateAll("swipe_glow" to true, "glow_style" to v) }, "glow_style")
         colorRow(s, R.string.glow_color, "glow_color", allowRainbow = extraOpen)
@@ -929,7 +1024,7 @@ class AppearanceActivity : SettingsScreen() {
     private fun buildCatWaiting(box: LinearLayout) {
         var s = section(box, getString(R.string.sec_waiting_key))
         sliderRow(s, R.string.waiting_key_height, "key_height_dp", 48, 72, 1) { getString(R.string.unit_dp, it) }
-        sliderRow(s, R.string.waiting_key_width, "key_width_dp", 0, 120, 1) { if (it == 0) getString(R.string.unit_auto) else getString(R.string.unit_dp, it) }
+        sliderRow(s, R.string.waiting_key_width, "key_width_dp", 0, 48, 1) { if (it == 0) getString(R.string.unit_auto) else getString(R.string.unit_dp, it) }
         sliderRow(s, R.string.waiting_key_gap, "key_gap_dp", 0, 10, 1) { getString(R.string.unit_dp, it) }
         hintText(s, getString(R.string.waiting_key_gap_hint))
         switchRow(s, R.string.waiting_char_outline, "char_outline", hintRes = R.string.waiting_char_outline_hint)
@@ -939,12 +1034,19 @@ class AppearanceActivity : SettingsScreen() {
         colorRow(s, R.string.glow_color2, "glow_color2", allowAuto = true)
         colorRow(s, R.string.trail_color2, "trail_color2", allowAuto = true)
         colorRow(s, R.string.tap_text_color2, "tap_text_color2", allowAuto = true)
-        colorRow(s, R.string.outline_color2, "outline_color2", allowAuto = true, allowRainbow = true)
         colorRow(s, R.string.outline_tap_color2, "outline_tap_color2", allowAuto = true)
         colorRow(s, R.string.paint_color1, "paint_color1")
         colorRow(s, R.string.paint_color2, "paint_color2")
         colorRow(s, R.string.paint_color3, "paint_color3")
         hintText(s, getString(R.string.paint_hint))
+        s = section(box, getString(R.string.sec_waiting_second))
+        colorRow(s, R.string.key_color2, "key_color2", allowAuto = true, allowRainbow = true)
+        colorRow(s, R.string.digit_key_color2, "digit_key_color2", allowAuto = true, allowRainbow = true)
+        colorRow(s, R.string.text_color2, "text_color2", allowAuto = true, allowRainbow = true)
+        colorRow(s, R.string.digit_text_color2, "digit_text_color2", allowAuto = true, allowRainbow = true)
+        colorRow(s, R.string.background_color2, "background_color2", allowAuto = true, allowRainbow = true)
+        colorRow(s, R.string.outline_color2, "outline_color2", allowAuto = true, allowRainbow = true)
+        colorRow(s, R.string.digit_outline_color2, "digit_outline_color2", allowAuto = true, allowRainbow = true)
     }
 
     /** Tlacitko s popiskem, ktere zapne nastavovani polohy (znaku nebo napovedy) nad klavesnici. */
@@ -1080,6 +1182,7 @@ class AppearanceActivity : SettingsScreen() {
     private fun demoKind(key: String): Int = when (key) {
         "neon_color", "neon_color2", "tap_effect", "tap_text_color", "tap_text_color2", "outline_tap_color", "outline_tap_color2" -> DEMO_TAP
         "paint_color1", "paint_color2", "paint_color3" -> DEMO_PAINT
+        "key_font", "hint_font" -> DEMO_FONT
         "key_popup", "popup_color" -> DEMO_POPUP
         "alts_color" -> DEMO_ALTS
         "animations", "outline_hover_color" -> DEMO_PRESS
@@ -1090,13 +1193,20 @@ class AppearanceActivity : SettingsScreen() {
     }
 
     private fun demoFor(key: String) {
-        if (testMode || adjusting || !previewOpen) return
+        if (explicitTest() || adjusting || !previewOpen) return
+        // V kategoriich animaci bezi opakovana ukazka: po zmene se jen rozbehne hned.
+        if (loopWanted() && demoKind(key) != DEMO_NONE) {
+            restartLoop(250L)
+            return
+        }
+        if (SystemClock.uptimeMillis() - lastTouchAt < USER_IDLE_MS) return
         val kind = demoKind(key)
         if (kind == DEMO_NONE) return
         val w = demoWord()
         when (kind) {
             DEMO_TAP -> { spotWord(w); preview.demoNeon(w) }
             DEMO_PAINT -> { spotWord(w); preview.demoPaint(w) }
+            DEMO_FONT -> preview.demoFont()
             DEMO_POPUP -> preview.demoPopup()
             DEMO_ALTS -> preview.demoAlts()
             DEMO_PRESS -> { spotWord(w); preview.demoPress(w) }
@@ -1108,7 +1218,7 @@ class AppearanceActivity : SettingsScreen() {
 
     /** V nahledu zablikne to, k cemu nastaveni patri (v barve akcentu), ostatni klavesy se ztlumi. */
     private fun spotFor(key: String) {
-        if (testMode || adjusting || !previewOpen) return
+        if (explicitTest() || adjusting || !previewOpen || loopWanted()) return
         val kv = preview
         when (key) {
             "show_number_row", "number_divider", "digit_text_color", "digit_key_color", "digit_weight" -> kv.spotKeys { it.isDigit }
@@ -1179,12 +1289,11 @@ class AppearanceActivity : SettingsScreen() {
     }
 
     private fun paintSlots() {
-        profile.accent = accent
-        profile.trackColor = field
-        profile.textColor = dim
-        profile.onAccent = if (Theme.luminance(accent) > 0.55f) 0xFF111113.toInt() else 0xFFFFFFFF.toInt()
-        for (i in 0 until STYLE_SLOTS) profile.setDot(i, slotJson(i)?.let { Theme.from(Settings(it)).accent } ?: 0)
-        profile.chosen = chosenSlot
+        for ((i, v) in slotViews.withIndex()) {
+            v.colors = slotJson(i)?.let { Theme.from(Settings(it)) }
+            v.ring = accent
+            v.chosen = i == chosenSlot
+        }
     }
 
     /**
@@ -1643,6 +1752,11 @@ class AppearanceActivity : SettingsScreen() {
         const val KEY_CHOSEN_SLOT = "chosen_slot"
         const val MAX_ALTS_EDIT = 5
 
+        const val CAT_TAP = 3
+        const val CAT_SWIPE = 4
+        const val CAT_KEYS = 5
+        const val USER_IDLE_MS = 3000L
+
         const val DEMO_NONE = 0
         const val DEMO_TAP = 1
         const val DEMO_PAINT = 2
@@ -1652,6 +1766,13 @@ class AppearanceActivity : SettingsScreen() {
         const val DEMO_PASSED = 6
         const val DEMO_TRAIL = 7
         const val DEMO_GLOW = 8
+        const val DEMO_FONT = 9
+
+        /** Plynule meneny rozmer: pri tazeni posuvniku klavesy neblikaji (zmena je videt sama). */
+        val NO_SPOT: Set<String> = setOf(
+            "keyboard_height_percent", "key_height_dp", "key_width_dp", "key_text_percent", "hint_percent",
+            "key_radius_dp", "key_gap_dp", "row_gap_dp",
+        )
 
         /** Napoveda k radkum nastaveni: klic -> text. */
         val TIPS: Map<String, Int> = mapOf(
@@ -1664,6 +1785,10 @@ class AppearanceActivity : SettingsScreen() {
             "keyboard_height_percent" to R.string.tip_keyboard_height,
             "key_height_dp" to R.string.tip_key_height,
             "key_width_dp" to R.string.tip_key_width,
+            "slide_dir" to R.string.tip_slide_dir,
+            "digit_key_color2" to R.string.tip_digit_colors2,
+            "digit_text_color2" to R.string.tip_digit_colors2,
+            "digit_outline_color2" to R.string.tip_digit_colors2,
             "key_radius_dp" to R.string.tip_key_radius,
             "key_gap_dp" to R.string.tip_key_gap,
             "row_gap_dp" to R.string.tip_row_gap,
@@ -1851,121 +1976,53 @@ private class HintPad(context: Context, private val onChange: (Float, Float) -> 
     }
 }
 
-/**
- * Moderni posuvnik na vyber ze styluu 1-5: linka s teckami v barve ulozeneho stylu, plynule jezdici
- * kulicka v barve akcentu a cisla pod nim. Tahnout lze prstem; styl se vybere po pusteni.
- */
-@SuppressLint("ViewConstructor", "ClickableViewAccessibility")
-private class ProfileSlider(context: Context, private val count: Int, private val onPick: (Int) -> Unit) : View(context) {
-    var accent = 0xFF0080FF.toInt()
-    var trackColor = 0xFF2A2A30.toInt()
-    var textColor = 0xFF9A9AA2.toInt()
-    var onAccent = 0xFFFFFFFF.toInt()
-
-    /** Vybrany styl (-1 = zadny); zmena kulicku plynule prejede. */
-    var chosen = -1
+/** Ctvercove tlacitko slotu stylu: pozadi, klavesa a cislo v barvach ulozeneho stylu; vybrany ma obrys v accent barve. */
+@SuppressLint("ViewConstructor")
+private class StyleSlotView(context: Context, private val number: String, private val fixed: Int = 0) : View(context) {
+    var colors: Theme? = null
         set(value) {
             field = value
-            if (!dragging) animateTo(if (value >= 0) value.toFloat() else pos)
             invalidate()
         }
-
-    private val dots = IntArray(count)
+    var chosen = false
+        set(value) {
+            if (field != value) {
+                field = value
+                invalidate()
+            }
+        }
+    var ring = 0xFF0080FF.toInt()
     private val d = resources.displayMetrics.density
-    private val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply { strokeCap = Paint.Cap.ROUND }
-    private var pos = 0f
-    private var dragging = false
-    private var animFrom = 0f
-    private var animTo = 0f
-    private val anim = ValueAnimator.ofFloat(0f, 1f).apply {
-        duration = 200L
-        interpolator = DecelerateInterpolator()
-        addUpdateListener {
-            pos = animFrom + (animTo - animFrom) * (it.animatedValue as Float)
-            invalidate()
-        }
-    }
+    private val paint = Paint(Paint.ANTI_ALIAS_FLAG)
+    private val rect = android.graphics.RectF()
 
-    fun setDot(i: Int, color: Int) {
-        dots[i] = color
-        invalidate()
+    override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
+        val w = if (fixed > 0) fixed else MeasureSpec.getSize(widthMeasureSpec).takeIf { it > 0 } ?: (56f * d).toInt()
+        setMeasuredDimension(w, w)
     }
-
-    private fun animateTo(target: Float) {
-        anim.cancel()
-        animFrom = pos
-        animTo = target
-        anim.start()
-    }
-
-    private fun padX() = 22f * d
-    private fun stepX() = (width - 2f * padX()) / max(1, count - 1)
-    private fun cx(i: Float) = padX() + i * stepX()
-    private fun trackY() = 18f * d
 
     override fun onDraw(canvas: Canvas) {
-        val y = trackY()
-        paint.style = Paint.Style.STROKE
-        paint.strokeWidth = 4f * d
-        paint.color = trackColor
-        canvas.drawLine(cx(0f), y, cx((count - 1).toFloat()), y, paint)
-        val showThumb = chosen >= 0 || dragging
-        if (showThumb) {
-            paint.color = accent
-            canvas.drawLine(cx(0f), y, cx(pos), y, paint)
-        }
+        val c = colors ?: return
+        val w = width.toFloat()
+        val h = height.toFloat()
+        val r = 12f * d
         paint.style = Paint.Style.FILL
-        for (i in 0 until count) {
-            paint.color = if (dots[i] != 0) dots[i] else trackColor
-            canvas.drawCircle(cx(i.toFloat()), y, 7f * d, paint)
-        }
-        if (showThumb) {
-            paint.color = (accent and 0x00FFFFFF) or 0x40000000
-            canvas.drawCircle(cx(pos), y, 19f * d, paint)
-            paint.color = accent
-            canvas.drawCircle(cx(pos), y, 13f * d, paint)
-            paint.color = onAccent
-            canvas.drawCircle(cx(pos), y, 4f * d, paint)
-        }
+        paint.color = c.background
+        rect.set(d, d, w - d, h - d)
+        canvas.drawRoundRect(rect, r, r, paint)
+        val inset = w * 0.2f
+        paint.color = c.key
+        rect.set(inset, inset, w - inset, h - inset)
+        canvas.drawRoundRect(rect, 6f * d, 6f * d, paint)
+        paint.color = c.text
         paint.textAlign = Paint.Align.CENTER
-        paint.textSize = 12f * d
+        paint.textSize = h * 0.32f
         paint.typeface = Typeface.DEFAULT_BOLD
-        val sel = if (showThumb) Math.round(pos) else -1
-        for (i in 0 until count) {
-            paint.color = if (i == sel) accent else textColor
-            canvas.drawText((i + 1).toString(), cx(i.toFloat()), y + 32f * d, paint)
-        }
+        canvas.drawText(number, w / 2f, h / 2f - (paint.ascent() + paint.descent()) / 2f, paint)
+        paint.style = Paint.Style.STROKE
+        paint.strokeWidth = (if (chosen) 3f else 1f) * d
+        paint.color = if (chosen) ring else 0x33FFFFFF
+        rect.set(1.5f * d, 1.5f * d, w - 1.5f * d, h - 1.5f * d)
+        canvas.drawRoundRect(rect, r, r, paint)
     }
-
-    private fun setPosFromX(x: Float) {
-        pos = ((x - padX()) / stepX()).coerceIn(0f, (count - 1).toFloat())
-        invalidate()
-    }
-
-    override fun onTouchEvent(e: MotionEvent): Boolean {
-        when (e.actionMasked) {
-            MotionEvent.ACTION_DOWN -> {
-                parent?.requestDisallowInterceptTouchEvent(true)
-                dragging = true
-                anim.cancel()
-                setPosFromX(e.x)
-            }
-            MotionEvent.ACTION_MOVE -> setPosFromX(e.x)
-            MotionEvent.ACTION_UP -> {
-                dragging = false
-                val i = Math.round(pos).coerceIn(0, count - 1)
-                animateTo(i.toFloat())
-                onPick(i)
-                // Zustal-li vybrany jiny styl (dotaz na neulozene zmeny), kulicka se vrati.
-                if (chosen != i) animateTo(if (chosen >= 0) chosen.toFloat() else pos)
-            }
-            MotionEvent.ACTION_CANCEL -> {
-                dragging = false
-                animateTo(if (chosen >= 0) chosen.toFloat() else pos)
-            }
-        }
-        return true
-    }
-
-    override fun performClick(): Boolean = super.performClick()
 }

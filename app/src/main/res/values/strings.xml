@@ -348,7 +348,7 @@
     <string name="key_macro_on_hold">Na podržení</string>
     <string name="key_editor_macro_click">Klik: %1$s</string>
     <string name="key_editor_macro_hold">Podržení: %1$s</string>
-    <string name="voice_again">Znovu mluvit</string>
+    <string name="voice_again">Odeslat</string>
     <string name="word_saved_banner">slovo %1$s je uloženo!</string>
     <string name="cat_fast">0. Rychle</string>
     <string name="cat_layout">1. Rozložení a písmo</string>
@@ -362,11 +362,10 @@
     <string name="cat_colors_2_hint">Bublina = písmenko nad klávesou, držení = barva když držíš, číslice = klávesy a znaky čísel.</string>
     <string name="cat_colors_3">III. Druhá barva</string>
     <string name="cat_tap_1">I. Výběr animace</string>
-    <string name="cat_tap_1_hint">Při výběru animace se rovnou ukážou 3 barvy vybarvení.</string>
     <string name="cat_tap_2">II. Obrys a znak</string>
     <string name="cat_tap_3">III. Druhá barva klávesy, znaku, obrysu</string>
     <string name="cat_swipe_1">I. Linka + průchod + úspěšné slovo</string>
-    <string name="cat_swipe_line_hint">Pixelová = čtverečky podél tahu. Průchod začne o 0,25 s později, písmenko se otočí a vrátí.</string>
+    <string name="cat_swipe_line_hint">Pixelová = čtverečky podél tahu. Otočení písmen: žádná stopa, projetá písmena se otočí o 90–180° a vrátí.</string>
     <string name="cat_swipe_pass_hint">Animace průchodu + úspěšné slovo.</string>
     <string name="cat_swipe_2">II. Barva průchodu + druhé barvy</string>
     <string name="cat_keys_hint">Klik na klávesu = úprava písmenka, podržení = makro.</string>
@@ -388,6 +387,7 @@
     <string name="waiting_char_outline_hint">Znak na klávese má tenký obrys v barvě obrysu klávesy.</string>
     <string name="tap_effect_slide">Slide</string>
     <string name="unit_auto">auto</string>
+    <string name="unit_degrees">%1$d °</string>
     <string name="sec_waiting_key">Samostatná klávesa</string>
     <string name="swipe_glow">Animace průchodu</string>
     <string name="hint_font_label">Písmo nápovědy</string>
@@ -423,7 +423,7 @@
     <string name="tip_tap_text">Barva znaku po klepnutí. Po chvíli vybledne.</string>
     <string name="tip_outline_tap">Barva obrysu klávesy po klepnutí.</string>
     <string name="tip_swipe_trail">Stopa za prstem při psaní tahem.</string>
-    <string name="tip_trail_style">Vzhled stopy: čára, čárkovaná, oheň nebo pixely.</string>
+    <string name="tip_trail_style">Vzhled stopy: čára, čárkovaná, oheň, pixely, nebo otočení projetých písmen.</string>
     <string name="tip_trail_color">Barva stopy za prstem.</string>
     <string name="tip_trail_width">Tloušťka stopy.</string>
     <string name="tip_swipe_glow">Po tahu se písmena napsaného slova rozsvítí.</string>
@@ -432,4 +432,15 @@
     <string name="tip_passed">Barvy klávesy, přes kterou už prst při tahu přejel.</string>
     <string name="tip_hover">Barvy klávesy přímo pod prstem při tahu.</string>
     <string name="tip_preset">Hotové motivy. Klepnutím použiješ jeho barvy.</string>
+    <string name="color_hex">Hex kód barvy</string>
+    <string name="slide_dir">Směr efektu Slide</string>
+    <string name="digit_key_color2">Druhá barva kláves čísel</string>
+    <string name="digit_text_color2">Druhá barva znaků čísel</string>
+    <string name="digit_outline_color2">Druhá barva obrysu čísel</string>
+    <string name="glow_style_paint">Výplň</string>
+    <string name="glow_style_ghost">Text</string>
+    <string name="trail_style_flip">Otočení písmen</string>
+    <string name="sec_waiting_second">Druhé barvy (zleva doprava)</string>
+    <string name="tip_slide_dir">Směr, kterým znak po klepnutí odjede a vrátí se (po 30 stupních).</string>
+    <string name="tip_digit_colors2">Druhá barva čísel: první barva plynule přechází zleva doprava do této.</string>
 </resources>

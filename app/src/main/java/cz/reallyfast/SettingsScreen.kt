@@ -541,6 +541,29 @@ abstract class SettingsScreen : BaseScreen() {
         }
         showSample(initial)
         bottom.addView(sample, LinearLayout.LayoutParams(dp(36f), dp(36f)))
+
+        // Hex kod barvy: jde z nej kopirovat i do nej vlozit (bez #).
+        val hex = android.widget.EditText(this)
+        var hexBusy = false
+        fun showHex(c: Int) {
+            hexBusy = true
+            hex.setText(String.format("%06x", c and 0xFFFFFF))
+            hexBusy = false
+        }
+        hex.setTextColor(text)
+        hex.setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, 15f)
+        hex.typeface = Typeface.MONOSPACE
+        hex.isSingleLine = true
+        hex.inputType = android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS
+        hex.filters = arrayOf(android.text.InputFilter.LengthFilter(7))
+        hex.contentDescription = getString(R.string.color_hex)
+        hex.background = rounded(0xFF2A2A30.toInt(), dp(10f).toFloat())
+        hex.setPadding(dp(10f), dp(6f), dp(10f), dp(6f))
+        hex.setSelectAllOnFocus(true)
+        showHex(initial)
+        val hlp = LinearLayout.LayoutParams(dp(104f), ViewGroup.LayoutParams.WRAP_CONTENT)
+        hlp.leftMargin = dp(10f)
+        bottom.addView(hex, hlp)
         bottom.addView(View(this), LinearLayout.LayoutParams(0, 1, 1f))
         fun dialogButton(t: CharSequence, color: Int, outlined: Boolean, action: () -> Unit) {
             val b = label(t, 15f, color)
@@ -572,9 +595,28 @@ abstract class SettingsScreen : BaseScreen() {
         blp.topMargin = dp(8f)
         root.addView(bottom, blp)
 
-        wheel.onPicking = { c -> showSample(c) }
+        hex.addTextChangedListener(object : android.text.TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, st: Int, c: Int, a: Int) {}
+            override fun onTextChanged(s: CharSequence?, st: Int, b: Int, c: Int) {}
+            override fun afterTextChanged(e: android.text.Editable?) {
+                if (hexBusy) return
+                val t = e.toString().trim().removePrefix("#")
+                if (t.length != 6) return
+                val v = t.toIntOrNull(16) ?: return
+                val c = 0xFF000000.toInt() or v
+                wheel.setColor(c)
+                seek.progress = (wheel.value * 100f).roundToInt()
+                showSample(c)
+                onCommit(c)
+            }
+        })
+        wheel.onPicking = { c ->
+            showSample(c)
+            showHex(c)
+        }
         wheel.onCommit = { c ->
             showSample(c)
+            showHex(c)
             onCommit(c)
         }
         seek.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
@@ -582,6 +624,7 @@ abstract class SettingsScreen : BaseScreen() {
                 if (!fromUser) return
                 wheel.value = progress / 100f
                 showSample(wheel.currentColor())
+                showHex(wheel.currentColor())
             }
 
             override fun onStartTrackingTouch(sb: SeekBar) {}
