@@ -1427,19 +1427,6 @@ class KeyboardView(context: Context) : View(context) {
                         ghostPaint.color = (nc and 0x00FFFFFF) or (a shl 24)
                         rect.set(cx - hw - grow, cy - hh - grow, cx + hw + grow, cy + hh + grow)
                         canvas.drawRoundRect(rect, radius + grow, radius + grow, ghostPaint)
-                        ghostPaint.color = (nc and 0x00FFFFFF) or ((a * 0.6f).toInt().coerceIn(0, 255) shl 24)
-                        for (nk in keys) {
-                            if (nk === k) continue
-                            val sameRow = kotlin.math.abs(nk.y - k.y) < k.h * 0.5f
-                            val nearRow = kotlin.math.abs(nk.y - k.y - rowH) < k.h * 0.5f || kotlin.math.abs(nk.y - k.y + rowH) < k.h * 0.5f
-                            val nearCol = kotlin.math.abs((nk.vx + nk.vw / 2f) - cx) < k.vw * 1.8f
-                            if ((sameRow || nearRow) && nearCol) {
-                                val ncx = nk.vx + nk.vw / 2f; val ncy = nk.y + nk.h / 2f
-                                val nhw = (nk.vw / 2f - padX) * (1f - 0.04f * p); val nhh = (nk.h / 2f - padY) * (1f - 0.04f * p)
-                                rect.set(ncx - nhw - grow, ncy - nhh - grow, ncx + nhw + grow, ncy + nhh + grow)
-                                canvas.drawRoundRect(rect, radius + grow, radius + grow, ghostPaint)
-                            }
-                        }
                     }
                 }
             }

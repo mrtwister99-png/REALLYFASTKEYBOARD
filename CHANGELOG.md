@@ -3,7 +3,7 @@
 Jedna věta za verzi, nejnovější nahoře. Čísla verzí odpovídají commitům (`vX.Y: …`).
 
 ## 1.30 – 2026-11-25
-Styly 1–5 zpět jako čtverečky; náhled je v kategoriích 0–4 trvale zkušební (jde psát, ukázka se po 3 s znovu rozběhne), Test zůstal jen v kategorii 5; v Animacích a Swipe běží dokola ukázka slov FAZT/ahoj (2 % NEČUM) místo blikání; Slide má směr po 30°; Řez rozpůlí celou klávesu, půlky odletí a nová se zrodí; úspěšný tah má jen Neon / Výplň / Text; nový vzhled stopy „otočení písmen“ (90–180°); stopa a animace tahu se vybírají rozbalovacím seznamem; druhé barvy čísel (klávesy, znak, obrys); všechny druhé barvy jdou zleva doprava a v Waiting je mají všechny.
+Styly 1–5 zpět jako čtverečky; náhled je v kategoriích 0–4 trvale zkušební (jde psát, ukázka se po 3 s znovu rozběhne), Test zůstal jen v kategorii 5; v Animacích a Swipe běží dokola ukázka slov FAZT/ahoj (2 % NEČUM) místo blikání; Slide má směr po 30°; Řez rozpůlí celou klávesu, půlky odletí a nová se zrodí; úspěšný tah má jen Neon / Výplň / Text; nový vzhled stopy „otočení písmen“ (90–180°); stopa a animace tahu se vybírají rozbalovacím seznamem; druhé barvy čísel (klávesy, znak, obrys); všechny druhé barvy jdou zleva doprava a v Waiting je mají všechny; Duch se kreslí jen na klepnuté klávese (žádné okolní).
 
 ## 1.29.2 – 2026-11-24
 Výběr barvy má hex pole (jde z něj kopírovat i do něj vložit kód); při diktování je místo „Znovu mluvit“ tlačítko Odeslat (dokončí přepis a stiskne Enter); šířka samostatné klávesy je omezena na 24–48 dp a nikdy nepřesáhne šířku svého místa; posuvníky rozměrů (výška klávesnice a kláves, šířka, velikost písma) v náhledu neblikají; výběr písma ukáže bublinu, lištu variant i nápovědu v novém písmu.
