@@ -1276,6 +1276,7 @@ class AppearanceActivity : SettingsScreen() {
         val kv = preview
         when (key) {
             "number_divider" -> kv.spotDivider()
+            "outline_width_dp", "outline_color" -> kv.spotKeys(mode = KeyboardView.SPOT_OUTLINE) { true }
             "key_shadow" -> kv.spotShadow()
             "custom_background", "background_color2" -> kv.spotBackground()
             "show_number_row", "digit_text_color", "digit_key_color", "digit_weight" -> kv.spotKeys { it.isDigit }

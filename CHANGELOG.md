@@ -2,6 +2,9 @@
 
 Jedna věta za verzi, nejnovější nahoře. Čísla verzí odpovídají commitům (`vX.Y: …`).
 
+## 1.34.1 – 2026-11-25
+Tloušťka a barva obrysu v ukázce blikají jen obrysem; při probíhajícím textu v mezerníku (uložené slovo) je základní popisek mezerníku schovaný a po skončení se krátce objeví.
+
 ## 1.34 – 2026-11-25
 Tloušťka písma kláves a číslic skutečně funguje (rodiny thin–black + dokreslení pro tlustší, číslice mají vlastní tloušťku); Řez rozřízne i nápovědu; nové nastavení `passed_key_color` (barva kláves průchodu); Enter se při klepnutí protočí o 360°; Shift se plynule zvětší a zabarví do akcentu a zmenší zpět, klon znaku je pryč; smazané popisky u stopy, průchodu a bubliny; výběr barvy je čtverec s pruhem odstínu, hex kódem a tlačítkem OK a otevírá se jen klepnutím na kolečko barvy.
 

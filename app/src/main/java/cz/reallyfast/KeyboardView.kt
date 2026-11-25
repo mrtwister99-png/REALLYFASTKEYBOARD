@@ -448,6 +448,7 @@ class KeyboardView(context: Context) : View(context) {
     private val pulses = ArrayList<FloatArray>()
     private var savedBannerText = ""
     private var savedBannerStart = 0L
+    private var savedBannerEndedAt = 0L
     private var voiceAgainTouch = false
     private var drawShadow = true
     private var drawHints = true
@@ -1876,7 +1877,20 @@ class KeyboardView(context: Context) : View(context) {
                         canvas.scale(popS, popS, cx, cy)
                         textPaint.alpha = (textPaint.alpha * popA).toInt().coerceIn(0, 255)
                     }
-                    canvas.drawText(k.label, cx, cy - (textPaint.ascent() + textPaint.descent()) / 2f, textPaint)
+                    // Behem probihajiciho textu (ulozene slovo) je zakladni popisek mezerniku schovany, potom se kratce objevi.
+                    val bannerOn = savedBannerStart != 0L
+                    var reveal = 1f
+                    if (savedBannerEndedAt != 0L) {
+                        reveal = ((now - savedBannerEndedAt) / 350f).coerceIn(0f, 1f)
+                        if (reveal >= 1f) savedBannerEndedAt = 0L else animating = true
+                    }
+                    if (!bannerOn) {
+                        canvas.save()
+                        canvas.scale(0.8f + 0.2f * reveal, 0.8f + 0.2f * reveal, cx, cy)
+                        textPaint.alpha = (textPaint.alpha * reveal).toInt().coerceIn(0, 255)
+                        canvas.drawText(k.label, cx, cy - (textPaint.ascent() + textPaint.descent()) / 2f, textPaint)
+                        canvas.restore()
+                    }
                     if (popTime >= 0L) canvas.restore()
                 }
                 KIND_MODE -> {
@@ -2558,7 +2572,7 @@ class KeyboardView(context: Context) : View(context) {
     private fun drawSavedBanner(canvas: Canvas, now: Long): Boolean {
         if (savedBannerStart == 0L || savedBannerText.isEmpty()) return false
         val dur = 2200L; val dt = now - savedBannerStart
-        if (dt >= dur) { savedBannerStart = 0L; savedBannerText = ""; return false }
+        if (dt >= dur) { savedBannerStart = 0L; savedBannerText = ""; savedBannerEndedAt = now; return true }
         val space = keys.firstOrNull { it.kind == KIND_SPACE } ?: return false
         val left = space.vx; val right = space.vx + space.vw; val cy = space.y + space.h / 2f
         textPaint.color = (0xFFFFFF - (theme.key and 0xFFFFFF)) or 0xFF000000.toInt(); textPaint.textSize = min(rowH * 0.32f, 15f * density * fontScale); textPaint.typeface = labelFace
