@@ -392,9 +392,9 @@
     <string name="tip_key_width">Width of a single key. Auto stretches it to fill the row.</string>
     <string name="tip_key_radius">Corner roundness of the keys.</string>
     <string name="tip_key_gap">Gap between keys in a row.</string>
-    <string name="tip_row_gap">Gap between key rows.</string>
-    <string name="tip_key_text">Size of the characters on the keys.</string>
-    <string name="tip_hint_size">Size of the small hint in the key corner.</string>
+    <string name="tip_row_gap">Gap between key rows; a smaller gap also makes the whole keyboard shorter.</string>
+    <string name="tip_key_text">Size of the characters on the keys. Independent of key dimensions, changed only here.</string>
+    <string name="tip_hint_size">Size of the small hint in the key corner. Independent of key dimensions, changed only here.</string>
     <string name="tip_key_font">Font of the characters on the keys. Each font is shown right in the list.</string>
     <string name="tip_label_weight">Weight of the letters on the keys.</string>
     <string name="tip_digit_weight">Weight of the digits.</string>

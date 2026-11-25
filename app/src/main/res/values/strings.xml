@@ -392,9 +392,9 @@
     <string name="tip_key_width">Šířka samostatné klávesy. Auto ji roztáhne podle řady.</string>
     <string name="tip_key_radius">Zaoblení rohů kláves.</string>
     <string name="tip_key_gap">Mezera mezi klávesami v řadě.</string>
-    <string name="tip_row_gap">Mezera mezi řadami kláves.</string>
-    <string name="tip_key_text">Velikost znaků na klávesách.</string>
-    <string name="tip_hint_size">Velikost malé nápovědy v rohu klávesy.</string>
+    <string name="tip_row_gap">Mezera mezi řadami kláves; menší mezera zmenší i celou klávesnici.</string>
+    <string name="tip_key_text">Velikost znaků na klávesách. Nezávisí na rozměrech kláves, mění se jen tady.</string>
+    <string name="tip_hint_size">Velikost malé nápovědy v rohu klávesy. Nezávisí na rozměrech kláves, mění se jen tady.</string>
     <string name="tip_key_font">Písmo znaků na klávesách. Každé písmo je vidět přímo v seznamu.</string>
     <string name="tip_label_weight">Tloušťka písmen na klávesách.</string>
     <string name="tip_digit_weight">Tloušťka číslic.</string>

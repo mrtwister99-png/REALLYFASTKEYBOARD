@@ -161,7 +161,8 @@ fun keyboardKeysHeight(res: android.content.res.Resources, s: Settings, barHeigh
     val rows = if (s.showNumberRow) 5 else 4
     val landscape = res.configuration.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
     val percent = if (landscape) 58 else 50
-    val byKeys = rows * s.keyHeightDp * dm.density
+    // Radek = vyska klavesy + mezera mezi radami (vztazena k vychozim 8 dp): mensi mezera zmensi celou klavesnici.
+    val byKeys = rows * (s.keyHeightDp + s.rowGapDp - 8) * dm.density
     val cap = dm.heightPixels * percent / 100f - barHeightPx
     val minimum = rows * (if (landscape) 32f else 40f) * dm.density
     return maxOf(minOf(byKeys, cap), minimum).toInt()

@@ -304,6 +304,8 @@ class KeyboardView(context: Context) : View(context) {
         const val SPOT_SHADOW = 3
         const val SPOT_BG = 4
         private const val BURST_MS = 450L
+        private const val LABEL_BASE_DP = 19f
+        private const val HINT_BASE_DP = 8.7f
         private const val ENTER_SPIN_MS = 520L
         private const val WHITE = 0xFFFFFFFF.toInt()
     }
@@ -869,17 +871,14 @@ class KeyboardView(context: Context) : View(context) {
 
     /**
      * Mezery mezi klavesami a velikost znaku. Vodorovna mezera = key_gap_dp, svisla = row_gap_dp.
-     * Znak se zvetsuje o key_text_percent, ale vzdy zustane uvnitr klavesy.
+     * Velikost znaku (key_text_percent) a napovedy (hint_percent) nezavisi na rozmerech klaves: meni se jen tim jednim nastavenim.
      */
     private fun updateMetrics() {
         padX = gapDp * 0.5f * density
         padY = rowGapDp * 0.5f * density
         if (rowH > 1f) padY = min(padY, rowH * 0.3f)
         val effUnitW = if (keyWidthDp > 0) min(keyWidthDp * density, unitW) else unitW
-        val base = min(rowH * 0.40f, effUnitW * 0.52f) * textPercent / 100f
-        val innerH = max(1f, rowH - 2f * padY)
-        val innerW = max(1f, effUnitW - 2f * padX)
-        labelSize = min(base, min(innerH * 0.70f, innerW * 0.85f))
+        labelSize = LABEL_BASE_DP * density * textPercent / 100f
         // Prechod klavesy je vystredeny na stred klavesy (onDraw posune platno), pozadi pokryva cely pohled.
         // Prechody jsou vystredene na nulu; kresleni posune platno na stred klavesy (zadna matice, zadny novy shader pri kresleni).
         val kw = max(1f, effUnitW - 2f * padX) / 2f
@@ -2026,7 +2025,7 @@ class KeyboardView(context: Context) : View(context) {
         val hw = (k.vw / 2f - padX) * scale
         val hh = (k.h / 2f - padY) * scale
         textPaint.color = hintColor
-        textPaint.textSize = labelSize * 0.46f * hintScale
+        textPaint.textSize = HINT_BASE_DP * density * hintScale
         // Zaobleny roh ukroji d = r * (1 - 1/sqrt2); posun dovnitr jen blizko rohu.
         val fx = min(1f, abs(2f * hintX - 1f))
         val fy = min(1f, abs(2f * hintY - 1f))
@@ -2039,7 +2038,7 @@ class KeyboardView(context: Context) : View(context) {
         val y = (yT + (yB - yT) * hintY).coerceIn(k.y - padY, k.y + k.h + padY)
         if (text.isEmpty() && bitmap != null) {
             // Makro na podrzeni: maly obrazek makra na miste napovedy (hybe se spolu s ni).
-            val bh = labelSize * 0.5f * hintScale // stejne velke jako znak napovedy
+            val bh = HINT_BASE_DP * 1.09f * density * hintScale // stejne velke jako znak napovedy
             val bw = bh * bitmap.width / bitmap.height
             val by = y - bh * 0.35f
             rect.set(x - bw / 2f, by - bh / 2f, x + bw / 2f, by + bh / 2f)

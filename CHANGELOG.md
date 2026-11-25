@@ -2,6 +2,9 @@
 
 Jedna věta za verzi, nejnovější nahoře. Čísla verzí odpovídají commitům (`vX.Y: …`).
 
+## 1.35 – 2026-11-25
+Mezera mezi řadami (až 0) zmenšuje i celkovou výšku klávesnice; velikost znaků a napovědy se mění jen svým nastavením (`key_text_percent`, `hint_percent`) a nezávisí na výšce a šířce kláves.
+
 ## 1.34.1 – 2026-11-25
 Tloušťka a barva obrysu v ukázce blikají jen obrysem; při probíhajícím textu v mezerníku (uložené slovo) je základní popisek mezerníku schovaný a po skončení se krátce objeví.
 
