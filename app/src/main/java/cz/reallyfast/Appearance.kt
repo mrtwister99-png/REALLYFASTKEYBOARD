@@ -768,6 +768,7 @@ class AppearanceActivity : SettingsScreen() {
         catDefs.add(CatDef(R.string.cat_keys, listOf<(LinearLayout) -> Unit>({ buildCatKeys(it) }), roman, showBar = false))
         catDefs.add(CatDef(R.string.cat_waiting, listOf<(LinearLayout) -> Unit>({ buildCatWaiting(it) }), listOf("IV"), showBar = true, locked = !extraOpen))
         for ((i, d) in catDefs.withIndex()) buildCategory(container, i, d)
+        for (i in catDefs.indices) paintCatCard(i)
         updateActions()
         applyPickMode()
         if (extraOpen && intent?.getBooleanExtra(Lantern.MOTH, false) == true) {
@@ -826,6 +827,7 @@ class AppearanceActivity : SettingsScreen() {
         }
         card.addView(body, rowParams())
         catCards.add(card)
+        card.background = null
         catBodies.add(body)
         catArrows.add(arrow)
         catLevelBoxes.add(boxes)
@@ -843,20 +845,34 @@ class AppearanceActivity : SettingsScreen() {
             b.visibility = if (j == lv) View.VISIBLE else View.GONE
             if (j == lv && b.childCount == 0) catDefs[index].levels[j](b)
         }
-        // Rozlozeni: karta se podle urovne zespodu nahoru vybarvi (I zelenosedou, II oranzovosedou, III cervenosedou).
-        if (index == CAT_LAYOUT) {
-            val tone = when (lv) { 0 -> 0xFF3A5A45.toInt(); 1 -> 0xFF66503A.toInt(); else -> 0xFF633B3B.toInt() }
-            catCards[index].background = GradientDrawable(GradientDrawable.Orientation.BOTTOM_TOP, intArrayOf(tone, card)).apply {
-                cornerRadius = dp(16f).toFloat()
-            }
-        }
+        paintCatCard(index)
         paintPills()
+    }
+
+    /**
+     * Pozadi karty kategorie: zavrena = prechod zleva doprava mezi sedou a modrou (sude karty ze tmave sede do svetle modre,
+     * liche z tmave modre do svetle sede); otevrena kategorie s urovnemi (1.-4.) = prechod shora dolu podle urovne
+     * (I zlutosedou, II oranzovosedou, III cervenosedou) do barvy karty.
+     */
+    private fun paintCatCard(index: Int) {
+        val open = expandedCat == index
+        val def = catDefs[index]
+        val g = if (open && def.showBar && def.titleRes != R.string.cat_waiting) {
+            val tone = when (catLevel[index]) { 0 -> 0xFF5A5A38.toInt(); 1 -> 0xFF66503A.toInt(); else -> 0xFF633B3B.toInt() }
+            GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM, intArrayOf(tone, card))
+        } else {
+            val cols = if (index % 2 == 0) intArrayOf(0xFF26262C.toInt(), 0xFF2E4A68.toInt()) else intArrayOf(0xFF1F3552.toInt(), 0xFF38383F.toInt())
+            GradientDrawable(GradientDrawable.Orientation.LEFT_RIGHT, cols)
+        }
+        g.cornerRadius = dp(16f).toFloat()
+        catCards[index].background = g
     }
 
     private fun expandCat(index: Int) {
         for (i in catBodies.indices) { if (i != index) collapseCat(i) }
         expandedCat = index
         animateArrow(index, true)
+        paintCatCard(index)
         catBodies[index].visibility = View.VISIBLE
         // Vzdy se zacina prvni urovni.
         showLevel(index, 0)
@@ -877,8 +893,13 @@ class AppearanceActivity : SettingsScreen() {
                 }
             }.start()
         } else {
-            a.setTextColor(dim)
-            a.animate().rotation(0f).scaleX(1f).scaleY(1f).setDuration(250L).start()
+            // Nejdriv se otoci zpet o 45 stupnu, teprve potom se zmensi a zabarvi.
+            a.animate().rotation(0f).setDuration(450L).setInterpolator(DecelerateInterpolator()).withEndAction {
+                if (expandedCat != index) {
+                    a.setTextColor(dim)
+                    a.animate().scaleX(1f).scaleY(1f).setDuration(220L).start()
+                }
+            }.start()
         }
     }
 
@@ -890,6 +911,7 @@ class AppearanceActivity : SettingsScreen() {
             expandedCat = -1
             autoTestIfNeeded()
         }
+        paintCatCard(index)
         applyImeLayout()
     }
 
@@ -950,27 +972,27 @@ class AppearanceActivity : SettingsScreen() {
         colorRow(s, R.string.outline_color, "outline_color", allowAuto = true)
         sliderRow(s, R.string.outline_width, "outline_width_dp", 1, 6, 1) { getString(R.string.unit_dp, it) }
         colorRow(s, R.string.accent_color, "accent_color")
-    }
-
-    /** 2. II. Bublina / drzeni / cislice. */
-    private fun buildColors2(box: LinearLayout) {
-        val s = section(box, getString(R.string.cat_colors_2))
         colorRow(s, R.string.popup_color, "popup_color", allowAuto = true)
         colorRow(s, R.string.alts_color, "alts_color", allowAuto = true)
+    }
+
+    /** 2. II. Vsechny druhe barvy. */
+    private fun buildColors2(box: LinearLayout) {
+        val s = section(box, getString(R.string.cat_colors_2))
+        colorRow(s, R.string.background_color2, "background_color2", allowAuto = true, allowRainbow = true)
+        colorRow(s, R.string.key_color2, "key_color2", allowAuto = true, allowRainbow = true)
+        colorRow(s, R.string.text_color2, "text_color2", allowAuto = true, allowRainbow = true)
+        colorRow(s, R.string.outline_color2, "outline_color2", allowAuto = true, allowRainbow = true)
+    }
+
+    /** 2. III. Barvy cislic (a jejich druhe barvy). */
+    private fun buildColors3(box: LinearLayout) {
+        val s = section(box, getString(R.string.cat_colors_3))
         colorRow(s, R.string.digit_key_color, "digit_key_color", allowAuto = true)
         colorRow(s, R.string.digit_text_color, "digit_text_color", allowAuto = true)
         colorRow(s, R.string.digit_key_color2, "digit_key_color2", allowAuto = true, allowRainbow = true)
         colorRow(s, R.string.digit_text_color2, "digit_text_color2", allowAuto = true, allowRainbow = true)
         colorRow(s, R.string.digit_outline_color2, "digit_outline_color2", allowAuto = true, allowRainbow = true)
-    }
-
-    /** 2. III. Druhe barvy. */
-    private fun buildColors3(box: LinearLayout) {
-        val s = section(box, getString(R.string.cat_colors_3))
-        colorRow(s, R.string.background_color2, "background_color2", allowAuto = true, allowRainbow = true)
-        colorRow(s, R.string.key_color2, "key_color2", allowAuto = true, allowRainbow = true)
-        colorRow(s, R.string.text_color2, "text_color2", allowAuto = true, allowRainbow = true)
-        colorRow(s, R.string.outline_color2, "outline_color2", allowAuto = true, allowRainbow = true)
     }
 
     private fun tapEffects(): Pair<List<String>, List<String>> = Pair(

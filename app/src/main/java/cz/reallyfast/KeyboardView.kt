@@ -609,15 +609,16 @@ class KeyboardView(context: Context) : View(context) {
         val k = hintSample ?: keys.firstOrNull { it.kind == KIND_CHAR } ?: return false
         val hw = max(1f, k.vw / 2f - padX)
         val hh = max(1f, k.h / 2f - padY)
-        val mx = labelSize * 0.34f
+        val pb = LABEL_BASE_DP * density // poloha napovedy nezavisi na velikosti znaku
+        val mx = pb * 0.34f
         val spanX = max(1f, 2f * (hw - mx))
-        val yT = -hh + labelSize * 0.52f
-        val yB = hh - labelSize * 0.22f
+        val yT = -hh + pb * 0.52f
+        val yB = hh - pb * 0.22f
         val spanY = max(1f, yB - yT)
         out[0] = (-(2f * padX + mx) / spanX).coerceIn(HINT_MIN, 0f)
         out[1] = (1f + (2f * padX + mx) / spanX).coerceIn(1f, HINT_MAX)
-        out[2] = (-(2f * padY + labelSize * 0.52f) / spanY).coerceIn(HINT_MIN, 0f)
-        out[3] = (1f + (2f * padY + labelSize * 0.22f) / spanY).coerceIn(1f, HINT_MAX)
+        out[2] = (-(2f * padY + pb * 0.52f) / spanY).coerceIn(HINT_MIN, 0f)
+        out[3] = (1f + (2f * padY + pb * 0.22f) / spanY).coerceIn(1f, HINT_MAX)
         return true
     }
 
@@ -1791,7 +1792,6 @@ class KeyboardView(context: Context) : View(context) {
                 KIND_CHAR -> if (face != null && (drawHints || hintFocus)) {
                     drawMacroImage(canvas, face, cx, cy, hw, hh, dimKey, 0.85f)
                 } else {
-                    val hinted = (drawHints || hintFocus) && hintText.isNotEmpty()
                     textPaint.color = fg
                     textPaint.typeface = if (k.isDigit) digitFace else labelFace
                     val wExtra = (if (k.isDigit) digitExtra else labelExtra) * labelSize
@@ -1809,7 +1809,7 @@ class KeyboardView(context: Context) : View(context) {
                     val grad = gShader != null && fg == baseFg && !accentKey && (dts || !(k.isDigit && digitTextCol != 0)) &&
                         !(flyCount > 0 && flyLabel < 1f && isFlying(ki))
                     val n = labelChars(k.label, upper)
-                    val shift = if (!hinted) 0f else labelSize * 0.06f * (1f - 2f * hintY.coerceIn(0f, 1f))
+                    val shift = 0f
                     // Poloha znaku: 0,5 / 0,5 = uprostred; jinak se stred pohybuje tam, kde se znak jeste vejde do klavesy.
                     val offX = if (labelX == 0.5f) 0f else (labelX - 0.5f) * 2f * max(0f, hw - labelSize * 0.3f - 2f * density)
                     val offY = if (labelY == 0.5f) 0f else (labelY - 0.5f) * 2f * max(0f, hh - labelSize * 0.36f - 2f * density)
@@ -2030,10 +2030,12 @@ class KeyboardView(context: Context) : View(context) {
         val fx = min(1f, abs(2f * hintX - 1f))
         val fy = min(1f, abs(2f * hintY - 1f))
         val d = min(radius, min(hw, hh)) * 0.2929f * fx * fy
-        val xL = cx - (hw - labelSize * 0.34f - d)
-        val xR = cx + (hw - labelSize * 0.34f - d)
-        val yT = cy - hh + labelSize * 0.52f + d
-        val yB = cy + hh - labelSize * 0.22f - d
+        // Poloha napovedy se nemeni s velikosti znaku (pevny zaklad), znak se zase nehybe podle napovedy.
+        val pb = LABEL_BASE_DP * density
+        val xL = cx - (hw - pb * 0.34f - d)
+        val xR = cx + (hw - pb * 0.34f - d)
+        val yT = cy - hh + pb * 0.52f + d
+        val yB = cy + hh - pb * 0.22f - d
         val x = (xL + (xR - xL) * hintX).coerceIn(k.vx - padX, k.vx + k.vw + padX)
         val y = (yT + (yB - yT) * hintY).coerceIn(k.y - padY, k.y + k.h + padY)
         if (text.isEmpty() && bitmap != null) {

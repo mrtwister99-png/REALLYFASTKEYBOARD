@@ -356,9 +356,9 @@
     <string name="cat_swipe">4. Swipe</string>
     <string name="cat_keys">5. Key setup</string>
     <string name="cat_waiting">Waiting</string>
-    <string name="cat_colors_1">I. Basic</string>
-    <string name="cat_colors_2">II. Bubble / hold / digits</string>
-    <string name="cat_colors_3">III. Second color</string>
+    <string name="cat_colors_1">I. First colors</string>
+    <string name="cat_colors_2">II. Second colors</string>
+    <string name="cat_colors_3">III. Digit colors</string>
     <string name="cat_tap_1">I. Pick animation</string>
     <string name="cat_tap_2">II. Outline &amp; char</string>
     <string name="cat_tap_3">III. Second key, char, outline color</string>

@@ -1606,6 +1606,7 @@ class KeyboardService : InputMethodService(), KeyboardView.Listener,
     }
 
     private fun showAddWordResult(ok: Boolean, word: String) {
+        bar?.spinPlus()
         if (ok) { vibrateSaved(); keyboard?.showSavedWord(word); keyboard?.glowWord(word) }
         showVoiceStatus(if (ok) getString(R.string.word_added, word) else getString(R.string.dictionary_add_failed), 1800)
     }
@@ -1660,6 +1661,7 @@ class KeyboardService : InputMethodService(), KeyboardView.Listener,
     /** Tlacitko "+" v liste: prida slovo u kurzoru (nebo rozepsane) do osobniho slovniku, jinak necha slovo napsat. */
     override fun onAddWordClicked() {
         onPressFeedback(keyboardSpaceKey)
+        bar?.spinPlus()
         val word = if (composing.isNotEmpty()) composing.toString()
         else RustBridge.lastWord(currentInputConnection?.getTextBeforeCursor(48, 0)?.toString() ?: "")
         if (word.isNotBlank()) {

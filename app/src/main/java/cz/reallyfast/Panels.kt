@@ -175,6 +175,18 @@ class SuggestionBar(context: Context, private var theme: Theme, private val call
     /** Zobrazeny stavovy text (null = normalni navrhy); pri zmene motivu se vykresli znovu. */
     private var status: String? = null
 
+    private var plusSpin: android.animation.ObjectAnimator? = null
+
+    /** Plus se protoci o 180 stupnu na jednu stranu a zpet, pak na druhou stranu a zpet (bezi-li uz, nezacina znovu). */
+    fun spinPlus() {
+        if (plusSpin?.isRunning == true) return
+        plusSpin = android.animation.ObjectAnimator.ofFloat(addButton, View.ROTATION, 0f, 180f, 0f, -180f, 0f).apply {
+            duration = 1100L
+            interpolator = android.view.animation.AccelerateDecelerateInterpolator()
+            start()
+        }
+    }
+
     init {
         normalRow.orientation = LinearLayout.HORIZONTAL
         normalRow.gravity = Gravity.CENTER_VERTICAL

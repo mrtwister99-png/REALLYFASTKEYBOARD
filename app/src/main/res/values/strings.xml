@@ -356,9 +356,9 @@
     <string name="cat_swipe">4. Swipe</string>
     <string name="cat_keys">5. Konfigurace klávesnice</string>
     <string name="cat_waiting">Waiting</string>
-    <string name="cat_colors_1">I. Základní</string>
-    <string name="cat_colors_2">II. Bublina / držení / číslice</string>
-    <string name="cat_colors_3">III. Druhá barva</string>
+    <string name="cat_colors_1">I. První barvy</string>
+    <string name="cat_colors_2">II. Druhé barvy</string>
+    <string name="cat_colors_3">III. Barvy číslic</string>
     <string name="cat_tap_1">I. Výběr animace</string>
     <string name="cat_tap_2">II. Obrys a znak</string>
     <string name="cat_tap_3">III. Druhá barva klávesy, znaku, obrysu</string>
