@@ -502,6 +502,40 @@ abstract class SettingsScreen : BaseScreen() {
         }
     }
 
+    /** Rada kulatych vzorku barev (klepnutim se otevre vyber barvy); zobrazuje se jen, kdyz `visible` vraci true. */
+    protected fun colorDotsRow(box: LinearLayout, items: List<Pair<Int, String>>, visible: () -> Boolean) {
+        val row = LinearLayout(this)
+        row.gravity = Gravity.CENTER_VERTICAL
+        row.setPadding(0, dp(4f), 0, dp(12f))
+        val dots = ArrayList<View>()
+        for ((labelRes, key) in items) {
+            val dot = View(this)
+            val lp = LinearLayout.LayoutParams(dp(40f), dp(40f))
+            lp.rightMargin = dp(14f)
+            row.addView(dot, lp)
+            dots.add(dot)
+            dot.setOnClickListener {
+                onSettingTouched(key, row)
+                showColorPicker(getString(labelRes), Theme.parse(shownColor(key), 0xFFFFFFFF.toInt()), false,
+                    onCommit = { c -> if (!hex(c).equals(shownColor(key), ignoreCase = true)) writeColor(key, hex(c)) },
+                    onAuto = {})
+            }
+        }
+        fun paint() {
+            row.visibility = if (visible()) View.VISIBLE else View.GONE
+            for ((i, d) in dots.withIndex()) {
+                d.background = GradientDrawable().apply {
+                    shape = GradientDrawable.OVAL
+                    setColor(Theme.parse(shownColor(items[i].second), 0xFF000000.toInt()))
+                    setStroke(dp(1.5f), 0x66FFFFFF)
+                }
+            }
+        }
+        box.addView(row, rowParams())
+        paint()
+        refreshers.add { paint() }
+    }
+
     /**
      * Vyber barvy: dialog nahore na obrazovce bez ztmaveni (nahled klavesnice dole zustava videt),
      * barevne kolo, posuvnik jasu, vzorek a tlacitka. Hodnota se zapisuje (`onCommit`) po zvednuti

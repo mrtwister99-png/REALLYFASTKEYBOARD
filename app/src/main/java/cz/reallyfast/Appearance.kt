@@ -829,7 +829,7 @@ class AppearanceActivity : SettingsScreen() {
     private fun expandCat(index: Int) {
         for (i in catBodies.indices) { if (i != index) collapseCat(i) }
         expandedCat = index
-        catArrows[index].text = "⌄"
+        animateArrow(index, true)
         catBodies[index].visibility = View.VISIBLE
         // Vzdy se zacina prvni urovni.
         showLevel(index, 0)
@@ -838,10 +838,27 @@ class AppearanceActivity : SettingsScreen() {
         tabScroll.post { tabScroll.smoothScrollTo(0, max(0, catCards[index].top - dp(8f))) }
     }
 
+    /** Sipka otevrene kategorie: pomalu se otoci o 45 stupnu, pak se zvetsi na 150 % a zabarvi do akcentu. */
+    private fun animateArrow(index: Int, open: Boolean) {
+        val a = catArrows[index]
+        a.animate().cancel()
+        if (open) {
+            a.animate().rotation(45f).setDuration(700L).setInterpolator(DecelerateInterpolator()).withEndAction {
+                if (expandedCat == index) {
+                    a.setTextColor(accent)
+                    a.animate().scaleX(1.5f).scaleY(1.5f).setDuration(220L).start()
+                }
+            }.start()
+        } else {
+            a.setTextColor(dim)
+            a.animate().rotation(0f).scaleX(1f).scaleY(1f).setDuration(250L).start()
+        }
+    }
+
     private fun collapseCat(index: Int) {
         if (index !in catBodies.indices) return
         catBodies[index].visibility = View.GONE
-        catArrows[index].text = "›"
+        animateArrow(index, false)
         if (expandedCat == index) {
             expandedCat = -1
             autoTestIfNeeded()
@@ -860,18 +877,16 @@ class AppearanceActivity : SettingsScreen() {
         switchRow(s, R.string.key_shadow, "key_shadow", hintRes = R.string.key_shadow_hint)
         switchRow(s, R.string.special_outline, "special_outline", hintRes = R.string.special_outline_hint)
         fontRow(s, R.string.key_font_label, "key_font")
-        fontRow(s, R.string.hint_font_label, "hint_font")
     }
 
     /** 1. I. Rozmery. */
     private fun buildLayoutDims(box: LinearLayout) {
         val s = section(box, getString(R.string.sec_layout_dims))
-        sliderRow(s, R.string.keyboard_height, "keyboard_height_percent", 30, 55, 1) { getString(R.string.unit_percent, it) }
         sliderRow(s, R.string.key_height, "key_height_dp", 48, 72, 1) { getString(R.string.unit_dp, it) }
         sliderRow(s, R.string.waiting_key_width, "key_width_dp", 0, 48, 1) { if (it == 0) getString(R.string.unit_auto) else getString(R.string.unit_dp, it) }
         sliderRow(s, R.string.key_radius, "key_radius_dp", 2, 22, 1) { getString(R.string.unit_dp, it) }
         sliderRow(s, R.string.key_gap, "key_gap_dp", 0, 10, 1) { getString(R.string.unit_dp, it) }
-        sliderRow(s, R.string.row_gap, "row_gap_dp", 2, 16, 1) { getString(R.string.unit_dp, it) }
+        sliderRow(s, R.string.row_gap, "row_gap_dp", 0, 16, 1) { getString(R.string.unit_dp, it) }
         sliderRow(s, R.string.key_text_size, "key_text_percent", 70, 200, 1) { getString(R.string.unit_percent, it) }
         sliderRow(s, R.string.hint_size, "hint_percent", 60, 180, 1) { getString(R.string.unit_percent, it) }
     }
@@ -942,7 +957,10 @@ class AppearanceActivity : SettingsScreen() {
         dropdownRow(s, R.string.tap_effect_label, values, labels,
             { val j = RustBridge.settings.json; if (j.optBoolean("key_glow")) j.optString("tap_effect") else "none" },
             { v -> if (v == "none") update("key_glow", false) else updateAll("key_glow" to true, "tap_effect" to v) }, "tap_effect")
-        sliderRow(s, R.string.slide_dir, "slide_dir", 0, 330, 1, 30) { getString(R.string.unit_degrees, it) }
+        colorDotsRow(s, listOf(R.string.paint_color1 to "paint_color1", R.string.paint_color2 to "paint_color2", R.string.paint_color3 to "paint_color3")) {
+            val j = RustBridge.settings.json
+            j.optBoolean("key_glow") && j.optString("tap_effect") == "paint"
+        }
         colorRow(s, R.string.neon_color, "neon_color")
         colorRow(s, R.string.tap_text_color, "tap_text_color", allowAuto = true)
         colorRow(s, R.string.outline_tap_color, "outline_tap_color", allowAuto = true)
@@ -970,8 +988,8 @@ class AppearanceActivity : SettingsScreen() {
     private fun buildSwipe1(box: LinearLayout) {
         val s = section(box, getString(R.string.cat_swipe_1))
         switchRow(s, R.string.swipe_trail, "swipe_trail")
-        val trailValues = listOf("line", "dashed", "fire", "pixel", "flip")
-        val trailLabels = listOf(getString(R.string.trail_style_line), getString(R.string.trail_style_dashed), getString(R.string.trail_style_fire), getString(R.string.trail_style_pixel), getString(R.string.trail_style_flip))
+        val trailValues = listOf("line", "dashed", "fire", "pixel")
+        val trailLabels = listOf(getString(R.string.trail_style_line), getString(R.string.trail_style_dashed), getString(R.string.trail_style_fire), getString(R.string.trail_style_pixel))
         dropdownRow(s, R.string.trail_style_label, trailValues, trailLabels, { RustBridge.settings.json.optString("trail_style") }, { update("trail_style", it) }, "trail_style")
         hintText(s, getString(R.string.cat_swipe_line_hint))
         colorRow(s, R.string.trail_color, "trail_color", allowAuto = true)
@@ -979,8 +997,8 @@ class AppearanceActivity : SettingsScreen() {
         sliderRow(s, R.string.trail_width, "trail_width_dp", 1, 12, 1) { getString(R.string.unit_dp, it) }
         hintText(s, getString(R.string.cat_swipe_pass_hint))
         switchRow(s, R.string.swipe_glow, "swipe_glow")
-        val glowValues = listOf("none", "neon", "paint", "ghost")
-        val glowLabels = listOf(getString(R.string.anim_none), getString(R.string.tap_effect_neon), getString(R.string.glow_style_paint), getString(R.string.glow_style_ghost))
+        val glowValues = listOf("none", "neon", "paint", "ghost", "flip")
+        val glowLabels = listOf(getString(R.string.anim_none), getString(R.string.tap_effect_neon), getString(R.string.glow_style_paint), getString(R.string.glow_style_ghost), getString(R.string.glow_style_flip))
         dropdownRow(s, R.string.glow_style_label, glowValues, glowLabels,
             { val j = RustBridge.settings.json; if (j.optBoolean("swipe_glow")) j.optString("glow_style") else "none" },
             { v -> if (v == "none") update("swipe_glow", false) else updateAll("swipe_glow" to true, "glow_style" to v) }, "glow_style")
@@ -1040,13 +1058,22 @@ class AppearanceActivity : SettingsScreen() {
         colorRow(s, R.string.paint_color3, "paint_color3")
         hintText(s, getString(R.string.paint_hint))
         s = section(box, getString(R.string.sec_waiting_second))
-        colorRow(s, R.string.key_color2, "key_color2", allowAuto = true, allowRainbow = true)
-        colorRow(s, R.string.digit_key_color2, "digit_key_color2", allowAuto = true, allowRainbow = true)
-        colorRow(s, R.string.text_color2, "text_color2", allowAuto = true, allowRainbow = true)
-        colorRow(s, R.string.digit_text_color2, "digit_text_color2", allowAuto = true, allowRainbow = true)
+        val dirValues = listOf("top", "bottom", "left", "right")
+        val dirLabels = listOf(getString(R.string.grad_top), getString(R.string.grad_bottom), getString(R.string.grad_left), getString(R.string.grad_right))
         colorRow(s, R.string.background_color2, "background_color2", allowAuto = true, allowRainbow = true)
+        choiceRow(s, R.string.grad_dir_bg, "bg_grad_dir", dirValues, dirLabels)
+        colorRow(s, R.string.key_color2, "key_color2", allowAuto = true, allowRainbow = true)
+        choiceRow(s, R.string.grad_dir_key, "key_grad_dir", dirValues, dirLabels)
+        colorRow(s, R.string.digit_key_color2, "digit_key_color2", allowAuto = true, allowRainbow = true)
+        choiceRow(s, R.string.grad_dir_digit_key, "digit_key_grad_dir", dirValues, dirLabels)
+        colorRow(s, R.string.text_color2, "text_color2", allowAuto = true, allowRainbow = true)
+        choiceRow(s, R.string.grad_dir_text, "text_grad_dir", dirValues, dirLabels)
+        colorRow(s, R.string.digit_text_color2, "digit_text_color2", allowAuto = true, allowRainbow = true)
+        choiceRow(s, R.string.grad_dir_digit_text, "digit_text_grad_dir", dirValues, dirLabels)
         colorRow(s, R.string.outline_color2, "outline_color2", allowAuto = true, allowRainbow = true)
+        choiceRow(s, R.string.grad_dir_outline, "outline_grad_dir", dirValues, dirLabels)
         colorRow(s, R.string.digit_outline_color2, "digit_outline_color2", allowAuto = true, allowRainbow = true)
+        choiceRow(s, R.string.grad_dir_digit_outline, "digit_outline_grad_dir", dirValues, dirLabels)
     }
 
     /** Tlacitko s popiskem, ktere zapne nastavovani polohy (znaku nebo napovedy) nad klavesnici. */
@@ -1182,7 +1209,7 @@ class AppearanceActivity : SettingsScreen() {
     private fun demoKind(key: String): Int = when (key) {
         "neon_color", "neon_color2", "tap_effect", "tap_text_color", "tap_text_color2", "outline_tap_color", "outline_tap_color2" -> DEMO_TAP
         "paint_color1", "paint_color2", "paint_color3" -> DEMO_PAINT
-        "key_font", "hint_font" -> DEMO_FONT
+        "key_font" -> DEMO_FONT
         "key_popup", "popup_color" -> DEMO_POPUP
         "alts_color" -> DEMO_ALTS
         "animations", "outline_hover_color" -> DEMO_PRESS
@@ -1221,14 +1248,17 @@ class AppearanceActivity : SettingsScreen() {
         if (explicitTest() || adjusting || !previewOpen || loopWanted()) return
         val kv = preview
         when (key) {
-            "show_number_row", "number_divider", "digit_text_color", "digit_key_color", "digit_weight" -> kv.spotKeys { it.isDigit }
+            "number_divider" -> kv.spotDivider()
+            "key_shadow" -> kv.spotShadow()
+            "custom_background", "background_color2" -> kv.spotBackground()
+            "show_number_row", "digit_text_color", "digit_key_color", "digit_weight" -> kv.spotKeys { it.isDigit }
             "layout" -> kv.spotKeys { it.isLetter && (it.code == 'y'.code || it.code == 'z'.code) }
             "language" -> kv.spotKeys { it.kind == KeyboardView.KIND_SPACE }
             "emoji_key" -> kv.spotKeys { it.kind == KeyboardView.KIND_EMOJI }
             "macro_key" -> kv.spotKeys { it.kind == KeyboardView.KIND_MACRO }
-            "special_outline" -> kv.spotKeys { it.kind != KeyboardView.KIND_CHAR && it.kind != KeyboardView.KIND_SPACE }
+            "special_outline" -> kv.spotKeys(mode = KeyboardView.SPOT_OUTLINE) { it.kind == KeyboardView.KIND_SHIFT || it.kind == KeyboardView.KIND_MODE || it.kind == KeyboardView.KIND_BACKSPACE || it.kind == KeyboardView.KIND_EMOJI || it.kind == KeyboardView.KIND_MACRO }
             "accent_color" -> kv.spotKeys { it.kind == KeyboardView.KIND_ENTER || it.kind == KeyboardView.KIND_SHIFT }
-            "hint_color", "hint_percent", "hint_font", "key_hints" -> kv.spotKeys { it.hint.isNotEmpty() }
+            "hint_color", "hint_percent", "key_hints" -> kv.spotKeys { it.hint.isNotEmpty() }
             "key_font", "key_text_percent", "label_weight" -> kv.spotKeys { it.kind == KeyboardView.KIND_CHAR }
             else -> kv.spotKeys { true }
         }
@@ -1770,7 +1800,7 @@ class AppearanceActivity : SettingsScreen() {
 
         /** Plynule meneny rozmer: pri tazeni posuvniku klavesy neblikaji (zmena je videt sama). */
         val NO_SPOT: Set<String> = setOf(
-            "keyboard_height_percent", "key_height_dp", "key_width_dp", "key_text_percent", "hint_percent",
+            "key_height_dp", "key_width_dp", "key_text_percent", "hint_percent",
             "key_radius_dp", "key_gap_dp", "row_gap_dp",
         )
 
@@ -1782,10 +1812,8 @@ class AppearanceActivity : SettingsScreen() {
             "special_outline" to R.string.special_outline_hint,
             "language" to R.string.tip_language,
             "layout" to R.string.tip_layout,
-            "keyboard_height_percent" to R.string.tip_keyboard_height,
             "key_height_dp" to R.string.tip_key_height,
             "key_width_dp" to R.string.tip_key_width,
-            "slide_dir" to R.string.tip_slide_dir,
             "digit_key_color2" to R.string.tip_digit_colors2,
             "digit_text_color2" to R.string.tip_digit_colors2,
             "digit_outline_color2" to R.string.tip_digit_colors2,
@@ -1795,7 +1823,6 @@ class AppearanceActivity : SettingsScreen() {
             "key_text_percent" to R.string.tip_key_text,
             "hint_percent" to R.string.tip_hint_size,
             "key_font" to R.string.tip_key_font,
-            "hint_font" to R.string.tip_hint_font,
             "label_weight" to R.string.tip_label_weight,
             "digit_weight" to R.string.tip_digit_weight,
             "emoji_key" to R.string.tip_emoji_key,

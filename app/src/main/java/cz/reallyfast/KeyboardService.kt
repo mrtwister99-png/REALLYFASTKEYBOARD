@@ -1606,7 +1606,7 @@ class KeyboardService : InputMethodService(), KeyboardView.Listener,
     }
 
     private fun showAddWordResult(ok: Boolean, word: String) {
-        if (ok) { vibrateSaved(); keyboard?.showSavedWord(word) }
+        if (ok) { vibrateSaved(); keyboard?.showSavedWord(word); keyboard?.glowWord(word) }
         showVoiceStatus(if (ok) getString(R.string.word_added, word) else getString(R.string.dictionary_add_failed), 1800)
     }
 

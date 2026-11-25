@@ -365,7 +365,7 @@
     <string name="cat_tap_2">II. Outline &amp; char</string>
     <string name="cat_tap_3">III. Second key, char, outline color</string>
     <string name="cat_swipe_1">I. Trail + pass + word</string>
-    <string name="cat_swipe_line_hint">Pixel = squares along the swipe. Letter flip: no trail, the letters you pass turn 90-180 degrees and back.</string>
+    <string name="cat_swipe_line_hint">Pixel = squares along the swipe. The pass starts 0.25 s later.</string>
     <string name="cat_swipe_pass_hint">Pass animation + successful word.</string>
     <string name="cat_swipe_2">II. Pass color + second colors</string>
     <string name="cat_keys_hint">Tap a key = edit letter, hold = macro.</string>
@@ -376,7 +376,6 @@
     <string name="trail_style_dashed">Dashed</string>
     <string name="trail_style_pixel">Pixel</string>
     <string name="trail_width">Trail width</string>
-    <string name="keyboard_height">Keyboard height (% of screen)</string>
     <string name="font_system">System</string>
     <string name="key_font_label">Font</string>
     <string name="waiting_key_height">Single key height</string>
@@ -387,15 +386,12 @@
     <string name="waiting_char_outline_hint">Char on key gets a thin outline in key outline color.</string>
     <string name="tap_effect_slide">Slide</string>
     <string name="unit_auto">auto</string>
-    <string name="unit_degrees">%1$d °</string>
     <string name="sec_waiting_key">Single key</string>
     <string name="swipe_glow">Pass animation</string>
-    <string name="hint_font_label">Hint font</string>
     <string name="font_sample">fAZT! Hello 123</string>
     <string name="tip_number_row">Number row above the letters. Turning it off makes the keyboard shorter.</string>
     <string name="tip_language">Dictionary and suggestions language. The space bar shows the chosen one.</string>
     <string name="tip_layout">QWERTZ or QWERTY: swaps the Y and Z keys.</string>
-    <string name="tip_keyboard_height">Keyboard height as a percentage of the screen height.</string>
     <string name="tip_key_height">Height of a single key.</string>
     <string name="tip_key_width">Width of a single key. Auto stretches it to fill the row.</string>
     <string name="tip_key_radius">Corner roundness of the keys.</string>
@@ -404,7 +400,6 @@
     <string name="tip_key_text">Size of the characters on the keys.</string>
     <string name="tip_hint_size">Size of the small hint in the key corner.</string>
     <string name="tip_key_font">Font of the characters on the keys. Each font is shown right in the list.</string>
-    <string name="tip_hint_font">Font of the small hint in the key corner.</string>
     <string name="tip_label_weight">Weight of the letters on the keys.</string>
     <string name="tip_digit_weight">Weight of the digits.</string>
     <string name="tip_emoji_key">Where the emoji key sits: left, right or hidden.</string>
@@ -423,7 +418,7 @@
     <string name="tip_tap_text">Character color after a tap. It fades after a moment.</string>
     <string name="tip_outline_tap">Key outline color after a tap.</string>
     <string name="tip_swipe_trail">Trail behind your finger when swiping.</string>
-    <string name="tip_trail_style">Trail look: line, dashed, fire, pixels, or flipping the letters you pass.</string>
+    <string name="tip_trail_style">Trail look: line, dashed, fire or pixels.</string>
     <string name="tip_trail_color">Color of the trail behind your finger.</string>
     <string name="tip_trail_width">Thickness of the trail.</string>
     <string name="tip_swipe_glow">After a swipe the letters of the word light up.</string>
@@ -433,14 +428,23 @@
     <string name="tip_hover">Colors of the key directly under your finger during a swipe.</string>
     <string name="tip_preset">Ready-made themes. Tap one to use its colors.</string>
     <string name="color_hex">Color hex code</string>
-    <string name="slide_dir">Slide effect direction</string>
     <string name="digit_key_color2">Second color of number keys</string>
     <string name="digit_text_color2">Second color of number characters</string>
     <string name="digit_outline_color2">Second color of number outlines</string>
     <string name="glow_style_paint">Fill</string>
     <string name="glow_style_ghost">Text</string>
-    <string name="trail_style_flip">Letter flip</string>
-    <string name="sec_waiting_second">Second colors (left to right)</string>
-    <string name="tip_slide_dir">Direction the character slides away and back after a tap (in 30 degree steps).</string>
+    <string name="sec_waiting_second">Second colors and gradient start</string>
     <string name="tip_digit_colors2">Second number color: the first color blends left to right into this one.</string>
+    <string name="glow_style_flip">Letter flip</string>
+    <string name="grad_top">Top</string>
+    <string name="grad_bottom">Bottom</string>
+    <string name="grad_left">Left</string>
+    <string name="grad_right">Right</string>
+    <string name="grad_dir_bg">Gradient start: background</string>
+    <string name="grad_dir_key">Gradient start: keys</string>
+    <string name="grad_dir_digit_key">Gradient start: number keys</string>
+    <string name="grad_dir_text">Gradient start: characters</string>
+    <string name="grad_dir_digit_text">Gradient start: number characters</string>
+    <string name="grad_dir_outline">Gradient start: outlines</string>
+    <string name="grad_dir_digit_outline">Gradient start: number outlines</string>
 </resources>

@@ -2,6 +2,12 @@
 
 Jedna věta za verzi, nejnovější nahoře. Čísla verzí odpovídají commitům (`vX.Y: …`).
 
+## 1.32 – 2026-11-25
+Druhé barvy jdou zase shora dolů; ve Waiting se u každé (pozadí, klávesy, klávesy čísel, znaky, znaky čísel, obrysy, obrysy čísel) vybírá začátek přechodu (shora, zdola, zleva, zprava). Slide odjíždí v náhodném směru z 360°. Pod výběrem efektu Barvy jsou tři kolečka barev. Otočení písmen je mezi animacemi po úspěšném tahu (ne mezi stopami). Tlačítko Odeslat při diktování je víc vpravo a jen se zelenou šipkou. Zrušen nefunkční posuvník výšky klávesnice; mezeru mezi řadami jde stáhnout až na 0. Šipka otevřené kategorie se pomalu otočí o 45°, zvětší na 150 % a zabarví. Po přidání slova přes + slovo zabliká a text přes mezerník má barvu opačnou k barvě kláves.
+
+## 1.31 – 2026-11-25
+Ukázky v Nastavení blikají přesně to, čeho se týkají (oddělovač jen jako čára, jemný stín se zvětší na 200 % a zabliká, obrys speciálních kláves jen obrysem, barva pozadí jen pozadím); makro a smajlík mají skutečně speciální obrys. Smazat: znak se rozčtvrtí a čtvrtiny odletí na 2., 5., 8. a 11. hodinu. Enter: zelená výplň zleva doprava a zelený pulz kolem tlačítka. Shift je normálně menší a při velkých písmenech větší. Zrušeno samostatné písmo nápovědy (nápověda má písmo kláves, nastavení `hint_font` zaniklo).
+
 ## 1.30 – 2026-11-25
 Styly 1–5 zpět jako čtverečky; náhled je v kategoriích 0–4 trvale zkušební (jde psát, ukázka se po 3 s znovu rozběhne), Test zůstal jen v kategorii 5; v Animacích a Swipe běží dokola ukázka slov FAZT/ahoj (2 % NEČUM) místo blikání; Slide má směr po 30°; Řez rozpůlí celou klávesu, půlky odletí a nová se zrodí; úspěšný tah má jen Neon / Výplň / Text; nový vzhled stopy „otočení písmen“ (90–180°); stopa a animace tahu se vybírají rozbalovacím seznamem; druhé barvy čísel (klávesy, znak, obrys); všechny druhé barvy jdou zleva doprava a v Waiting je mají všechny; Duch se kreslí jen na klepnuté klávese (žádné okolní).
 

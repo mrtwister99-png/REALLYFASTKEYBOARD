@@ -85,7 +85,7 @@ Diktování používá rozpoznávání řeči v telefonu. Bez staženého offlin
 Nastavení → **Vzhled a rozložení**. Nahoře je **pevná hlavička**, pod ní jezdí seznam kategorií. Po rozbalení kategorie **plynule vyjede dole živý náhled** klávesnice,
 takže každá změna je vidět hned. Možností je hodně, proto má každá kategorie až **tři úrovně** (tlačítka **I**, **II**, **III** nahoře v kategorii; vždy se začíná první):
 
-- **0. Rychle**: hotové styly, jazyk, rozložení, řada čísel, oddělovač, jemný stín, obrys speciálních kláves a **písmo kláves i nápovědy** (každé písmo je v seznamu vykreslené samo sebou).
+- **0. Rychle**: hotové styly, jazyk, rozložení, řada čísel, oddělovač, jemný stín, obrys speciálních kláves a **písmo** (kláves i nápovědy; každé písmo je v seznamu vykreslené samo sebou).
 - **1. Rozložení a písmo**: I rozměry, II poloha a tloušťka písma, III spodní řada (emoji a makra).
 - **2. Barvy**: I základní, II bublina / držení / číslice, III druhé barvy.
 - **3. Animace po kliknutí**: I výběr efektu a barvy, II obrys a znak, III druhé barvy.
