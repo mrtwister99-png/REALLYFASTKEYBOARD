@@ -80,7 +80,6 @@ class DictionaryActivity : SubScreen() {
             val w = word.text.toString().trim()
             if (w.isNotEmpty()) {
                 if (RustBridge.addUserWord(w)) {
-                    Lantern.learned(this, w)
                     word.setText("")
                     refresh()
                 } else {
@@ -330,7 +329,6 @@ class MacrosActivity : SubScreen() {
                     Toast.makeText(this, R.string.macro_save_failed, Toast.LENGTH_LONG).show()
                 } else {
                     RustBridge.setMacroFace(id, face)
-                    Lantern.written(this, name.text.toString(), body.text.toString(), shortcut.text.toString())
                 }
                 refresh()
             }

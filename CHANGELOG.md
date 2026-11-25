@@ -2,6 +2,9 @@
 
 Jedna věta za verzi, nejnovější nahoře. Čísla verzí odpovídají commitům (`vX.Y: …`).
 
+## 1.36.1 – 2026-11-25
+Nový postup odemykání poslední kategorie; po dokončení se dotčená nastavení vrátí do výchozího stavu.
+
 ## 1.36 – 2026-11-25
 Karty kategorií: zavřené mají přechod zleva doprava šedá–modrá (střídavě), otevrené podle úrovně shora dolů (I žlutošedá, II oranžovošedá, III červenošedá); barvy se dělí na první (I), druhé (II) a barvy číslic (III); plus v liště se při každém přidání/úpravě slova protočí o 180° tam a zpět na obě strany; poloha znaku a nápovědy je na sobě i na velikostech nezávislá; šipka kategorie se při zavření nejdřív otočí zpět a pak se zmenší a zabarví.
 

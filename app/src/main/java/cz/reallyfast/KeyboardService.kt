@@ -624,7 +624,6 @@ class KeyboardService : InputMethodService(), KeyboardView.Listener,
         ic.deleteSurroundingText(token.length, 0)
         ic.commitText(fillPlaceholders(text) + " ", 1)
         ic.endBatchEdit()
-        if (Lantern.expanded(this, token, text)) openScreen(AppearanceActivity::class.java, Lantern.MOTH)
         return true
     }
 
@@ -657,7 +656,6 @@ class KeyboardService : InputMethodService(), KeyboardView.Listener,
         commitComposing(ic)
         ic.commitText(fillPlaceholders(m.text), 1)
         ic.endBatchEdit()
-        if (Lantern.macroClicked(this, m.shortcut, m.text)) openScreen(AppearanceActivity::class.java, Lantern.MOTH)
         autoSpace = false
         updateShift()
         scheduleSuggestions()
@@ -1551,7 +1549,6 @@ class KeyboardService : InputMethodService(), KeyboardView.Listener,
         flushSwipeLearning()
         commitComposing(ic)
         ic.commitText(text, 1)
-        Lantern.pasted(this)
         autoSpace = false
         showKeyboard()
         updateShift()

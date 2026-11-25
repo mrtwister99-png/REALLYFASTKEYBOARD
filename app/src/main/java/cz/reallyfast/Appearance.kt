@@ -60,7 +60,7 @@ class AppearanceActivity : SettingsScreen() {
         val levels: List<(LinearLayout) -> Unit>,
         val labels: List<String>,
         val showBar: Boolean,
-        val locked: Boolean = false,
+        var locked: Boolean = false,
     )
 
     private lateinit var preview: KeyboardView
@@ -342,6 +342,11 @@ class AppearanceActivity : SettingsScreen() {
 
     override fun onResume() {
         super.onResume()
+        Lantern.onLit = {
+            extraOpen = true
+            catDefs.lastOrNull()?.locked = false
+            confirmDialog(getString(R.string.downgrade_done), getString(R.string.notice_ok), null, false, 0xFF22C55E.toInt()) { expandCat(6) }
+        }
         ui.removeCallbacks(dotsRun)
         ui.postDelayed(dotsRun, 1000L)
     }
@@ -352,6 +357,7 @@ class AppearanceActivity : SettingsScreen() {
         if (testMode) stopTest()
         ui.removeCallbacks(loopRun)
         ui.removeCallbacks(dotsRun)
+        Lantern.onLit = null
         super.onPause()
     }
 
@@ -771,10 +777,6 @@ class AppearanceActivity : SettingsScreen() {
         for (i in catDefs.indices) paintCatCard(i)
         updateActions()
         applyPickMode()
-        if (extraOpen && intent?.getBooleanExtra(Lantern.MOTH, false) == true) {
-            intent?.removeExtra(Lantern.MOTH)
-            confirmDialog(getString(R.string.downgrade_done), getString(R.string.notice_ok), null, false, 0xFF22C55E.toInt()) { expandCat(6) }
-        }
         paintPills()
         applyTestButton()
         applyImeLayout()
@@ -1416,7 +1418,6 @@ class AppearanceActivity : SettingsScreen() {
             return
         }
         RustBridge.saveStyle(i)
-        Lantern.stored(this, i)
         paintSlots()
         Toast.makeText(this, getString(R.string.style_saved, i + 1), Toast.LENGTH_SHORT).show()
     }

@@ -2,18 +2,16 @@ package cz.reallyfast
 
 import android.content.Context
 import android.os.Build
+import android.os.Handler
+import android.os.Looper
 import android.os.SystemClock
 import android.os.VibrationEffect
 import android.os.Vibrator
 import android.os.VibratorManager
 import org.json.JSONObject
-import kotlin.math.abs
 
 /** Lucerna. */
 object Lantern {
-    /** Motyl. */
-    const val MOTH = "moth"
-
     private const val OIL = "lantern_oil"
     private const val WICK = "w"
     private const val FLAME = "f"
@@ -23,6 +21,9 @@ object Lantern {
     private fun jar(c: Context) = c.applicationContext.getSharedPreferences(OIL, Context.MODE_PRIVATE)
 
     fun lit(c: Context): Boolean = jar(c).getBoolean(FLAME, false)
+
+    /** Posluchac pro otevrenou obrazovku: zavola se (na hlavnim vlakne) po dokonceni postupu. */
+    var onLit: (() -> Unit)? = null
 
     /** Ulozeni stavu knotu v SharedPreferences. */
     private class Jar(private val c: Context) : Store {
@@ -44,26 +45,21 @@ object Lantern {
         val w = wick
         if (w != null) return w
         val app = c.applicationContext
-        val n = Walk(Jar(app), { SystemClock.uptimeMillis() }) { pulse(app) }
+        val n = Walk(Jar(app), { SystemClock.uptimeMillis() }) { finish(app) }
         wick = n
         return n
     }
 
     fun moved(c: Context, prev: JSONObject, now: JSONObject) = walk(c).moved(prev, now)
 
-    fun voiced(c: Context, phrase: String) = walk(c).voiced(phrase)
-
-    fun learned(c: Context, word: String) = walk(c).learned(word)
-
-    fun written(c: Context, name: String, body: String, shortcut: String) = walk(c).written(name, body, shortcut)
-
-    fun stored(c: Context, slot: Int) = walk(c).stored(slot, RustBridge.settings.json)
-
-    fun pasted(c: Context) = walk(c).pasted()
-
-    fun expanded(c: Context, shortcut: String, text: String): Boolean = walk(c).expanded(shortcut, text)
-
-    fun macroClicked(c: Context, shortcut: String, text: String): Boolean = walk(c).macroClicked(shortcut, text)
+    /** Po dokonceni: vsechno, co postup menil, se vrati do puvodniho stavu a otevrena obrazovka dostane zpravu. */
+    private fun finish(c: Context) {
+        pulse(c)
+        val j = RustBridge.settings.edit()
+        Walk.restore(j)
+        RustBridge.setSettings(j)
+        Handler(Looper.getMainLooper()).post { onLit?.invoke() }
+    }
 
     private fun pulse(c: Context) {
         try {
@@ -90,60 +86,74 @@ object Lantern {
     }
 
     /**
-     * Postup krok za krokem; kazda udalost posune knot nejvyse o jeden stupen a jen z predchoziho.
-     * `done` se zavola jednou, kdyz je postup dokoncen.
+     * Postup krok za krokem; kazda zmena nastaveni posune knot nejvyse o jeden stupen a jen z predchoziho.
+     * Zmeni-li se drive splnena hodnota, postup zacina znovu. `done` se zavola jednou, kdyz je postup dokoncen.
      */
     internal class Walk(private val st: Store, private val clock: () -> Long, private val done: () -> Unit) {
         companion object {
-            private const val MASK = 0x2B7
-            const val HOLD = 1018
-            val LEARNED_WORD = intArrayOf(723, 722, 720, 709, 726, 723, 726, 707, 734, 728, 729)
-            val MACRO_NAME = intArrayOf(723, 728, 704, 729, 720, 709, 726, 723, 722)
-            val MACRO_BODY = intArrayOf(711, 728, 732, 706, 708)
-            val MACRO_SHORT = intArrayOf(664, 707, 709, 718)
-            fun num(v: Int) = v xor MASK
-            fun tag(v: IntArray) = String(CharArray(v.size) { (v[it] xor MASK).toChar() })
+            const val STEPS = 10
+            private fun hex(j: JSONObject, k: String) = j.optString(k).trim().removePrefix("#").lowercase()
+            private fun swapped(j: JSONObject): Boolean {
+                val m = j.optJSONObject("key_map") ?: return false
+                return m.optString("<") == ">" && m.optString(">") == "<"
+            }
+
+            private fun swapShift(j: JSONObject) = j.optBoolean("swap_shift_delete", false)
+            private fun fire(j: JSONObject) = j.optString("trail_style") == "fire"
+            private fun glow(j: JSONObject) = j.optBoolean("swipe_glow", true).toString() + j.optString("glow_style")
+            private fun slide(j: JSONObject) = j.optBoolean("key_glow", true) && j.optString("tap_effect") == "slide"
+            private fun black(j: JSONObject) = hex(j, "neon_color") == "000000"
+            private fun outline5(j: JSONObject) = j.optInt("outline_width_dp", -1) == 5
+            private fun white(j: JSONObject) = hex(j, "digit_text_color") == "ffffff"
+            private fun hint60(j: JSONObject) = j.optInt("hint_percent", -1) == 60
+            private fun hidden(j: JSONObject) = j.optString("macro_key") == "hidden"
+
+            /** Vrati do puvodniho stavu vsechno, co postup menil. */
+            fun restore(j: JSONObject) {
+                j.put("swap_shift_delete", false)
+                j.optJSONObject("key_map")?.let { it.remove("<"); it.remove(">") }
+                j.put("trail_style", "line")
+                j.put("swipe_glow", true)
+                j.put("glow_style", "neon")
+                j.put("key_glow", true)
+                j.put("tap_effect", "neon")
+                j.put("neon_color", "#0080FF")
+                j.put("outline_width_dp", 2)
+                j.put("digit_text_color", "")
+                j.put("hint_percent", 100)
+                j.put("macro_key", "left")
+            }
         }
-        private fun hold333(j: JSONObject) = j.optInt("long_press_delay_ms", -1) == num(HOLD)
-        private fun swipeDownOff(j: JSONObject) = !j.optBoolean("gesture_swipe_down_hide", true)
-        private fun swipeUpOff(j: JSONObject) = !j.optBoolean("gesture_swipe_up_caps", true)
-        private fun spaceCursorOff(j: JSONObject) = !j.optBoolean("gesture_space_cursor", true)
-        private fun predictionsOff(j: JSONObject) = !j.optBoolean("predictions", true)
-        private fun trailOff(j: JSONObject) = !j.optBoolean("swipe_trail", true)
-        private fun outline6(j: JSONObject) = j.optInt("outline_width_dp", -1) == 6
+
+        /** Podminky, ktere musi po splneni kroku trvale platit; ctvrty krok je jen udalost. */
         private fun holds(rank: Int, j: JSONObject): Boolean =
-            (rank < 1 || swipeDownOff(j)) && (rank < 2 || swipeUpOff(j)) && (rank < 3 || spaceCursorOff(j)) && (rank < 4 || hold333(j)) && (rank < 5 || predictionsOff(j)) && (rank < 8 || trailOff(j)) && (rank < 9 || outline6(j))
+            (rank < 1 || swapShift(j)) && (rank < 2 || swapped(j)) && (rank < 3 || fire(j)) &&
+                (rank < 5 || slide(j)) && (rank < 6 || black(j)) && (rank < 7 || outline5(j)) &&
+                (rank < 8 || white(j)) && (rank < 9 || hint60(j))
+
         fun moved(prev: JSONObject, now: JSONObject) {
             if (st.lit) return
             if (st.rank > 0 && !holds(st.rank, now)) st.rank = 0
-            when (st.rank) {
-                0 -> if (!swipeDownOff(prev) && swipeDownOff(now)) st.rank = 1
-                1 -> if (!swipeUpOff(prev) && swipeUpOff(now)) st.rank = 2
-                2 -> if (!spaceCursorOff(prev) && spaceCursorOff(now)) st.rank = 3
-                3 -> if (!hold333(prev) && hold333(now)) st.rank = 4
-                4 -> if (!predictionsOff(prev) && predictionsOff(now)) st.rank = 5
-                7 -> if (!trailOff(prev) && trailOff(now)) st.rank = 8
-                8 -> if (!outline6(prev) && outline6(now)) st.rank = 9
+            val next = when (st.rank) {
+                0 -> !swapShift(prev) && swapShift(now)
+                1 -> !swapped(prev) && swapped(now)
+                2 -> !fire(prev) && fire(now)
+                3 -> glow(prev) != glow(now)
+                4 -> !slide(prev) && slide(now)
+                5 -> !black(prev) && black(now)
+                6 -> !outline5(prev) && outline5(now)
+                7 -> !white(prev) && white(now)
+                8 -> !hint60(prev) && hint60(now)
+                9 -> !hidden(prev) && hidden(now)
+                else -> false
+            }
+            if (!next) return
+            st.rank++
+            if (st.rank >= STEPS) {
+                st.lit = true
+                st.rank = 0
+                done()
             }
         }
-        fun voiced(phrase: String) {}
-        fun stored(slot: Int, now: JSONObject) {}
-        fun pasted() {}
-        fun learned(word: String) { if (!st.lit && st.rank == 5 && word.trim() == tag(LEARNED_WORD)) st.rank = 6 }
-        fun written(name: String, body: String, shortcut: String) {
-            if (!st.lit && st.rank == 6 && name.trim() == tag(MACRO_NAME) && body.trim() == tag(MACRO_BODY) && shortcut.trim().equals(tag(MACRO_SHORT), ignoreCase = true)) st.rank = 7
-        }
-        private fun countExpansion(shortcut: String, text: String): Boolean {
-            if (st.lit) return false
-            val ok = shortcut.equals(tag(MACRO_SHORT), ignoreCase = true) && text.trim() == tag(MACRO_BODY)
-            if (!ok) return false
-            when (st.rank) {
-                9 -> st.rank = 10
-                10 -> { st.lit = true; st.rank = 0; done(); return true }
-            }
-            return false
-        }
-        fun expanded(shortcut: String, text: String): Boolean = countExpansion(shortcut, text)
-        fun macroClicked(shortcut: String, text: String): Boolean = countExpansion(shortcut, text)
     }
 }
