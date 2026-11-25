@@ -308,8 +308,7 @@
     <string name="tap_effect_label">Efekt při klepnutí</string>
     <string name="tap_effect_neon">Neon</string>
     <string name="tap_effect_glitch">Glitch</string>
-    <string name="color_done">Hotovo</string>
-    <string name="color_brightness">Jas</string>
+    <string name="color_done">OK</string>
     <string name="sec_extra_digits">Číslice</string>
     <string name="sec_extra_effects">Efekty</string>
     <string name="digit_text_color">Barva číslic – znak</string>
@@ -359,14 +358,11 @@
     <string name="cat_waiting">Waiting</string>
     <string name="cat_colors_1">I. Základní</string>
     <string name="cat_colors_2">II. Bublina / držení / číslice</string>
-    <string name="cat_colors_2_hint">Bublina = písmenko nad klávesou, držení = barva když držíš, číslice = klávesy a znaky čísel.</string>
     <string name="cat_colors_3">III. Druhá barva</string>
     <string name="cat_tap_1">I. Výběr animace</string>
     <string name="cat_tap_2">II. Obrys a znak</string>
     <string name="cat_tap_3">III. Druhá barva klávesy, znaku, obrysu</string>
     <string name="cat_swipe_1">I. Linka + průchod + úspěšné slovo</string>
-    <string name="cat_swipe_line_hint">Pixelová = čtverečky podél tahu. Průchod začne o 0,25 s později.</string>
-    <string name="cat_swipe_pass_hint">Animace průchodu + úspěšné slovo.</string>
     <string name="cat_swipe_2">II. Barva průchodu + druhé barvy</string>
     <string name="cat_keys_hint">Klik na klávesu = úprava písmenka, podržení = makro.</string>
     <string name="sec_fast">Rychle</string>
@@ -447,4 +443,5 @@
     <string name="grad_dir_digit_text">Začátek přechodu: znaky čísel</string>
     <string name="grad_dir_outline">Začátek přechodu: obrysy</string>
     <string name="grad_dir_digit_outline">Začátek přechodu: obrysy čísel</string>
+    <string name="passed_key_color">Barva kláves průchodu</string>
 </resources>

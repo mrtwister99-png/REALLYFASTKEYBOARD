@@ -308,8 +308,7 @@
     <string name="tap_effect_label">Tap effect</string>
     <string name="tap_effect_neon">Neon</string>
     <string name="tap_effect_glitch">Glitch</string>
-    <string name="color_done">Done</string>
-    <string name="color_brightness">Brightness</string>
+    <string name="color_done">OK</string>
     <string name="sec_extra_digits">Digits</string>
     <string name="sec_extra_effects">Effects</string>
     <string name="digit_text_color">Digit color – character</string>
@@ -359,14 +358,11 @@
     <string name="cat_waiting">Waiting</string>
     <string name="cat_colors_1">I. Basic</string>
     <string name="cat_colors_2">II. Bubble / hold / digits</string>
-    <string name="cat_colors_2_hint">Bubble = letter above key, hold = color while holding, digits = number keys and chars.</string>
     <string name="cat_colors_3">III. Second color</string>
     <string name="cat_tap_1">I. Pick animation</string>
     <string name="cat_tap_2">II. Outline &amp; char</string>
     <string name="cat_tap_3">III. Second key, char, outline color</string>
     <string name="cat_swipe_1">I. Trail + pass + word</string>
-    <string name="cat_swipe_line_hint">Pixel = squares along the swipe. The pass starts 0.25 s later.</string>
-    <string name="cat_swipe_pass_hint">Pass animation + successful word.</string>
     <string name="cat_swipe_2">II. Pass color + second colors</string>
     <string name="cat_keys_hint">Tap a key = edit letter, hold = macro.</string>
     <string name="sec_fast">Quick</string>
@@ -447,4 +443,5 @@
     <string name="grad_dir_digit_text">Gradient start: number characters</string>
     <string name="grad_dir_outline">Gradient start: outlines</string>
     <string name="grad_dir_digit_outline">Gradient start: number outlines</string>
+    <string name="passed_key_color">Passed key color</string>
 </resources>

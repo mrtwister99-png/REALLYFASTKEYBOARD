@@ -114,7 +114,7 @@ app/                               Android aplikace (Kotlin, bez AndroidX)
     Typing.kt, Voice.kt, Manage.kt obrazovky Psaní, Hlas, Osobní slovník, Makra
     RustBridge.kt                  JNI wrapper (kódy operací OP_*)
     Settings.kt                    pohled na nastavení + barvy tématu (Theme)
-    Bubble.kt, ColorWheelView.kt, ToggleView.kt   malé vlastní prvky
+    Bubble.kt, ColorPlaneView.kt, ToggleView.kt   malé vlastní prvky
   src/main/res/                    texty (values = česky, values-en = anglicky), ikony, obrázky
   src/main/jniLibs/                přeložené libkeyboard_core.so (arm64-v8a, x86_64)
   src/main/assets/dictionary.bin   slovník (FST)

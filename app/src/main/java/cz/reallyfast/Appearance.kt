@@ -948,7 +948,6 @@ class AppearanceActivity : SettingsScreen() {
     /** 2. II. Bublina / drzeni / cislice. */
     private fun buildColors2(box: LinearLayout) {
         val s = section(box, getString(R.string.cat_colors_2))
-        hintText(s, getString(R.string.cat_colors_2_hint))
         colorRow(s, R.string.popup_color, "popup_color", allowAuto = true)
         colorRow(s, R.string.alts_color, "alts_color", allowAuto = true)
         colorRow(s, R.string.digit_key_color, "digit_key_color", allowAuto = true)
@@ -1013,7 +1012,6 @@ class AppearanceActivity : SettingsScreen() {
         val trailValues = listOf("line", "dashed", "fire", "pixel")
         val trailLabels = listOf(getString(R.string.trail_style_line), getString(R.string.trail_style_dashed), getString(R.string.trail_style_fire), getString(R.string.trail_style_pixel))
         dropdownRow(s, R.string.trail_style_label, trailValues, trailLabels, { RustBridge.settings.json.optString("trail_style") }, { update("trail_style", it) }, "trail_style")
-        hintText(s, getString(R.string.cat_swipe_line_hint))
         // Ohen ma vlastni barvy plamene: barvy stopy se u nej skryji, zustane jen sirka.
         val trailColors = LinearLayout(this)
         trailColors.orientation = LinearLayout.VERTICAL
@@ -1024,8 +1022,8 @@ class AppearanceActivity : SettingsScreen() {
         applyTrailColors()
         fontPainters.add { applyTrailColors() }
         sliderRow(s, R.string.trail_width, "trail_width_dp", 1, 12, 1) { getString(R.string.unit_dp, it) }
-        hintText(s, getString(R.string.cat_swipe_pass_hint))
         switchRow(s, R.string.swipe_glow, "swipe_glow")
+        colorRow(s, R.string.passed_key_color, "passed_key_color", allowAuto = true)
         val glowValues = listOf("none", "neon", "paint", "ghost", "flip")
         val glowLabels = listOf(getString(R.string.anim_none), getString(R.string.tap_effect_neon), getString(R.string.glow_style_paint), getString(R.string.glow_style_ghost), getString(R.string.glow_style_flip))
         dropdownRow(s, R.string.glow_style_label, glowValues, glowLabels,

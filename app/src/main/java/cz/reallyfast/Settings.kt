@@ -97,6 +97,7 @@ class Settings(val json: JSONObject) {
     val keyLabelY: Float get() = json.optDouble("key_label_y", 0.5).toFloat().coerceIn(0f, 1f)
     /** Prazdny retezec = automaticka barva znaku pri prejeti tahem / vypnuta barva znaku po klepnuti. */
     val passedTextColor: String get() = json.optString("passed_text_color", "")
+    val passedKeyColor: String get() = json.optString("passed_key_color", "")
     val tapTextColor: String get() = json.optString("tap_text_color", "")
     val hoverTextColor: String get() = json.optString("hover_text_color", "")
     /** Tloustka pisma znaku a cislic na klavesach: 100..900 po 100 (400 = normalni). */

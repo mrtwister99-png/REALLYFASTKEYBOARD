@@ -2,6 +2,9 @@
 
 Jedna věta za verzi, nejnovější nahoře. Čísla verzí odpovídají commitům (`vX.Y: …`).
 
+## 1.34 – 2026-11-25
+Tloušťka písma kláves a číslic skutečně funguje (rodiny thin–black + dokreslení pro tlustší, číslice mají vlastní tloušťku); Řez rozřízne i nápovědu; nové nastavení `passed_key_color` (barva kláves průchodu); Enter se při klepnutí protočí o 360°; Shift se plynule zvětší a zabarví do akcentu a zmenší zpět, klon znaku je pryč; smazané popisky u stopy, průchodu a bubliny; výběr barvy je čtverec s pruhem odstínu, hex kódem a tlačítkem OK a otevírá se jen klepnutím na kolečko barvy.
+
 ## 1.33 – 2026-11-25
 Blikání v náhledu se přepočítává z aktuálních kláves (sedí i při vyšších klávesách); šířka klávesy 24–48 dp; tloušťka písma se u vlastního písma zatmí; druhá barva znaků a všechny přechody se kreslí bez měnících se shaderů; druhé barvy po klepnutí (znak, obrys) a neonu (Neon, Obvod, Duch) tvoří přechod uvnitř jedné klávesy; Ohnivá stopa má jen šířku, která mění velikost plamene; Otočení písmen mění barvu písmen podle barvy po úspěšném tahu (+ druhá barva); u Waiting naskakují tečky.
 

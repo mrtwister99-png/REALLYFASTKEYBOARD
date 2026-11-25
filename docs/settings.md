@@ -142,6 +142,7 @@ Počet nastavení: **94**.
 | `tap_text_color` | *(prázdné)* | `#RRGGBB` nebo prázdné | Barva znaku po klepnutí (drží asi 2,5 s, pak 0,4 s bledne); prázdná = vypnuto. | Waiting → Barvy podle prstu |
 | `hover_text_color` | *(prázdné)* | `#RRGGBB` nebo prázdné | Barva znaku klávesy pod prstem při tahu; prázdná = automatická. Funguje jen se zapnutým `swipe_glow`. | Waiting → Barvy podle prstu |
 | `passed_text_color` | *(prázdné)* | `#RRGGBB` nebo prázdné | Barva znaku kláves, přes které prst přejel při tahu (po tahu bledne asi 0,5 s). Funguje jen se zapnutým `swipe_glow`. | Waiting → Barvy podle prstu |
+| `passed_key_color` | *(prázdné)* | `#RRGGBB` nebo prázdné | Barva klávesy, přes kterou prst při tahu přejel; prázdná = odvozená z akcentu. | Animace → Swipe I |
 | `outline_tap_color` | *(prázdné)* | `#RRGGBB` nebo prázdné | Barva obrysu po klepnutí (drží asi 2,5 s, pak 0,4 s bledne). | Waiting → Barvy podle prstu |
 | `outline_hover_color` | *(prázdné)* | `#RRGGBB` nebo prázdné | Barva obrysu klávesy pod prstem. Funguje jen se zapnutým `swipe_glow`. | Waiting → Barvy podle prstu |
 | `outline_passed_color` | *(prázdné)* | `#RRGGBB` nebo prázdné | Barva obrysu kláves, přes které prst přejel při tahu. Funguje jen se zapnutým `swipe_glow`. | Waiting → Barvy podle prstu |

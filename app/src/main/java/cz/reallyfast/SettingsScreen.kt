@@ -468,7 +468,7 @@ abstract class SettingsScreen : BaseScreen() {
         row.minimumHeight = dp(52f)
         row.addView(label(getString(labelRes)), LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
         val swatch = View(this)
-        row.addView(swatch, LinearLayout.LayoutParams(dp(30f), dp(30f)))
+        row.addView(swatch, LinearLayout.LayoutParams(dp(36f), dp(36f)))
         fun paint() {
             val cur = shownColor(key)
             val d = GradientDrawable()
@@ -488,7 +488,9 @@ abstract class SettingsScreen : BaseScreen() {
             }
             swatch.background = d
         }
-        row.setOnClickListener {
+        // Jen kolecko s barvou otevre vyber barvy; klepnuti na popisek ukaze jen napovedu.
+        row.setOnClickListener { onSettingTouched(key, row) }
+        swatch.setOnClickListener {
             onSettingTouched(key, row)
             val cur = shownColor(key)
             val initial = if (cur.isEmpty() || cur == Theme.RAINBOW) autoColor(key) else Theme.parse(cur, 0xFFFFFFFF.toInt())
@@ -502,6 +504,7 @@ abstract class SettingsScreen : BaseScreen() {
         fun applyEnabled() {
             val on = dependsOn.isEmpty() || RustBridge.settings.json.optBoolean(dependsOn)
             row.isEnabled = on
+            swatch.isEnabled = on
             row.alpha = if (on) 1f else 0.4f
         }
         applyEnabled()
@@ -547,9 +550,9 @@ abstract class SettingsScreen : BaseScreen() {
     }
 
     /**
-     * Vyber barvy: dialog nahore na obrazovce bez ztmaveni (nahled klavesnice dole zustava videt),
-     * barevne kolo, posuvnik jasu, vzorek a tlacitka. Hodnota se zapisuje (`onCommit`) po zvednuti
-     * prstu z kola nebo posuvniku; "Vychozi" (jen s `allowAuto`) zavola `onAuto` a dialog zavre.
+     * Vyber barvy: dialog nahore na obrazovce bez ztmaveni (nahled klavesnice dole zustava videt): ctverec
+     * (sytost a jas) s pruhem odstinu, hex kod a tlacitko OK. Hodnota se zapisuje (`onCommit`) po zvednuti
+     * prstu nebo po zadani platneho hex kodu; "Vychozi" (jen s `allowAuto`) zavola `onAuto` a dialog zavre.
      */
     private fun showColorPicker(titleText: String, initial: Int, allowAuto: Boolean, onCommit: (Int) -> Unit, onAuto: () -> Unit, onRainbow: (() -> Unit)? = null) {
         colorDialog?.dismiss()
@@ -561,30 +564,12 @@ abstract class SettingsScreen : BaseScreen() {
         root.background = rounded(card, dp(16f).toFloat())
         root.addView(label(titleText, 15f, dim), rowParams())
 
-        val wheel = ColorWheelView(this)
-        wheel.setColor(initial)
-        root.addView(wheel, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(210f)))
-
-        val seek = SeekBar(this)
-        seek.max = 100
-        seek.contentDescription = getString(R.string.color_brightness)
-        seek.progress = (wheel.value * 100f).roundToInt()
-        val slp = rowParams()
-        slp.topMargin = dp(4f)
-        root.addView(seek, slp)
-
-        val bottom = LinearLayout(this)
-        bottom.gravity = Gravity.CENTER_VERTICAL
-        val sample = View(this)
-        fun showSample(c: Int) {
-            sample.background = GradientDrawable().apply {
-                shape = GradientDrawable.OVAL
-                setColor(c)
-                setStroke(dp(1.5f), 0x66FFFFFF)
-            }
-        }
-        showSample(initial)
-        bottom.addView(sample, LinearLayout.LayoutParams(dp(36f), dp(36f)))
+        val plane = ColorPlaneView(this)
+        plane.setColor(initial)
+        val plp = rowParams()
+        plp.topMargin = dp(6f)
+        plp.height = dp(220f)
+        root.addView(plane, plp)
 
         // Hex kod barvy: jde z nej kopirovat i do nej vlozit (bez #).
         val hex = android.widget.EditText(this)
@@ -605,17 +590,14 @@ abstract class SettingsScreen : BaseScreen() {
         hex.setPadding(dp(10f), dp(6f), dp(10f), dp(6f))
         hex.setSelectAllOnFocus(true)
         showHex(initial)
-        val hlp = LinearLayout.LayoutParams(dp(104f), ViewGroup.LayoutParams.WRAP_CONTENT)
-        hlp.leftMargin = dp(10f)
-        bottom.addView(hex, hlp)
-        bottom.addView(View(this), LinearLayout.LayoutParams(0, 1, 1f))
-        fun dialogButton(t: CharSequence, color: Int, outlined: Boolean, action: () -> Unit) {
+
+        fun dialogButton(target: LinearLayout, t: CharSequence, color: Int, outlined: Boolean, action: () -> Unit) {
             val b = label(t, 15f, color)
             b.gravity = Gravity.CENTER
             b.typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
             b.minHeight = dp(44f)
-            b.minWidth = dp(88f)
-            b.setPadding(dp(16f), 0, dp(16f), 0)
+            b.minWidth = dp(72f)
+            b.setPadding(dp(14f), 0, dp(14f), 0)
             b.background = GradientDrawable().apply {
                 cornerRadius = dp(12f).toFloat()
                 setColor(0)
@@ -624,20 +606,33 @@ abstract class SettingsScreen : BaseScreen() {
             b.setOnClickListener { action() }
             val lp = LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT)
             lp.leftMargin = dp(8f)
-            bottom.addView(b, lp)
+            target.addView(b, lp)
         }
-        if (onRainbow != null) dialogButton(getString(R.string.color_rainbow), Theme.RAINBOW_COLORS[1], false) {
-            dialog.dismiss()
-            onRainbow()
-        }
-        if (allowAuto) dialogButton(getString(R.string.color_default), dim, false) {
-            dialog.dismiss()
-            onAuto()
-        }
-        dialogButton(getString(R.string.color_done), accent, true) { dialog.dismiss() }
+
+        val bottom = LinearLayout(this)
+        bottom.gravity = Gravity.CENTER_VERTICAL
+        bottom.addView(hex, LinearLayout.LayoutParams(dp(130f), ViewGroup.LayoutParams.WRAP_CONTENT))
+        bottom.addView(View(this), LinearLayout.LayoutParams(0, 1, 1f))
+        dialogButton(bottom, getString(R.string.color_done), accent, true) { dialog.dismiss() }
         val blp = rowParams()
-        blp.topMargin = dp(8f)
+        blp.topMargin = dp(10f)
         root.addView(bottom, blp)
+
+        if (allowAuto || onRainbow != null) {
+            val extra = LinearLayout(this)
+            extra.gravity = Gravity.CENTER_VERTICAL or Gravity.END
+            if (onRainbow != null) dialogButton(extra, getString(R.string.color_rainbow), Theme.RAINBOW_COLORS[1], false) {
+                dialog.dismiss()
+                onRainbow()
+            }
+            if (allowAuto) dialogButton(extra, getString(R.string.color_default), dim, false) {
+                dialog.dismiss()
+                onAuto()
+            }
+            val elp = rowParams()
+            elp.topMargin = dp(4f)
+            root.addView(extra, elp)
+        }
 
         hex.addTextChangedListener(object : android.text.TextWatcher {
             override fun beforeTextChanged(s: CharSequence?, st: Int, c: Int, a: Int) {}
@@ -648,32 +643,15 @@ abstract class SettingsScreen : BaseScreen() {
                 if (t.length != 6) return
                 val v = t.toIntOrNull(16) ?: return
                 val c = 0xFF000000.toInt() or v
-                wheel.setColor(c)
-                seek.progress = (wheel.value * 100f).roundToInt()
-                showSample(c)
+                plane.setColor(c)
                 onCommit(c)
             }
         })
-        wheel.onPicking = { c ->
-            showSample(c)
-            showHex(c)
-        }
-        wheel.onCommit = { c ->
-            showSample(c)
+        plane.onPicking = { c -> showHex(c) }
+        plane.onCommit = { c ->
             showHex(c)
             onCommit(c)
         }
-        seek.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
-            override fun onProgressChanged(sb: SeekBar, progress: Int, fromUser: Boolean) {
-                if (!fromUser) return
-                wheel.value = progress / 100f
-                showSample(wheel.currentColor())
-                showHex(wheel.currentColor())
-            }
-
-            override fun onStartTrackingTouch(sb: SeekBar) {}
-            override fun onStopTrackingTouch(sb: SeekBar) = onCommit(wheel.currentColor())
-        })
 
         dialog.setContentView(root)
         dialog.setOnDismissListener { if (colorDialog === dialog) colorDialog = null }

@@ -33,7 +33,7 @@ pub const STYLE_KEYS: &[&str] = &[
     "digit_key_color2", "digit_text_color2", "digit_outline_color2",
     "bg_grad_dir", "key_grad_dir", "digit_key_grad_dir", "text_grad_dir", "digit_text_grad_dir", "outline_grad_dir", "digit_outline_grad_dir",
     "paint_color1", "paint_color2", "paint_color3",
-    "passed_text_color", "tap_text_color", "hover_text_color", "label_weight", "digit_weight",
+    "passed_text_color", "passed_key_color", "tap_text_color", "hover_text_color", "label_weight", "digit_weight",
     "neon_color2", "outline_color", "outline_color2", "outline_tap_color", "outline_hover_color",
     "outline_passed_color", "outline_width_dp", "char_outline",
     "special_outline", "trail_color2", "glow_color2", "tap_text_color2", "outline_tap_color2",
@@ -196,6 +196,8 @@ pub struct Settings {
     pub key_label_y: f32,
     /// Barva znaku klavesy, kterou prochazi prst pri tahu ("" = automaticka).
     pub passed_text_color: String,
+    /// Barva klavesy, pres kterou prst pri tahu prejel ("" = automaticka, odvozena z akcentu).
+    pub passed_key_color: String,
     /// Barva znaku po klepnuti ("" = vypnuto).
     pub tap_text_color: String,
     /// Barva znaku klavesy primo pod prstem pri tahu ("" = automaticka).
@@ -330,6 +332,7 @@ impl Settings {
             key_label_x: 0.5,
             key_label_y: 0.5,
             passed_text_color: String::new(),
+            passed_key_color: String::new(),
             tap_text_color: String::new(),
             hover_text_color: String::new(),
             label_weight: 400,
@@ -679,6 +682,7 @@ impl Settings {
         fix_optional_color(&mut self.alts_color);
         fix_optional_color(&mut self.hint_color);
         fix_optional_color(&mut self.passed_text_color);
+        fix_optional_color(&mut self.passed_key_color);
         fix_optional_color(&mut self.tap_text_color);
         fix_optional_color(&mut self.hover_text_color);
         self.label_weight = round_weight(self.label_weight);
@@ -1168,6 +1172,12 @@ mod tests {
         let s = Settings::from_json(r##"{"key_label_x":0.2,"key_label_y":1.7,"passed_text_color":"#ff0000","tap_text_color":"bad"}"##).unwrap();
         assert_eq!((s.key_label_x, s.key_label_y), (0.2, 1.0));
         assert_eq!((s.passed_text_color.as_str(), s.tap_text_color.as_str()), ("#FF0000", ""));
+        assert_eq!(Settings::default().passed_key_color, "");
+        let s = Settings::from_json(r##"{"passed_key_color":"#00ff00"}"##).unwrap();
+        assert_eq!(s.passed_key_color, "#00FF00");
+        assert!(STYLE_KEYS.contains(&"passed_key_color"));
+        let s = Settings::from_json(r##"{"passed_key_color":"zle"}"##).unwrap();
+        assert_eq!(s.passed_key_color, "");
         let s = Settings::from_json(r#"{"key_label_x":-3.0}"#).unwrap();
         assert_eq!((s.key_label_x, s.key_label_y), (0.0, 0.5));
         let s = Settings::from_json(r#"{"key_macros":{"a":3,"bb":4,"c":0," ":5,"d":7}}"#).unwrap();

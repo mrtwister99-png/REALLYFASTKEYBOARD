@@ -12,7 +12,7 @@ Uživatel píše česky a neformálně; odpovídej **česky**, stručně a věcn
   `values-en/strings.xml` (anglicky). Nový řetězec bez obou verzí je chyba. V angličtině se apostrofy escapují (`isn\'t`) a `?` na začátku
   jako `\?123`.
 - **Žádný AndroidX**, žádné XML layouty ani XML animace: obrazovky se skládají z obyčejných `View` v Kotlinu (viz `Ui.kt`, `SettingsScreen.kt`).
-- **Žádné alokace v `onDraw`** (`KeyboardView`, `ToggleView`, `ColorWheelView`, `Shoal` …): žádné `new`/lambdy/`Paint`/`Path`/`RectF`/`IntArray`
+- **Žádné alokace v `onDraw`** (`KeyboardView`, `ToggleView`, `ColorPlaneView`, `Shoal` …): žádné `new`/lambdy/`Paint`/`Path`/`RectF`/`IntArray`
   při kreslení. Barvy a shadery se připravují při změně nastavení (`applyAppearance`, `updateMetrics`), ne při kreslení; pomocné objekty jsou členy třídy.
 - **Žádný internet**: oprávnění `INTERNET` se nepřidává, žádná síťová knihovna. Nová oprávnění jen po dohodě.
 - **Rust**: `unsafe` je jen v `src/jni.rs`; nové závislosti se nepřidávají bez dohody (`serde`, `serde_json`, `rusqlite`, `fst`).
