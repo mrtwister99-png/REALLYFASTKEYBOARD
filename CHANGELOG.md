@@ -2,6 +2,9 @@
 
 Jedna věta za verzi, nejnovější nahoře. Čísla verzí odpovídají commitům (`vX.Y: …`).
 
+## 1.33 – 2026-11-25
+Blikání v náhledu se přepočítává z aktuálních kláves (sedí i při vyšších klávesách); šířka klávesy 24–48 dp; tloušťka písma se u vlastního písma zatmí; druhá barva znaků a všechny přechody se kreslí bez měnících se shaderů; druhé barvy po klepnutí (znak, obrys) a neonu (Neon, Obvod, Duch) tvoří přechod uvnitř jedné klávesy; Ohnivá stopa má jen šířku, která mění velikost plamene; Otočení písmen mění barvu písmen podle barvy po úspěšném tahu (+ druhá barva); u Waiting naskakují tečky.
+
 ## 1.32 – 2026-11-25
 Druhé barvy jdou zase shora dolů; ve Waiting se u každé (pozadí, klávesy, klávesy čísel, znaky, znaky čísel, obrysy, obrysy čísel) vybírá začátek přechodu (shora, zdola, zleva, zprava). Slide odjíždí v náhodném směru z 360°. Pod výběrem efektu Barvy jsou tři kolečka barev. Otočení písmen je mezi animacemi po úspěšném tahu (ne mezi stopami). Tlačítko Odeslat při diktování je víc vpravo a jen se zelenou šipkou. Zrušen nefunkční posuvník výšky klávesnice; mezeru mezi řadami jde stáhnout až na 0. Šipka otevřené kategorie se pomalu otočí o 45°, zvětší na 150 % a zabarví. Po přidání slova přes + slovo zabliká a text přes mezerník má barvu opačnou k barvě kláves.
 

@@ -85,6 +85,7 @@ class KeyboardView(context: Context) : View(context) {
         var slideS = 0f
         var flipAt = 0L
         var flipTarget = 0f
+        var flipMix = 0f
         var slideAt = 0L
         var passAt = 0L
         var passTarget = 0f
@@ -534,7 +535,9 @@ class KeyboardView(context: Context) : View(context) {
     private var digitKeyShader: LinearGradient? = null
     private var digitTextShader: LinearGradient? = null
     private var digitOutlineShader: LinearGradient? = null
-    private val gradMatrix = android.graphics.Matrix()
+    private var tapTextShader: LinearGradient? = null
+    private var tapOutShader: LinearGradient? = null
+    private var neonShader: LinearGradient? = null
     // Smer efektu Slide (kosinus a sinus uhlu) a styl stopy "otoceni pismen".
     private var glowFlipStyle = false
     // Zacatek prechodu druhe barvy: 0 shora, 1 zdola, 2 zleva, 3 zprava (pozadi, klavesy, cisla, znaky, obrysy).
@@ -545,7 +548,6 @@ class KeyboardView(context: Context) : View(context) {
     private var digitTextDir = 0
     private var outlineDir = 0
     private var digitOutlineDir = 0
-    private val gradValues = FloatArray(9)
     private var bgShader: LinearGradient? = null
     // Prekryti stisku / neonu / zare pres prechod klavesy: barva a pruhlednost slozena z kroku `tint`.
     private var gradKey = false
@@ -684,27 +686,25 @@ class KeyboardView(context: Context) : View(context) {
     }
 
     /**
-     * Natahne jednotkovy shader (-1..1 po ose x, prvni barva vlevo) na klavesu podle smeru: prvni barva je tam, odkud
-     * prechod zacina (`dir`), `extW` / `extH` jsou pulrozmery; `cx` je stred v souradnicich platna.
+     * Prechod vystredeny na nulu (platno se pri kresleni posune na stred klavesy / znaku): prvni barva je tam, odkud
+     * prechod zacina (`dir`: 0 shora, 1 zdola, 2 zleva, 3 zprava), `hw` / `hh` jsou pulrozmery.
      */
-    private fun setGrad(shader: Shader, dir: Int, cx: Float, extW: Float, extH: Float) {
-        val ext = if (dir <= 1) extH else extW
-        val ux = when (dir) { 2 -> 1f; 3 -> -1f; else -> 0f }
-        val uy = when (dir) { 0 -> 1f; 1 -> -1f; else -> 0f }
-        val a = ext * ux
-        val c = ext * uy
-        gradValues[0] = a
-        gradValues[1] = -c
-        gradValues[2] = cx
-        gradValues[3] = c
-        gradValues[4] = a
-        gradValues[5] = 0f
-        gradValues[6] = 0f
-        gradValues[7] = 0f
-        gradValues[8] = 1f
-        gradMatrix.setValues(gradValues)
-        shader.setLocalMatrix(gradMatrix)
+    private fun gradShader(c1: Int, c2: Int, rainbow: Boolean, dir: Int, hw: Float, hh: Float): LinearGradient {
+        val x0 = when (dir) { 2 -> -hw; 3 -> hw; else -> 0f }
+        val x1 = when (dir) { 2 -> hw; 3 -> -hw; else -> 0f }
+        val y0 = when (dir) { 0 -> -hh; 1 -> hh; else -> 0f }
+        val y1 = when (dir) { 0 -> hh; 1 -> -hh; else -> 0f }
+        return if (rainbow) LinearGradient(x0, y0, x1, y1, Theme.rainbowFrom(c1), null, Shader.TileMode.CLAMP)
+        else LinearGradient(x0, y0, x1, y1, c1, c2, Shader.TileMode.CLAMP)
     }
+
+    /** Barva pismene pri otoceni po uspesnem tahu: barva pismen po tahu (a druha barva podle poradi v slove). */
+    private fun flipColor(k: Key): Int = when {
+        glowRainbow -> rainbow(k.flipMix)
+        glowCol2 != 0 -> Theme.blend(glowColor, glowCol2, k.flipMix)
+        else -> glowColor
+    }
+
     private fun weightFace(weight: Int): Typeface =
         if (Build.VERSION.SDK_INT >= 28) Typeface.create(Typeface.DEFAULT, weight, false)
         else Typeface.create("sans-serif", if (weight >= 600) Typeface.BOLD else Typeface.NORMAL)
@@ -858,27 +858,35 @@ class KeyboardView(context: Context) : View(context) {
         val innerW = max(1f, effUnitW - 2f * padX)
         labelSize = min(base, min(innerH * 0.70f, innerW * 0.85f))
         // Prechod klavesy je vystredeny na stred klavesy (onDraw posune platno), pozadi pokryva cely pohled.
-        // Vsechny prechody jdou zleva doprava: jednotkovy shader (-1..1) se pri kresleni natahne na sirku klavesy (gradMatrix).
+        // Prechody jsou vystredene na nulu; kresleni posune platno na stred klavesy (zadna matice, zadny novy shader pri kresleni).
+        val kw = max(1f, effUnitW - 2f * padX) / 2f
+        val kh = max(1f, rowH - 2f * padY) / 2f
+        val tw = max(1f, labelSize * 0.45f)
+        val th = max(1f, labelSize * 0.4f)
         keyShader = when {
-            keyRainbow -> LinearGradient(-1f, 0f, 1f, 0f, Theme.rainbowFrom(theme.key), null, Shader.TileMode.CLAMP)
-            keyCol2 != 0 -> LinearGradient(-1f, 0f, 1f, 0f, theme.key, keyCol2, Shader.TileMode.CLAMP)
+            keyRainbow -> gradShader(theme.key, 0, true, keyDir, kw, kh)
+            keyCol2 != 0 -> gradShader(theme.key, keyCol2, false, keyDir, kw, kh)
             else -> null
         }
         outlineShader = when {
             outlineCol == 0 -> null
-            outlineRainbow -> LinearGradient(-1f, 0f, 1f, 0f, Theme.rainbowFrom(outlineCol), null, Shader.TileMode.CLAMP)
-            outlineCol2 != 0 -> LinearGradient(-1f, 0f, 1f, 0f, outlineCol, outlineCol2, Shader.TileMode.CLAMP)
+            outlineRainbow -> gradShader(outlineCol, 0, true, outlineDir, kw, kh)
+            outlineCol2 != 0 -> gradShader(outlineCol, outlineCol2, false, outlineDir, kw, kh)
             else -> null
         }
         textShader = when {
             labelSize <= 0f -> null
-            textRainbow -> LinearGradient(-1f, 0f, 1f, 0f, Theme.rainbowFrom(theme.text), null, Shader.TileMode.CLAMP)
-            textCol2 != 0 -> LinearGradient(-1f, 0f, 1f, 0f, theme.text, textCol2, Shader.TileMode.CLAMP)
+            textRainbow -> gradShader(theme.text, 0, true, textDir, tw, th)
+            textCol2 != 0 -> gradShader(theme.text, textCol2, false, textDir, tw, th)
             else -> null
         }
-        digitKeyShader = if (digitKeyCol2 != 0) LinearGradient(-1f, 0f, 1f, 0f, if (digitKeyCol != 0) digitKeyCol else theme.key, digitKeyCol2, Shader.TileMode.CLAMP) else null
-        digitTextShader = if (digitTextCol2 != 0) LinearGradient(-1f, 0f, 1f, 0f, if (digitTextCol != 0) digitTextCol else theme.text, digitTextCol2, Shader.TileMode.CLAMP) else null
-        digitOutlineShader = if (digitOutlineCol2 != 0) LinearGradient(-1f, 0f, 1f, 0f, if (outlineCol != 0) outlineCol else theme.accent, digitOutlineCol2, Shader.TileMode.CLAMP) else null
+        digitKeyShader = if (digitKeyCol2 != 0) gradShader(if (digitKeyCol != 0) digitKeyCol else theme.key, digitKeyCol2, false, digitKeyDir, kw, kh) else null
+        digitTextShader = if (digitTextCol2 != 0 && labelSize > 0f) gradShader(if (digitTextCol != 0) digitTextCol else theme.text, digitTextCol2, false, digitTextDir, tw, th) else null
+        digitOutlineShader = if (digitOutlineCol2 != 0) gradShader(if (outlineCol != 0) outlineCol else theme.accent, digitOutlineCol2, false, digitOutlineDir, kw, kh) else null
+        // Druhe barvy po klepnuti a neonu: prechod uvnitr jedne klavesy (shora dolu).
+        tapTextShader = if (tapTextCol2 != 0 && labelSize > 0f) gradShader(if (tapTextCol != 0) tapTextCol else theme.text, tapTextCol2, false, 0, tw, th) else null
+        tapOutShader = if (outlineTapCol2 != 0) gradShader(if (outlineTapCol != 0) outlineTapCol else theme.accent, outlineTapCol2, false, 0, kw, kh) else null
+        neonShader = if (neon2 != 0 || neon2Rainbow) gradShader(neon, neon2, neon2Rainbow, 0, kw, kh) else null
         val bw = width.toFloat()
         val bh = height.toFloat()
         val bx0 = if (bgDir == 3) bw else 0f
@@ -910,10 +918,8 @@ class KeyboardView(context: Context) : View(context) {
 
     /** Barva dalsiho klepnuti: duha = nahodny odstin, dve barvy = stridani, jinak barva efektu. */
     private fun nextNeon(): Int {
-        if (neon2Rainbow) return rainbow(random.nextFloat())
-        if (neon2 == 0) return neon
-        neonFlip = !neonFlip
-        return if (neonFlip) neon else neon2
+        // Druha barva neonu (i duha) tvori prechod uvnitr klavesy (neonShader), ne stridani klavesy po klavese.
+        return neon
     }
 
     private fun tint(cur: Int, x: Int, t: Float): Int {
@@ -1315,6 +1321,18 @@ class KeyboardView(context: Context) : View(context) {
         val spotOn = now < spotUntil
         if (!spotOn && spotCount > 0) spotCount = 0
         if (spotOn) animating = true
+        if (spotOn && (spotMode == SPOT_FILL || spotMode == SPOT_OUTLINE)) {
+            // Pri zmene rozmeru klaves se blikajici obdelniky prepocitaji z aktualnich klaves (zmizela-li klavesa, zustane stara poloha).
+            val pk = spotPick
+            if (pk != null) {
+                val sn = fillSpotRects(pk)
+                if (sn > 0) spotCount = sn
+            }
+        }
+        if (spotOn && spotMode == SPOT_LINE) {
+            spotRects[1] = rowH - 1.5f * density
+            spotRects[3] = rowH + 1.5f * density
+        }
         val spotDims = spotOn && spotCount > 0 && spotMode != SPOT_SHADOW && spotMode != SPOT_BG
         // Stin: pri ukazce se na chvili zvetsi az na 200 % a zabarvi se akcentem.
         var shadowMul = 1f
@@ -1455,9 +1473,10 @@ class KeyboardView(context: Context) : View(context) {
             if (glow > 0f) keyColor = tint(keyColor, gCol, glow)
             val neonA = if (k.neonAt != 0L) neonAmount(k, now) else 0f
             val nc = if (k.neonCol != 0) k.neonCol else neon
+            var neonGradA = 0f
             if (neonA > 0f) {
                 if (k.neonAt > 0L) animating = true
-                keyColor = tint(keyColor, nc, neonA)
+                if (neonShader == null) keyColor = tint(keyColor, nc, neonA) else neonGradA = neonA
                 // Svetelny okraj: o 3 dp vetsi obrys pod klavesou, jedna plocha bez blur.
                 val g = 3f * density
                 fill.color = (nc and 0x00FFFFFF) or ((90f * neonA).toInt().coerceIn(0, 255) shl 24)
@@ -1477,9 +1496,20 @@ class KeyboardView(context: Context) : View(context) {
                         if (q <= 0f || q >= 1f) continue
                         val grow = (2.5f + 3.5f * (e + 1)) * density * q
                         val a = (170f * (1f - q) * (1f - q)).toInt().coerceIn(0, 255)
-                        ghostPaint.color = (nc and 0x00FFFFFF) or (a shl 24)
-                        rect.set(cx - hw - grow, cy - hh - grow, cx + hw + grow, cy + hh + grow)
-                        canvas.drawRoundRect(rect, radius + grow, radius + grow, ghostPaint)
+                        if (neonShader != null) {
+                            canvas.save()
+                            canvas.translate(cx, cy)
+                            ghostPaint.shader = neonShader
+                            ghostPaint.color = (WHITE and 0x00FFFFFF) or (a shl 24)
+                            rect.set(-hw - grow, -hh - grow, hw + grow, hh + grow)
+                            canvas.drawRoundRect(rect, radius + grow, radius + grow, ghostPaint)
+                            ghostPaint.shader = null
+                            canvas.restore()
+                        } else {
+                            ghostPaint.color = (nc and 0x00FFFFFF) or (a shl 24)
+                            rect.set(cx - hw - grow, cy - hh - grow, cx + hw + grow, cy + hh + grow)
+                            canvas.drawRoundRect(rect, radius + grow, radius + grow, ghostPaint)
+                        }
                     }
                 }
             }
@@ -1487,10 +1517,9 @@ class KeyboardView(context: Context) : View(context) {
             if (gradKey) {
                 // Prechod z barvy klavesy do druhe barvy: platno se posune na stred klavesy, kde je shader vystredeny.
                 canvas.save()
-                canvas.translate(0f, cy)
-                rect.set(cx - hw, -hh, cx + hw, hh)
+                canvas.translate(cx, cy)
+                rect.set(-hw, -hh, hw, hh)
                 fill.color = WHITE
-                shader?.let { setGrad(it, if (digitOwn) digitKeyDir else keyDir, cx, hw, hh) }
                 fill.shader = shader
                 canvas.drawRoundRect(rect, radius, radius, fill)
                 fill.shader = null
@@ -1504,6 +1533,18 @@ class KeyboardView(context: Context) : View(context) {
                 fill.color = keyColor
                 rect.set(cx - hw, cy - hh, cx + hw, cy + hh)
                 canvas.drawRoundRect(rect, radius, radius, fill)
+            }
+            if (neonGradA > 0f && cutS > 0f) {
+                // Neon s druhou barvou: prechod uvnitr klavesy (shora dolu).
+                canvas.save()
+                canvas.translate(cx, cy)
+                rect.set(-hw, -hh, hw, hh)
+                fill.color = (WHITE and 0x00FFFFFF) or ((255f * neonGradA).toInt().coerceIn(0, 255) shl 24)
+                fill.shader = neonShader
+                canvas.drawRoundRect(rect, radius, radius, fill)
+                fill.shader = null
+                canvas.restore()
+                rect.set(cx - hw, cy - hh, cx + hw, cy + hh)
             }
             if (fillSide >= 0 && fillAlpha > 0f) {
                 // Vybarveni: klavesa se zleva / zprava / zdola / shora zaplni barvou, orezano na cast klavesy.
@@ -1560,7 +1601,7 @@ class KeyboardView(context: Context) : View(context) {
                 } else if (passedFade > 0f && outlinePassedCol != 0) {
                     oc = mixArgb(oc, outlinePassedCol, passedFade)
                 }
-                if (tapF > 0f && outlineTapCol != 0) oc = mixArgb(oc, if (k.tapOut != 0) k.tapOut else outlineTapCol, tapF)
+                if (tapF > 0f && outlineTapCol != 0 && tapOutShader == null) oc = mixArgb(oc, if (k.tapOut != 0) k.tapOut else outlineTapCol, tapF)
                 val over = (k.pressed && !k.passed) || (k.passed && k === hoverKey)
                 if (over && outlineHoverCol != 0) oc = outlineHoverCol
                 if (oc != 0 && cutS > 0f) {
@@ -1569,11 +1610,10 @@ class KeyboardView(context: Context) : View(context) {
                     outlinePaint.strokeWidth = outlineW
                     val os = if (digitOut) digitOutlineShader else outlineShader
                     if (os != null && oc == baseOc && !special && !dimKey) {
-                        setGrad(os, if (digitOut) digitOutlineDir else outlineDir, cx, hw - ins, hh - ins)
                         // Prechod obrysu: shader je vystredeny na nulu, platno se posune na stred klavesy.
                         canvas.save()
-                        canvas.translate(0f, cy)
-                        rect.set(cx - hw + ins, -hh + ins, cx + hw - ins, hh - ins)
+                        canvas.translate(cx, cy)
+                        rect.set(-hw + ins, -hh + ins, hw - ins, hh - ins)
                         outlinePaint.color = WHITE
                         outlinePaint.shader = os
                         canvas.drawRoundRect(rect, r, r, outlinePaint)
@@ -1585,6 +1625,21 @@ class KeyboardView(context: Context) : View(context) {
                         canvas.drawRoundRect(rect, r, r, outlinePaint)
                     }
                 }
+            }
+
+            if (tapF > 0f && tapOutShader != null && cutS > 0f) {
+                // Druha barva obrysu po klepnuti: prechod uvnitr jedne klavesy (shora dolu).
+                val tIns = outlineW / 2f
+                val tr = max(0f, radius - tIns)
+                canvas.save()
+                canvas.translate(cx, cy)
+                rect.set(-hw + tIns, -hh + tIns, hw - tIns, hh - tIns)
+                outlinePaint.strokeWidth = outlineW
+                outlinePaint.shader = tapOutShader
+                outlinePaint.color = (WHITE and 0x00FFFFFF) or ((255f * tapF).toInt().coerceIn(0, 255) shl 24)
+                canvas.drawRoundRect(rect, tr, tr, outlinePaint)
+                outlinePaint.shader = null
+                canvas.restore()
             }
 
             if (k.orbitAt != 0L) {
@@ -1615,8 +1670,20 @@ class KeyboardView(context: Context) : View(context) {
                     }
                     val oa = (255f * fade).toInt().coerceIn(0, 255) shl 24
                     orbitPaint.strokeWidth = sw
-                    orbitPaint.color = (nc and 0x00FFFFFF) or oa
-                    canvas.drawPath(orbitSeg, orbitPaint)
+                    if (neonShader != null) {
+                        orbitSeg.offset(-cx, -cy)
+                        canvas.save()
+                        canvas.translate(cx, cy)
+                        orbitPaint.shader = neonShader
+                        orbitPaint.color = (WHITE and 0x00FFFFFF) or oa
+                        canvas.drawPath(orbitSeg, orbitPaint)
+                        orbitPaint.shader = null
+                        canvas.restore()
+                        orbitSeg.offset(cx, cy)
+                    } else {
+                        orbitPaint.color = (nc and 0x00FFFFFF) or oa
+                        canvas.drawPath(orbitSeg, orbitPaint)
+                    }
                     // Kolecko v bode startu, odkud obrys vybehl.
                     orbitMeasure.getPosTan(start, orbitPos, null)
                     fill.color = (nc and 0x00FFFFFF) or oa
@@ -1647,6 +1714,7 @@ class KeyboardView(context: Context) : View(context) {
             if (glow > 0f) fg = Theme.blend(fg, gText, glow)
             if (fillSide >= 0) fg = Theme.blend(fg, gText,(fillProgress * fillAlpha).coerceIn(0f, 1f))
             if (neonA > 0f) fg = Theme.blend(fg, if (k.neonCol != 0) textOn(k.neonCol) else neonText, neonA)
+            if (k.flipAt != 0L && now >= k.flipAt) fg = flipColor(k)
             if (tapF > 0f && tapTextCol != 0) {
                 val ttc = if (k.tapTxt != 0) k.tapTxt else tapTextCol
                 fg = if (tapF >= 1f) ttc else Theme.blend(fg, ttc, tapF)
@@ -1690,6 +1758,7 @@ class KeyboardView(context: Context) : View(context) {
             if (cutT in 0L until CUT_FLY_MS) {
                 drawCutHalves(canvas, k, cx, cy, k.vw / 2f - padX, k.h / 2f - padY, radius, cutT / CUT_FLY_MS.toFloat(), keyColor, fg, upper)
             }
+            val tapGradA = if (tapF > 0f && tapTextShader != null) tapF else 0f
             val face = if (k.macro != null) faceBitmaps[k.macroFace] else null
             when (k.kind) {
                 KIND_CHAR -> if (face != null && (drawHints || hintFocus)) {
@@ -1737,13 +1806,12 @@ class KeyboardView(context: Context) : View(context) {
                     if (grad) {
                         // Shader je vystredeny na nulu: platno se posune na stred znaku.
                         canvas.save()
-                        canvas.translate(0f, cy + offY + shift + slideDy)
-                        gShader?.let { setGrad(it, if (dts) digitTextDir else textDir, cx + offX + totalDx, labelSize * 0.45f, labelSize * 0.4f) }
+                        canvas.translate(cx + offX + totalDx, cy + offY + shift + slideDy)
                         textPaint.shader = gShader
-                        if (passRot != 0f) canvas.rotate(passRot, cx + offX + totalDx, -(textPaint.ascent() + textPaint.descent()) / 2f)
-                        if (charOutlineOn) { val sv = textPaint.style; textPaint.style = Paint.Style.STROKE; textPaint.strokeWidth = 1.5f * density; textPaint.color = outlineCol; canvas.drawText(charBuf, 0, n, cx + offX + totalDx, -(textPaint.ascent() + textPaint.descent()) / 2f, textPaint); textPaint.style = sv; textPaint.color = fg }
-                        canvas.drawText(charBuf, 0, n, cx + offX + totalDx, -(textPaint.ascent() + textPaint.descent()) / 2f, textPaint)
-                        if (passRot != 0f) canvas.rotate(-passRot, cx + offX + totalDx, -(textPaint.ascent() + textPaint.descent()) / 2f)
+                        if (passRot != 0f) canvas.rotate(passRot, 0f, -(textPaint.ascent() + textPaint.descent()) / 2f)
+                        if (charOutlineOn) { val sv = textPaint.style; textPaint.style = Paint.Style.STROKE; textPaint.strokeWidth = 1.5f * density; textPaint.color = outlineCol; canvas.drawText(charBuf, 0, n, 0f, -(textPaint.ascent() + textPaint.descent()) / 2f, textPaint); textPaint.style = sv; textPaint.color = fg }
+                        canvas.drawText(charBuf, 0, n, 0f, -(textPaint.ascent() + textPaint.descent()) / 2f, textPaint)
+                        if (passRot != 0f) canvas.rotate(-passRot, 0f, -(textPaint.ascent() + textPaint.descent()) / 2f)
                         textPaint.shader = null
                         canvas.restore()
                     } else {
@@ -1751,6 +1819,18 @@ class KeyboardView(context: Context) : View(context) {
                         if (charOutlineOn) { val sv = textPaint.style; textPaint.style = Paint.Style.STROKE; textPaint.strokeWidth = 1.5f * density; textPaint.color = outlineCol; canvas.drawText(charBuf, 0, n, cx + offX + totalDx, cy + offY + shift + slideDy - (textPaint.ascent() + textPaint.descent()) / 2f, textPaint); textPaint.style = sv; textPaint.color = fg }
                         canvas.drawText(charBuf, 0, n, cx + offX + totalDx, cy + offY + shift + slideDy - (textPaint.ascent() + textPaint.descent()) / 2f, textPaint)
                         if (passRot != 0f) canvas.restore()
+                    }
+                    if (tapGradA > 0f) {
+                        // Barva znaku po klepnuti s druhou barvou: prechod uvnitr znaku (shora dolu), pres zakladni vykresleni.
+                        canvas.save()
+                        canvas.translate(cx + offX + totalDx, cy + offY + shift + slideDy)
+                        if (passRot != 0f) canvas.rotate(passRot, 0f, -(textPaint.ascent() + textPaint.descent()) / 2f)
+                        textPaint.shader = tapTextShader
+                        textPaint.color = WHITE
+                        textPaint.alpha = (255f * tapGradA * popA).toInt().coerceIn(0, 255)
+                        canvas.drawText(charBuf, 0, n, 0f, -(textPaint.ascent() + textPaint.descent()) / 2f, textPaint)
+                        textPaint.shader = null
+                        canvas.restore()
                     }
                     if (popTime >= 0L) canvas.restore()
                     textPaint.typeface = baseFace
@@ -2417,6 +2497,8 @@ class KeyboardView(context: Context) : View(context) {
     }
 
     private fun drawFire(canvas: Canvas, now: Long): Boolean {
+        // Sirka stopy (trail_width_dp, vychozi 4) meni velikost cele ohnive stopy: tloustku, plamen i zari hlavy.
+        val dn = density * (trailWidthDp / 4f)
         var burn = 0f
         if (touchMode != T_SWIPE && !trailHeld) {
             if (!animate) return false
@@ -2442,14 +2524,14 @@ class KeyboardView(context: Context) : View(context) {
             val flick = 0.75f + 0.5f * sparkRand(bucket, i, 7)
             val col = if (heat > 0.5f) Theme.blend(FIRE_MID, FIRE_HOT, (heat - 0.5f) * 2f) else Theme.blend(FIRE_COLD, FIRE_MID, heat * 2f)
             stroke.color = (col and 0x00FFFFFF) or ((230f * heat).toInt().coerceIn(0, 255) shl 24)
-            stroke.strokeWidth = (1.2f + 4.5f * heat) * density * flick
+            stroke.strokeWidth = (1.2f + 4.5f * heat) * dn * flick
             canvas.drawLine(px, py, x, y, stroke)
             // Jazyk plamene: kulicka stoupa nad drahou, tim vys a vetsi, cim je bod zhavejsi.
             if (heat > 0.12f && i % 2 == 0) {
-                val rise = heat * (3f + 11f * sparkRand(bucket, i, 8)) * density
-                val sway = (sparkRand(bucket, i, 9) - 0.5f) * 6f * density * heat
+                val rise = heat * (3f + 11f * sparkRand(bucket, i, 8)) * dn
+                val sway = (sparkRand(bucket, i, 9) - 0.5f) * 6f * dn * heat
                 fill.color = (col and 0x00FFFFFF) or ((200f * heat).toInt().coerceIn(0, 255) shl 24)
-                canvas.drawCircle(x + sway, y - rise, (1f + 3f * heat) * density * flick, fill)
+                canvas.drawCircle(x + sway, y - rise, (1f + 3f * heat) * dn * flick, fill)
             }
             px = x
             py = y
@@ -2457,16 +2539,16 @@ class KeyboardView(context: Context) : View(context) {
         // Hlava plamene: oranzova zare, uvnitr zluta a bily stred, nahore tri zachvevajici se jazyky.
         val hot = life
         fill.color = (FIRE_MID and 0x00FFFFFF) or ((150f * hot).toInt().coerceIn(0, 255) shl 24)
-        canvas.drawCircle(px, py, (8f + 2f * sparkRand(bucket, 0, 10)) * density * (0.5f + 0.5f * hot), fill)
+        canvas.drawCircle(px, py, (8f + 2f * sparkRand(bucket, 0, 10)) * dn * (0.5f + 0.5f * hot), fill)
         fill.color = (FIRE_HOT and 0x00FFFFFF) or ((230f * hot).toInt().coerceIn(0, 255) shl 24)
-        canvas.drawCircle(px, py, 5f * density * (0.5f + 0.5f * hot), fill)
+        canvas.drawCircle(px, py, 5f * dn * (0.5f + 0.5f * hot), fill)
         fill.color = (WHITE and 0x00FFFFFF) or ((255f * hot).toInt().coerceIn(0, 255) shl 24)
-        canvas.drawCircle(px, py, 2.4f * density * (0.5f + 0.5f * hot), fill)
+        canvas.drawCircle(px, py, 2.4f * dn * (0.5f + 0.5f * hot), fill)
         fill.color = (FIRE_MID and 0x00FFFFFF) or ((220f * hot).toInt().coerceIn(0, 255) shl 24)
         for (t in 0 until 3) {
-            val h = (7f + 10f * sparkRand(bucket, t, 11)) * density * hot
-            val sx = (sparkRand(bucket, t, 12) - 0.5f) * 10f * density
-            canvas.drawCircle(px + sx, py - h, (1.6f + 1.6f * sparkRand(bucket, t, 13)) * density * hot, fill)
+            val h = (7f + 10f * sparkRand(bucket, t, 11)) * dn * hot
+            val sx = (sparkRand(bucket, t, 12) - 0.5f) * 10f * dn
+            canvas.drawCircle(px + sx, py - h, (1.6f + 1.6f * sparkRand(bucket, t, 13)) * dn * hot, fill)
         }
         return true
     }
@@ -2682,11 +2764,14 @@ class KeyboardView(context: Context) : View(context) {
         if (glowFlipStyle) {
             val now = SystemClock.uptimeMillis()
             var n = 0
+            var total = 0
+            for (ch in word) if (baseCode(ch) in 'a'.code..'z'.code) total++
             for (ch in word) {
                 val code = baseCode(ch)
                 if (code !in 'a'.code..'z'.code) continue
                 for (k in keys) {
                     if (k.isLetter && k.code == code) {
+                        k.flipMix = if (total > 1) n / (total - 1f) else 0f
                         k.flipAt = now + n * 110L
                         k.flipTarget = (if (random.nextBoolean()) 1f else -1f) * (90f + random.nextFloat() * 90f)
                         n++
@@ -2742,6 +2827,18 @@ class KeyboardView(context: Context) : View(context) {
      */
     fun spotKeys(ms: Long = SPOT_MS, mode: Int = SPOT_FILL, pick: (Key) -> Boolean) {
         spotMode = mode
+        spotPick = pick
+        spotCount = fillSpotRects(pick)
+        spotAt = SystemClock.uptimeMillis()
+        spotUntil = spotAt + ms
+        invalidate()
+    }
+
+    private var spotMode = SPOT_FILL
+    private var spotPick: ((Key) -> Boolean)? = null
+
+    /** Zapise obdelniky klaves vybranych `pick` z aktualniho rozlozeni; vraci jejich pocet. */
+    private fun fillSpotRects(pick: (Key) -> Boolean): Int {
         var n = 0
         for (k in keys) {
             if (n >= SPOT_MAX || !pick(k)) continue
@@ -2751,17 +2848,13 @@ class KeyboardView(context: Context) : View(context) {
             spotRects[n * 4 + 3] = k.y + k.h - padY
             n++
         }
-        spotCount = n
-        spotAt = SystemClock.uptimeMillis()
-        spotUntil = spotAt + ms
-        invalidate()
+        return n
     }
-
-    private var spotMode = SPOT_FILL
 
     /** Zablikne oddelovac mezi radou cislic a pismeny (tenky pruh pres celou sirku). */
     fun spotDivider(ms: Long = SPOT_MS) {
         spotMode = SPOT_LINE
+        spotPick = null
         spotRects[0] = 0f
         spotRects[1] = rowH - 1.5f * density
         spotRects[2] = width.toFloat()
@@ -2775,6 +2868,7 @@ class KeyboardView(context: Context) : View(context) {
     /** Zablikne jen stinem kláves (zvetsi se a zabarvi). */
     fun spotShadow(ms: Long = SPOT_MS) {
         spotMode = SPOT_SHADOW
+        spotPick = null
         spotCount = 0
         spotAt = SystemClock.uptimeMillis()
         spotUntil = spotAt + ms
@@ -2784,6 +2878,7 @@ class KeyboardView(context: Context) : View(context) {
     /** Zablikne jen pozadim (klavesy zustanou). */
     fun spotBackground(ms: Long = SPOT_MS) {
         spotMode = SPOT_BG
+        spotPick = null
         spotCount = 0
         spotAt = SystemClock.uptimeMillis()
         spotUntil = spotAt + ms
@@ -3292,11 +3387,10 @@ class KeyboardView(context: Context) : View(context) {
                     k.neonAt = -1L
                 }
             }
-            if ((tapTextCol != 0 || outlineTapCol != 0) && (k.kind == KIND_CHAR || k.kind == KIND_SPACE)) {
+            if ((tapTextCol != 0 || outlineTapCol != 0 || tapTextCol2 != 0 || outlineTapCol2 != 0) && (k.kind == KIND_CHAR || k.kind == KIND_SPACE)) {
                 // Dve barvy po klepnuti se pri kazdem klepnuti stridaji.
-                tapSecond = !tapSecond
-                k.tapTxt = if (tapTextCol2 != 0 && tapSecond) tapTextCol2 else tapTextCol
-                k.tapOut = if (outlineTapCol2 != 0 && tapSecond) outlineTapCol2 else outlineTapCol
+                k.tapTxt = tapTextCol
+                k.tapOut = outlineTapCol
                 k.tapAt = now
             }
         } else if (k.neonAt == -1L) {

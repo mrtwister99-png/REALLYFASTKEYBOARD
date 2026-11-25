@@ -120,6 +120,16 @@ class AppearanceActivity : SettingsScreen() {
     private val ui = Handler(Looper.getMainLooper())
     private var loopIdx = 0
     private val loopRun = Runnable { runLoopStep() }
+    // Waiting: za nazvem postupne naskakuji tecky (po 1 s), po treti zmizi a zacne se znovu.
+    private var waitingTitle: TextView? = null
+    private var waitingDots = 0
+    private val dotsRun = object : Runnable {
+        override fun run() {
+            waitingDots = (waitingDots + 1) % 4
+            waitingTitle?.text = getString(R.string.cat_waiting) + " .".repeat(waitingDots)
+            ui.postDelayed(this, 1000L)
+        }
+    }
     private val testTyped = StringBuilder()
     private var imeVisible = false
     private var adjusting = false
@@ -330,11 +340,18 @@ class AppearanceActivity : SettingsScreen() {
         return true
     }
 
+    override fun onResume() {
+        super.onResume()
+        ui.removeCallbacks(dotsRun)
+        ui.postDelayed(dotsRun, 1000L)
+    }
+
     override fun onPause() {
         // Odejiti z obrazovky ukonci nastavovani napovedy (bez ulozeni) i zkusebni rezim.
         if (adjusting) finishAdjust()
         if (testMode) stopTest()
         ui.removeCallbacks(loopRun)
+        ui.removeCallbacks(dotsRun)
         super.onPause()
     }
 
@@ -760,6 +777,7 @@ class AppearanceActivity : SettingsScreen() {
         paintPills()
         applyTestButton()
         applyImeLayout()
+        autoTestIfNeeded()
     }
 
     /** Jedna kategorie: hlavicka, tlacitka urovni I / II / III a pod nimi obsah vybrane urovne (sklada se az pri prvnim zobrazeni). */
@@ -770,7 +788,9 @@ class AppearanceActivity : SettingsScreen() {
         head.gravity = Gravity.CENTER_VERTICAL
         head.minimumHeight = dp(56f)
         head.setPadding(dp(16f), dp(8f), dp(16f), dp(8f))
-        head.addView(label(getString(def.titleRes), 16f), LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+        val titleView = label(getString(def.titleRes), 16f)
+        if (def.titleRes == R.string.cat_waiting) waitingTitle = titleView
+        head.addView(titleView, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
         val arrow = label("›", 24f, dim)
         head.addView(arrow)
         card.addView(head, rowParams())
@@ -883,7 +903,7 @@ class AppearanceActivity : SettingsScreen() {
     private fun buildLayoutDims(box: LinearLayout) {
         val s = section(box, getString(R.string.sec_layout_dims))
         sliderRow(s, R.string.key_height, "key_height_dp", 48, 72, 1) { getString(R.string.unit_dp, it) }
-        sliderRow(s, R.string.waiting_key_width, "key_width_dp", 0, 48, 1) { if (it == 0) getString(R.string.unit_auto) else getString(R.string.unit_dp, it) }
+        sliderRow(s, R.string.waiting_key_width, "key_width_dp", 24, 48, 1) { getString(R.string.unit_dp, it.coerceAtLeast(24)) }
         sliderRow(s, R.string.key_radius, "key_radius_dp", 2, 22, 1) { getString(R.string.unit_dp, it) }
         sliderRow(s, R.string.key_gap, "key_gap_dp", 0, 10, 1) { getString(R.string.unit_dp, it) }
         sliderRow(s, R.string.row_gap, "row_gap_dp", 0, 16, 1) { getString(R.string.unit_dp, it) }
@@ -897,8 +917,10 @@ class AppearanceActivity : SettingsScreen() {
         labelAdjustButton = adjustRow(s, R.string.label_pos, R.string.label_adjust, true)
         hintAdjustButton = adjustRow(s, R.string.layout_hint_pos, R.string.hint_adjust, false)
         colorRow(s, R.string.hint_color, "hint_color", allowAuto = true)
-        sliderRow(s, R.string.label_weight, "label_weight", 100, 900, 1, 100) { it.toString() }
-        sliderRow(s, R.string.digit_weight, "digit_weight", 100, 900, 1, 100) { it.toString() }
+        // Tloustka se meni jen u systemoveho pisma; vlastni pismo ma tloustku pevnou, proto se posuvniky zatmi.
+        val systemFont = { RustBridge.settings.json.optString("key_font", "system") == "system" }
+        sliderRow(s, R.string.label_weight, "label_weight", 100, 900, 1, 100, systemFont) { it.toString() }
+        sliderRow(s, R.string.digit_weight, "digit_weight", 100, 900, 1, 100, systemFont) { it.toString() }
     }
 
     /** 1. III. Spodni rada. */
@@ -992,8 +1014,15 @@ class AppearanceActivity : SettingsScreen() {
         val trailLabels = listOf(getString(R.string.trail_style_line), getString(R.string.trail_style_dashed), getString(R.string.trail_style_fire), getString(R.string.trail_style_pixel))
         dropdownRow(s, R.string.trail_style_label, trailValues, trailLabels, { RustBridge.settings.json.optString("trail_style") }, { update("trail_style", it) }, "trail_style")
         hintText(s, getString(R.string.cat_swipe_line_hint))
-        colorRow(s, R.string.trail_color, "trail_color", allowAuto = true)
-        colorRow(s, R.string.trail_color2, "trail_color2", allowAuto = true)
+        // Ohen ma vlastni barvy plamene: barvy stopy se u nej skryji, zustane jen sirka.
+        val trailColors = LinearLayout(this)
+        trailColors.orientation = LinearLayout.VERTICAL
+        s.addView(trailColors, rowParams())
+        colorRow(trailColors, R.string.trail_color, "trail_color", allowAuto = true)
+        colorRow(trailColors, R.string.trail_color2, "trail_color2", allowAuto = true)
+        val applyTrailColors = { trailColors.visibility = if (RustBridge.settings.json.optString("trail_style") == "fire") View.GONE else View.VISIBLE }
+        applyTrailColors()
+        fontPainters.add { applyTrailColors() }
         sliderRow(s, R.string.trail_width, "trail_width_dp", 1, 12, 1) { getString(R.string.unit_dp, it) }
         hintText(s, getString(R.string.cat_swipe_pass_hint))
         switchRow(s, R.string.swipe_glow, "swipe_glow")
@@ -1042,7 +1071,7 @@ class AppearanceActivity : SettingsScreen() {
     private fun buildCatWaiting(box: LinearLayout) {
         var s = section(box, getString(R.string.sec_waiting_key))
         sliderRow(s, R.string.waiting_key_height, "key_height_dp", 48, 72, 1) { getString(R.string.unit_dp, it) }
-        sliderRow(s, R.string.waiting_key_width, "key_width_dp", 0, 48, 1) { if (it == 0) getString(R.string.unit_auto) else getString(R.string.unit_dp, it) }
+        sliderRow(s, R.string.waiting_key_width, "key_width_dp", 24, 48, 1) { getString(R.string.unit_dp, it.coerceAtLeast(24)) }
         sliderRow(s, R.string.waiting_key_gap, "key_gap_dp", 0, 10, 1) { getString(R.string.unit_dp, it) }
         hintText(s, getString(R.string.waiting_key_gap_hint))
         switchRow(s, R.string.waiting_char_outline, "char_outline", hintRes = R.string.waiting_char_outline_hint)

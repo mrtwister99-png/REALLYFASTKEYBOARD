@@ -230,7 +230,7 @@ abstract class SettingsScreen : BaseScreen() {
      * Posuvnik. `scale` = delitel (100 pro float hodnoty typu 0.5-1.5).
      * Hodnota se zapisuje uz behem tazeni, aby nahled reagoval okamzite.
      */
-    protected fun sliderRow(box: LinearLayout, labelRes: Int, key: String, min: Int, max: Int, scale: Int, step: Int = 1, format: (Int) -> String) {
+    protected fun sliderRow(box: LinearLayout, labelRes: Int, key: String, min: Int, max: Int, scale: Int, step: Int = 1, enabledWhen: (() -> Boolean)? = null, format: (Int) -> String) {
         val col = LinearLayout(this)
         col.orientation = LinearLayout.VERTICAL
         col.setPadding(0, dp(10f), 0, dp(6f))
@@ -284,10 +284,20 @@ abstract class SettingsScreen : BaseScreen() {
         seekRow.addView(plus)
         col.addView(seekRow, rowParams())
         box.addView(col, rowParams())
+        // Zatmaveny posuvnik: nastaveni, ktere zvolene pismo nemeni, se zasedne a nereaguje.
+        fun applyEnabled() {
+            val on = enabledWhen?.invoke() ?: true
+            col.alpha = if (on) 1f else 0.35f
+            seek.isEnabled = on
+            minus.isEnabled = on
+            plus.isEnabled = on
+        }
+        applyEnabled()
         refreshers.add {
             val v = current()
             if (seek.progress != (v - min) / step) seek.progress = (v - min) / step
             value.text = format(v)
+            applyEnabled()
         }
     }
 
