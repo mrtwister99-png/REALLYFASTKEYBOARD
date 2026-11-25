@@ -843,6 +843,13 @@ class AppearanceActivity : SettingsScreen() {
             b.visibility = if (j == lv) View.VISIBLE else View.GONE
             if (j == lv && b.childCount == 0) catDefs[index].levels[j](b)
         }
+        // Rozlozeni: karta se podle urovne zespodu nahoru vybarvi (I zelenosedou, II oranzovosedou, III cervenosedou).
+        if (index == CAT_LAYOUT) {
+            val tone = when (lv) { 0 -> 0xFF3A5A45.toInt(); 1 -> 0xFF66503A.toInt(); else -> 0xFF633B3B.toInt() }
+            catCards[index].background = GradientDrawable(GradientDrawable.Orientation.BOTTOM_TOP, intArrayOf(tone, card)).apply {
+                cornerRadius = dp(16f).toFloat()
+            }
+        }
         paintPills()
     }
 
@@ -1810,6 +1817,7 @@ class AppearanceActivity : SettingsScreen() {
         const val KEY_CHOSEN_SLOT = "chosen_slot"
         const val MAX_ALTS_EDIT = 5
 
+        const val CAT_LAYOUT = 1
         const val CAT_TAP = 3
         const val CAT_SWIPE = 4
         const val CAT_KEYS = 5
