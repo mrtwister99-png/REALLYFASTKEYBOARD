@@ -2,6 +2,9 @@
 
 Jedna věta za verzi, nejnovější nahoře. Čísla verzí odpovídají commitům (`vX.Y: …`).
 
+## 1.37 – 2026-11-26
+Vzhled a Rozložení má vždy vybraný profil (výchozí první), zkušební režim se obnoví po návratu z plochy a platí i ve Waiting; lišta návrhů nabízí i podobná slova a slova z vlastního slovníku častěji; návrh nezdvojí slovo, když editor po zalomení řádku ztratí rozepsané slovo.
+
 ## 1.36.1 – 2026-11-25
 Nový postup odemykání poslední kategorie; po dokončení se dotčená nastavení vrátí do výchozího stavu.
 

@@ -902,8 +902,18 @@ class KeyboardService : InputMethodService(), KeyboardView.Listener,
             }
             reattached = null
         } else {
-            before = ic.getTextBeforeCursor(64, 0)?.toString() ?: ""
-            ic.commitText((if (needsSpaceBefore(ic)) " " else "") + word + " ", 1)
+            val raw = ic.getTextBeforeCursor(64, 0)?.toString() ?: ""
+            // Editor (typicky po zalomeni radku) muze rozepsane slovo uz "ztratit": kurzor je stale tesne za
+            // jeho zacatkem. Navrh pak nahradi tento zacatek, aby se slovo nezdvojilo.
+            val tail = raw.takeLastWhile { it.isLetter() || it == '\'' }
+            if (tail.isNotEmpty() && tail.length <= REATTACH_MAX && word.startsWith(tail, ignoreCase = true)) {
+                before = raw.dropLast(tail.length)
+                ic.deleteSurroundingText(tail.length, 0)
+                ic.commitText("$word ", 1)
+            } else {
+                before = raw
+                ic.commitText((if (needsSpaceBefore(ic)) " " else "") + word + " ", 1)
+            }
         }
         ic.endBatchEdit()
         learn(word, before)

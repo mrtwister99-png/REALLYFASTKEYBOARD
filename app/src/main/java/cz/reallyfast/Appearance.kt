@@ -320,8 +320,9 @@ class AppearanceActivity : SettingsScreen() {
             bar.addView(v, lp)
         }
         val remembered = getSharedPreferences(UI_PREFS, MODE_PRIVATE).getInt(KEY_CHOSEN_SLOT, -1)
+        // Vzdy je vybrany nejaky profil (vychozi prvni), aby bylo jasne, co se upravuje.
         chosenSlot = (0 until STYLE_SLOTS).firstOrNull { slotMatches(it) }
-            ?: remembered.takeIf { it in 0 until STYLE_SLOTS } ?: -1
+            ?: remembered.takeIf { it in 0 until STYLE_SLOTS } ?: 0
         val plp = rowParams()
         plp.topMargin = dp(6f)
         header.addView(bar, plp)
@@ -349,6 +350,8 @@ class AppearanceActivity : SettingsScreen() {
         }
         ui.removeCallbacks(dotsRun)
         ui.postDelayed(dotsRun, 1000L)
+        // Po navratu z plochy se zkusebni rezim kategorii obnovi (onPause ho vypina).
+        if (::previewHost.isInitialized) autoTestIfNeeded()
     }
 
     override fun onPause() {
@@ -504,7 +507,7 @@ class AppearanceActivity : SettingsScreen() {
     /** Kategorie 0-4: nahled je trvale v zkusebnim rezimu (jde psat); kategorie 5 a zavrene: bez nej. */
     private fun autoTestIfNeeded() {
         if (leaving || adjusting || editor != null) return
-        if (expandedCat in 0 until CAT_KEYS) {
+        if (expandedCat in 0 until CAT_KEYS || expandedCat == CAT_EXTRA) {
             if (!testMode) {
                 startTest()
                 autoTest = testMode
@@ -1844,6 +1847,7 @@ class AppearanceActivity : SettingsScreen() {
         const val CAT_TAP = 3
         const val CAT_SWIPE = 4
         const val CAT_KEYS = 5
+        const val CAT_EXTRA = 6
         const val USER_IDLE_MS = 3000L
 
         const val DEMO_NONE = 0

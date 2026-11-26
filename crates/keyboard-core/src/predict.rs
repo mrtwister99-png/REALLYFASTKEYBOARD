@@ -335,28 +335,32 @@ pub fn suggest_composing(ctx: &Context, typed: &str) -> Vec<String> {
                     continue; // presna delka = varianta, uz zapocitana vyse
                 }
                 let word = render(&f.enc, f.entry);
-                let q = quality(f.entry.freq, ctx.user.strength(&word, ctx.now));
-                pool.add(word, 0.35 + 0.5 * q);
+                let p = ctx.user.strength(&word, ctx.now);
+                let q = quality(f.entry.freq, p);
+                // Slovo z osobniho slovniku (p > 0) se nabizi casteji nez stejne caste cizi slovo.
+                pool.add(word, 0.35 + 0.5 * q + if p > 0.0 { PERSONAL_BONUS + 0.2 * p } else { 0.0 });
             }
         }
     }
 
-    // Osobni slova (i ta mimo vestaveny slovnik).
+    // Osobni slova (i ta mimo vestaveny slovnik). Slovo pridane uzivatelem ma spodni mez sily,
+    // aby ho jedno pouziti nenechalo propadnout za bezna slova.
     let folded = charmap::fold_bytes(&enc);
     for (w, uw) in ctx.user.iter() {
         let Some(wenc) = charmap::encode_word(w) else { continue };
-        let s = crate::learning::strength_of(*uw, ctx.now);
+        let s = crate::learning::strength_of(*uw, ctx.now).max(PERSONAL_FLOOR);
         if wenc == enc {
             exact_known = true;
             pool.add(w.clone(), 1.0 + quality(USER_FREQ, s));
         } else if ctx.predictions && wenc.len() > enc.len() && charmap::fold_bytes(&wenc[..enc.len()]) == folded {
-            pool.add(w.clone(), 0.45 + 0.5 * quality(USER_FREQ, s));
+            pool.add(w.clone(), 0.45 + PERSONAL_BONUS + 0.5 * quality(USER_FREQ, s));
         }
     }
 
-    // Autocorrect: jen kdyz napsane slovo nezname.
-    if ctx.autocorrect && !exact_known && enc.len() >= 3 {
-        let max = if enc.len() >= 5 { MAX_EDIT_DISTANCE } else { 1 };
+    // Opravy a podobna slova ("slova kolem"): u neznameho slova jako oprava, u znameho jen jako
+    // doplnek (nizke skore, vejdou se az za doplneni).
+    if ctx.autocorrect && enc.len() >= 3 {
+        let max = if exact_known || enc.len() < 5 { 1 } else { MAX_EDIT_DISTANCE };
         for dict in ctx.dicts {
             for f in fuzzy(dict, &enc, max).into_iter().take(COLLECT_TOP) {
                 if f.dist == 0 {
@@ -364,7 +368,13 @@ pub fn suggest_composing(ctx: &Context, typed: &str) -> Vec<String> {
                 }
                 let word = render(&f.enc, f.entry);
                 let q = quality(f.entry.freq, ctx.user.strength(&word, ctx.now));
-                let base = if f.dist == 1 { 0.30 } else { 0.10 };
+                let base = if exact_known {
+                    0.22
+                } else if f.dist == 1 {
+                    0.30
+                } else {
+                    0.10
+                };
                 pool.add(word, base + 0.4 * q);
             }
         }
@@ -385,6 +395,10 @@ pub fn suggest_composing(ctx: &Context, typed: &str) -> Vec<String> {
 
 /// Frekvence pripsana osobnim slovum bez zaznamu ve vestavenem slovniku.
 const USER_FREQ: u8 = 110;
+/// Spodni mez osobni sily slova z osobniho slovniku pri razeni navrhu.
+const PERSONAL_FLOOR: f32 = 0.4;
+/// Priplatek k skore slova, ktere je v osobnim slovniku.
+const PERSONAL_BONUS: f32 = 0.12;
 
 /// Predikce dalsiho slova po `prev` (prazdne `prev` = zacatek vety). `prev2` je slovo pred nim
 /// (prazdne, kdyz neni): dvojice slov ma prednost (trigramy), pak jedno slovo (bigramy),
@@ -426,6 +440,20 @@ pub fn predict_next(ctx: &Context, prev2: &str, prev: &str, capitalize: bool) ->
         for (i, w) in dict.top_for_prefix(&[]).iter().enumerate() {
             pool.add(dict.render(w), 0.3 - i as f32 * 0.02);
         }
+    }
+    // Nejpouzivanejsi osobni slova (i pridana rucne) se nabidnou drive nez obecna nejcastejsi slova.
+    let mut best: [Option<(&String, f32)>; 2] = [None, None];
+    for (w, uw) in ctx.user.iter() {
+        let s = crate::learning::strength_of(*uw, ctx.now).max(PERSONAL_FLOOR * 0.5);
+        if best[1].is_none_or(|(_, b)| s > b) {
+            best[1] = Some((w, s));
+            if best[0].is_none_or(|(_, b)| s > b) {
+                best.swap(0, 1);
+            }
+        }
+    }
+    for (w, s) in best.into_iter().flatten() {
+        pool.add(w.clone(), 0.5 + 0.4 * s);
     }
     pool.top(MAX_SUGGESTIONS)
         .into_iter()
@@ -632,5 +660,36 @@ mod tests {
         assert!(is_known(&c, "Rustboard"));
         assert!(is_known(&c, "pes"));
         assert!(!is_known(&c, "xqzw"));
+    }
+
+    #[test]
+    fn known_word_still_offers_similar_words() {
+        let d = Dictionary::from_words_bigrams("cs", &[("mama", 200), ("mana", 150), ("mamu", 140), ("kolo", 100)], &[]);
+        let u = UserDict::new();
+        let dicts = [&d];
+        // "mama" je zname slovo (zustane prvni), ale nabidnou se i podobna slova.
+        let s = suggest_composing(&ctx(&dicts, &u), "mama");
+        assert_eq!(s[0], "mama");
+        assert!(s.contains(&"mana".to_string()) || s.contains(&"mamu".to_string()), "{s:?}");
+    }
+
+    #[test]
+    fn personal_word_beats_common_word_on_completion() {
+        let d = dict();
+        let mut u = UserDict::new();
+        u.learn("pruvodka", "", NOW);
+        let dicts = [&d];
+        let s = suggest_composing(&ctx(&dicts, &u), "pr");
+        assert!(s.contains(&"pruvodka".to_string()), "{s:?}");
+    }
+
+    #[test]
+    fn personal_word_appears_in_empty_context_predictions() {
+        let d = dict();
+        let mut u = UserDict::new();
+        u.learn("Krakonos", "", NOW);
+        let dicts = [&d];
+        let p = predict_next(&ctx(&dicts, &u), "", "", false);
+        assert!(p.contains(&"Krakonos".to_string()), "{p:?}");
     }
 }
