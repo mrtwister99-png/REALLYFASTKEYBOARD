@@ -832,7 +832,8 @@ class KeyboardView(context: Context) : View(context) {
         digitFace = loadKeyFont(s.keyFont, s.digitWeight)
         labelExtra = weightExtra(s.labelWeight)
         digitExtra = weightExtra(s.digitWeight)
-        passedKeyCol = Theme.parse(s.passedKeyColor, 0)
+        // Barva projetych klaves je barva stopy (bez vlastni barvy stopy odvozena z akcentu).
+        passedKeyCol = Theme.parse(s.trailColor, 0)
         hintFace = cf // napoveda ma stejne pismo jako znaky
         tapTextCol = Theme.parse(s.tapTextColor, 0)
         paintCols[0] = Theme.parse(s.paintColor1, 0xFF0080FF.toInt())
@@ -3937,7 +3938,7 @@ class KeyboardView(context: Context) : View(context) {
             handler.postDelayed(longPress, delay)
         } else if (k.kind == KIND_MODE && (k.code == CODE_SYMBOLS || k.code == CODE_LETTERS)) {
             handler.postDelayed(longPress, maxOf(delay, 300L))
-        } else if (k.kind == KIND_ENTER && voiceAllowed && RustBridge.settings.voiceInput) {
+        } else if (k.kind == KIND_ENTER && voiceAllowed && RustBridge.settings.voiceByEnter) {
             handler.postDelayed(longPress, maxOf(delay, 350L))
         } else if (k.kind == KIND_SPACE) {
             // Mezernik: delsi prodleva, aby pomalejsi tap neprepnul jazyk omylem.

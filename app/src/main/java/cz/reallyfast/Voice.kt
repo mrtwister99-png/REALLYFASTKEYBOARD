@@ -6,6 +6,8 @@ import android.text.TextUtils
 import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
+import android.animation.ValueAnimator
+import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
@@ -55,17 +57,120 @@ class VoiceActivity : SubScreen() {
         row.addView(sw)
         row.setOnClickListener { sw.toggle() }
         box.addView(row, rowParams())
+
+        // Jak se diktovani spousti: podrzenim Enteru, tlacitkem v liste vedle schranky, nebo obojim.
+        box.addView(label(getString(R.string.voice_trigger_label), 14f, dim).also { it.setPadding(0, dp(6f), 0, dp(6f)) }, rowParams())
+        val triggerValues = listOf("enter", "button", "both")
+        val triggerLabels = listOf(R.string.voice_trigger_enter, R.string.voice_trigger_button, R.string.voice_trigger_both)
+        val triggerPills = ArrayList<TextView>()
+        val triggerRow = LinearLayout(this)
+        fun paintTrigger() {
+            val cur = RustBridge.settings.voiceTrigger
+            val a = accent
+            val onA = if (Theme.luminance(a) > 0.55f) 0xFF111113.toInt() else 0xFFFFFFFF.toInt()
+            for ((i, p) in triggerPills.withIndex()) {
+                val on = triggerValues[i] == cur
+                p.background = rounded(if (on) a else field, dp(12f).toFloat())
+                p.setTextColor(if (on) onA else text)
+            }
+        }
+        for ((i, v) in triggerValues.withIndex()) {
+            val p = label(getString(triggerLabels[i]), 13f)
+            p.gravity = Gravity.CENTER
+            p.setPadding(dp(6f), dp(10f), dp(6f), dp(10f))
+            p.setOnClickListener {
+                val j = RustBridge.settings.edit()
+                j.put("voice_trigger", v)
+                RustBridge.setSettings(j)
+                paintTrigger()
+            }
+            triggerPills.add(p)
+            val lp = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
+            if (i > 0) lp.leftMargin = dp(6f)
+            triggerRow.addView(p, lp)
+        }
+        paintTrigger()
+        val tlp = rowParams()
+        tlp.bottomMargin = dp(8f)
+        box.addView(triggerRow, tlp)
         hintText(box, getString(R.string.voice_hint))
 
         // Hlasove povely
         val commands = section(container, getString(R.string.sec_voice_commands))
         hintText(commands, getString(R.string.voice_commands_hint)).setPadding(0, dp(10f), 0, dp(10f))
-        buttonRow(commands, "+  " + getString(R.string.voice_command_new), accent) { edit(null) }
+        addNewCommandButton(commands)
 
         list = LinearLayout(this)
         list.orientation = LinearLayout.VERTICAL
         container.addView(list, rowParams())
         refresh()
+    }
+
+    /**
+     * Tlacitko "+ Novy povel": po klepnuti se krizek protoci o 446 stupnu a zvetsi na 300 %, zelene par krat zapulzuje
+     * a vyleti zlute jiskry; potom se vrati do zakladu a otevre se editor povelu.
+     */
+    private fun addNewCommandButton(commands: LinearLayout) {
+        commands.clipChildren = false
+        val holder = FrameLayout(this)
+        holder.clipChildren = false
+        val btn = LinearLayout(this)
+        btn.clipChildren = false
+        btn.gravity = Gravity.CENTER_VERTICAL
+        btn.minimumHeight = dp(46f)
+        btn.setPadding(dp(16f), 0, dp(16f), 0)
+        btn.background = rounded(field, dp(12f).toFloat())
+        val plus = IconView(this, IconView.PLUS)
+        plus.color = accent
+        btn.addView(plus, LinearLayout.LayoutParams(dp(26f), dp(26f)))
+        val txt = label(getString(R.string.voice_command_new), 15f, accent)
+        txt.typeface = android.graphics.Typeface.create("sans-serif-medium", android.graphics.Typeface.NORMAL)
+        txt.setPadding(dp(14f), 0, 0, 0)
+        btn.addView(txt)
+        holder.addView(btn, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+        val burst = BurstView(this)
+        val blp = FrameLayout.LayoutParams(dp(120f), dp(120f), Gravity.START or Gravity.CENTER_VERTICAL)
+        blp.leftMargin = dp(16f) + dp(13f) - dp(60f)
+        holder.addView(burst, blp)
+        val lp = rowParams()
+        lp.topMargin = dp(5f)
+        lp.bottomMargin = dp(5f)
+        commands.addView(holder, lp)
+        btn.setOnClickListener {
+            if (!btn.isEnabled) return@setOnClickListener
+            btn.isEnabled = false
+            val base = accent
+            val green = 0xFF22C55E.toInt()
+            val yellow = 0xFFFFD60A.toInt()
+            // 1. Krizek se protoci o 446 stupnu a zvetsi na 300 %.
+            plus.animate().rotation(446f).scaleX(3f).scaleY(3f).setDuration(650L)
+                .setInterpolator(android.view.animation.DecelerateInterpolator()).withEndAction {
+                    // 2. Zelene zapulzuje nekolikrat a vyleti zlute jiskry.
+                    burst.burst(yellow, 14, 62f, 800L)
+                    ValueAnimator.ofFloat(0f, 1f).apply {
+                        duration = 840L
+                        addUpdateListener {
+                            val f = it.animatedFraction * 3f
+                            val k = kotlin.math.sin((f - f.toInt()) * Math.PI).toFloat()
+                            plus.color = Theme.blend(base, green, k)
+                            plus.scaleX = 3f + 0.35f * k
+                            plus.scaleY = 3f + 0.35f * k
+                        }
+                        addListener(object : android.animation.AnimatorListenerAdapter() {
+                            override fun onAnimationEnd(animation: android.animation.Animator) {
+                                // 3. Zpet do zakladu a otevre se editor.
+                                plus.color = base
+                                plus.animate().rotation(450f).scaleX(1f).scaleY(1f).setDuration(260L).withEndAction {
+                                    plus.rotation = 0f
+                                    btn.isEnabled = true
+                                    edit(null)
+                                }.start()
+                            }
+                        })
+                        start()
+                    }
+                }.start()
+        }
     }
 
     private fun ensureMicrophone() {

@@ -275,7 +275,7 @@ class KeyboardService : InputMethodService(), KeyboardView.Listener,
         val visible = s.showSuggestions || s.clipboardEnabled || searchMode
         bar?.visibility = if (visible) View.VISIBLE else View.GONE
         bar?.setClipboardVisible(s.clipboardEnabled)
-        bar?.setMicVisible(s.voiceInput && !passwordField)
+        bar?.setMicVisible(s.voiceByButton && !passwordField)
         keyboard?.overflowTop = if (visible) barHeight else 0
     }
 
@@ -1618,6 +1618,7 @@ class KeyboardService : InputMethodService(), KeyboardView.Listener,
 
     /** Mikrofon v liste: klepnutim se spusti diktovani stejne jako podrzenim Enteru. */
     override fun onVoiceClicked() {
+        if (!settings.voiceByButton) return
         onVoiceStart()
     }
 

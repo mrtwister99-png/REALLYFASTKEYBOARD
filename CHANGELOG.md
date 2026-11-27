@@ -2,6 +2,9 @@
 
 Jedna věta za verzi, nejnovější nahoře. Čísla verzí odpovídají commitům (`vX.Y: …`).
 
+## 1.45 – 2026-11-27
+Profil (styl 1–5) obsahuje i rozložení (posuny řad, poloha tlačítek emoji a maker) a tlačítko obnovy ho vrací celé, ze Swipe I zmizel přepínač průchodu a barva kláves průchodu (je to barva stopy), animace Text po tahu přistává nad celým náhledem, nové slovo v osobním slovníku zabrní a tlačítko Přidat se zvětší, zezelená a vybouchne, Hlas má volbu spouštění (podržení Enteru / tlačítko v liště / obojí) a nový povel má animaci křížku, šipky posuvníků po klepnutí zablikají zeleně nebo žlutě, přepínač je o třetinu větší a při přepnutí se zploští, dojede a nafoukne na 125 %.
+
 ## 1.44 – 2026-11-27
 APK jen pro arm64 (z 13,3 na 9,9 MB), návrhy se při psaní počítají po 35 ms pauze, rychlejší sběr kandidátů na návrhy (`Pool` s hash mapou) i pro velké osobní slovníky, audit doplněn o rozhodnutí k `panic = abort` a `mmap`.
 

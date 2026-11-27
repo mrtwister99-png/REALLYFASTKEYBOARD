@@ -40,6 +40,7 @@ Počet nastavení: **94**.
 | `vibration_ms` | `10` | 0 – 50 | Délka vibrace při stisku (ms), 0 = bez vibrace. | Psaní |
 | `sound_enabled` | `false` | zap / vyp | Zvuk kláves. | Psaní |
 | `voice_input` | `true` | zap / vyp | Diktování podržením Enteru. | Hlas |
+| `voice_trigger` | `both` | `enter`, `button`, `both` | Jak se spouští diktování: podržením Enteru, tlačítkem s mikrofonem v liště vedle schránky, nebo obojím. | Hlas |
 
 ## Gesta a schránka
 
@@ -64,7 +65,7 @@ Počet nastavení: **94**.
 | `key_font` | `system` | `system` nebo název souboru z `assets/fonts` | Písmo znaků na klávesách i malé nápovědy (bez cesty; neplatný název = systémové). | Rychle |
 | `key_gap_dp` | `5` | 1 – 10 | Vodorovná mezera mezi klávesami (dp). | Pokročilé → Rozměry a detaily |
 | `row_gap_dp` | `8` | 0 – 16 | Svislá mezera mezi řadami (dp); menší mezera zmenší i celkovou výšku klávesnice (řada = `key_height_dp` + `row_gap_dp` − 8); u starého souboru se odvodí z `key_gap_dp`. | Pokročilé → Rozměry a detaily |
-| `row_offsets` | `[0,0,0,0,0]` | 5 čísel −1 – 1 | Posun jednotlivých řad nahoru (−) a dolů (+) v násobcích výšky řady, číslováno od spodní řady (0 = mezerník, 4 = číslice). Při použití se omezí: nejvyšší řada jde jen kousek nahoru, spodní kousek dolů a řady se nesmí překrýt. | Rozložení a písmo III → Upravit výšku řádků |
+| `row_offsets` | `[0,0,0,0,0]` | 5 čísel −1 – 1 | Posun jednotlivých řad nahoru (−) a dolů (+) v násobcích výšky řady, číslováno od spodní řady (0 = mezerník, 4 = číslice). Při použití se omezí: nejvyšší řada jde jen kousek nahoru, spodní kousek dolů a řady se nesmí překrýt. | Rozložení a písmo III → Upravit výšku řádků (patří do profilu 1–5) |
 | `key_label_x` | `0.5` | 0 – 1 | Vodorovná poloha hlavního znaku na klávese (0,5 = uprostřed). | Pokročilé → Polohy a nápovědy |
 | `key_label_y` | `0.5` | 0 – 1 | Svislá poloha hlavního znaku na klávese (0,5 = uprostřed). | Pokročilé → Polohy a nápovědy |
 | `label_weight` | `400` | 100 – 900 po 100 | Tloušťka písma znaků na písmenech. | Pokročilé → Rozměry a detaily |
@@ -96,7 +97,7 @@ Počet nastavení: **94**.
 | `special_outline` | `true` | zap / vyp | Obrys speciálních kláves (Shift, ?123, ⌫) v barvě akcentu. | Hlavní → Klávesy a efekty |
 | `swipe_trail` | `true` | zap / vyp | Stopa za prstem při tahu. | Hlavní → Klávesy a efekty |
 | `trail_style` | `line` | `line`, `dashed`, `fire`, `pixel` | Vzhled stopy za prstem: čára, čárkovaná, hořící čára nebo pixely. | Animace → Swipe I |
-| `swipe_glow` | `true` | zap / vyp | Rozsvícení kláves při tahu a animace po úspěšném tahu (zapíná se výběrem animace). | Hlavní → Animace po úspěšném tahu |
+| `swipe_glow` | `true` | zap / vyp | Rozsvícení kláves při tahu a animace po úspěšném tahu (zapíná se výběrem animace, „Žádná“ ji vypne). | Hlavní → Animace po úspěšném tahu |
 | `key_glow` | `true` | zap / vyp | Efekt po klepnutí (zapíná se výběrem efektu). | Hlavní → Efekt při klepnutí |
 | `tap_effect` | `neon` | `neon`, `glitch`, `paint`, `ghost`, `orbit`, `pop` | Který efekt se spustí po klepnutí (když je zapnutý `key_glow`). `orbit` (obrys proběhne kolem klávesy) a `pop` (písmeno se rozprskne na jiskry s náhodnými směry, rychlostmi, časy a zakřivením drah a znovu se zrodí). | Hlavní → Efekt při klepnutí (rozbalovací seznam) |
 | `neon_color` | `#0080FF` | `#RRGGBB` | Barva efektu po klepnutí (Neon, Glitch, Duch). | Hlavní → Klávesy a efekty |
@@ -143,7 +144,6 @@ Počet nastavení: **94**.
 | `tap_text_color` | *(prázdné)* | `#RRGGBB` nebo prázdné | Barva znaku po klepnutí (drží asi 2,5 s, pak 0,4 s bledne); prázdná = vypnuto. | Animace po kliknutí I |
 | `hover_text_color` | *(prázdné)* | `#RRGGBB` nebo prázdné | Barva znaku klávesy pod prstem při tahu; prázdná = automatická. Funguje jen se zapnutým `swipe_glow`. | Swipe II |
 | `passed_text_color` | *(prázdné)* | `#RRGGBB` nebo prázdné | Barva znaku kláves, přes které prst přejel při tahu (po tahu bledne asi 0,5 s). Funguje jen se zapnutým `swipe_glow`. | Swipe II |
-| `passed_key_color` | *(prázdné)* | `#RRGGBB` nebo prázdné | Barva klávesy, přes kterou prst při tahu přejel; prázdná = odvozená z akcentu. | Animace → Swipe I |
 | `outline_tap_color` | *(prázdné)* | `#RRGGBB` nebo prázdné | Barva obrysu po klepnutí (drží asi 2,5 s, pak 0,4 s bledne). | Animace po kliknutí I |
 | `outline_hover_color` | *(prázdné)* | `#RRGGBB` nebo prázdné | Barva obrysu klávesy pod prstem. Funguje jen se zapnutým `swipe_glow`. | Swipe II |
 | `outline_passed_color` | *(prázdné)* | `#RRGGBB` nebo prázdné | Barva obrysu kláves, přes které prst přejel při tahu. Funguje jen se zapnutým `swipe_glow`. | Swipe II |

@@ -232,6 +232,10 @@
     <string name="style_restore_confirm">Do you really want to restore this profile\? Unsaved changes will be lost.</string>
     <string name="row_edit">Edit row positions</string>
     <string name="row_edit_hint">Drag the arrows up and down. Every row has its own limits, the top row can only go up a little.</string>
+    <string name="voice_trigger_label">How to start dictation</string>
+    <string name="voice_trigger_enter">Hold Enter</string>
+    <string name="voice_trigger_button">Button next to clipboard</string>
+    <string name="voice_trigger_both">Both</string>
     <string name="style_saved">Look saved to style %1$d</string>
     <string name="style_loaded">Style %1$d loaded</string>
     <string name="style_pick_first">First select style 1–5 above</string>
@@ -252,7 +256,6 @@
     <string name="outline_tap_color">Outline color after tap</string>
     <string name="outline_hover_color">Outline color under the finger</string>
     <string name="outline_passed_color">Outline color after the finger passes</string>
-    <string name="neon_color2">Second effect color</string>
     <string name="tap_key_color2">Second key color after tap</string>
     <string name="number_divider">Divider</string>
     <string name="number_divider_hint">A line between the digits and the letters</string>
@@ -353,7 +356,6 @@
     <string name="waiting_char_outline">Character outline</string>
     <string name="waiting_char_outline_hint">Char on key gets a thin outline. Without its own color it uses the key outline color (or the accent).</string>
     <string name="tap_effect_slide">Slide</string>
-    <string name="swipe_glow">Pass animation</string>
     <string name="font_sample">fAZT! Hello 123</string>
     <string name="tip_number_row">Number row above the letters. Turning it off makes the keyboard shorter.</string>
     <string name="tip_language">Dictionary and suggestions language. The space bar shows the chosen one.</string>
@@ -407,5 +409,4 @@
     <string name="grad_dir_bg">Gradient start: background</string>
     <string name="grad_dir_key">Gradient start: keys</string>
     <string name="grad_dir_text">Gradient start: characters</string>
-    <string name="passed_key_color">Passed key color</string>
 </resources>

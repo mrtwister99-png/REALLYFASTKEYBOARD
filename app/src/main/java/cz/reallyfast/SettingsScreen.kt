@@ -288,8 +288,8 @@ abstract class SettingsScreen : BaseScreen() {
                 commit(sb.progress * step + min)
             }
         })
-        minus.setOnClickListener { val v = (current() - step).coerceAtLeast(min); seek.progress = (v - min) / step; commit(v); value.text = format(v); onSettingTouched(key, col) }
-        plus.setOnClickListener { val v = (current() + step).coerceAtMost(max); seek.progress = (v - min) / step; commit(v); value.text = format(v); onSettingTouched(key, col) }
+        minus.setOnClickListener { minus.flash(); val v = (current() - step).coerceAtLeast(min); seek.progress = (v - min) / step; commit(v); value.text = format(v); onSettingTouched(key, col) }
+        plus.setOnClickListener { plus.flash(); val v = (current() + step).coerceAtMost(max); seek.progress = (v - min) / step; commit(v); value.text = format(v); onSettingTouched(key, col) }
         seekRow.addView(seek, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
         seekRow.addView(plus, LinearLayout.LayoutParams(dp(26f), dp(26f)))
         col.addView(seekRow, rowParams())

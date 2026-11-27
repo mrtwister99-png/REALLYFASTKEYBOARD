@@ -11,6 +11,7 @@ import android.util.TypedValue
 import android.view.Gravity
 import android.view.ViewGroup
 import android.view.inputmethod.EditorInfo
+import android.widget.FrameLayout
 import android.widget.EditText
 import android.widget.LinearLayout
 import android.widget.ScrollView
@@ -62,6 +63,48 @@ class DictionaryActivity : SubScreen() {
     private lateinit var list: LinearLayout
     private lateinit var search: EditText
 
+    /** Zabrneni po pridani slova (stejny vzor jako pri pridani slova tlacitkem + v liste). */
+    private fun vibrateSaved() {
+        try {
+            val v = if (android.os.Build.VERSION.SDK_INT >= 31) {
+                (getSystemService(VIBRATOR_MANAGER_SERVICE) as? android.os.VibratorManager)?.defaultVibrator
+            } else {
+                @Suppress("DEPRECATION")
+                getSystemService(VIBRATOR_SERVICE) as? android.os.Vibrator
+            } ?: return
+            val pattern = longArrayOf(0, 70, 90, 120)
+            if (android.os.Build.VERSION.SDK_INT >= 26) {
+                v.vibrate(android.os.VibrationEffect.createWaveform(pattern, -1))
+            } else {
+                @Suppress("DEPRECATION") v.vibrate(pattern, -1)
+            }
+        } catch (_: Throwable) {
+            // bez vibrace
+        }
+    }
+
+    /** Tlacitko Pridat se zvetsi na 200 %, zezelena, vybouchne (jiskry) a vrati se do zakladu. */
+    private fun playAddedAnimation(add: android.widget.TextView, burst: BurstView) {
+        val base = accent
+        val green = 0xFF22C55E.toInt()
+        add.animate().cancel()
+        add.alpha = 1f
+        val grow = android.animation.ValueAnimator.ofFloat(0f, 1f).apply {
+            duration = 380L
+            addUpdateListener { add.setTextColor(Theme.blend(base, green, it.animatedFraction)) }
+        }
+        grow.start()
+        add.animate().scaleX(2f).scaleY(2f).setDuration(380L).withEndAction {
+            burst.burst(green, 12, 62f, 520L)
+            add.animate().scaleX(3.2f).scaleY(3.2f).alpha(0f).setDuration(200L).withEndAction {
+                add.scaleX = 1f
+                add.scaleY = 1f
+                add.alpha = 1f
+                add.setTextColor(base)
+            }.start()
+        }.start()
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setUp(R.string.sec_dictionary)
@@ -76,12 +119,15 @@ class DictionaryActivity : SubScreen() {
         addRow.addView(word, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
         val add = label(getString(R.string.dictionary_add), 15f, accent)
         add.setPadding(dp(16f), dp(12f), dp(4f), dp(12f))
+        val addBurst = BurstView(this)
         val doAdd = {
             val w = word.text.toString().trim()
             if (w.isNotEmpty()) {
                 if (RustBridge.addUserWord(w)) {
                     word.setText("")
                     refresh()
+                    vibrateSaved()
+                    playAddedAnimation(add, addBurst)
                 } else {
                     Toast.makeText(this, R.string.dictionary_add_failed, Toast.LENGTH_SHORT).show()
                 }
@@ -94,7 +140,14 @@ class DictionaryActivity : SubScreen() {
                 true
             } else false
         }
-        addRow.addView(add)
+        // Tlacitko Pridat v obalu, aby jiskry a zvetseni mohly prekrocit jeho okraj.
+        val addHolder = FrameLayout(this)
+        addHolder.clipChildren = false
+        addHolder.addView(add, FrameLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.CENTER))
+        addHolder.addView(addBurst, FrameLayout.LayoutParams(dp(150f), dp(150f), Gravity.CENTER))
+        addRow.clipChildren = false
+        box.clipChildren = false
+        addRow.addView(addHolder)
         box.addView(addRow, rowParams())
 
         // Seznam

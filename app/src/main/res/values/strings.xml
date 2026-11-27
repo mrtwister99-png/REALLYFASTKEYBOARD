@@ -232,6 +232,10 @@
     <string name="style_restore_confirm">Opravdu chceš tento profil obnovit? Neuložené změny se ztratí.</string>
     <string name="row_edit">Upravit výšku řádků</string>
     <string name="row_edit_hint">Táhni šipky nahoru a dolů. Každá řada má své meze, nejvyšší jde jen kousek nahoru.</string>
+    <string name="voice_trigger_label">Jak spouštět diktování</string>
+    <string name="voice_trigger_enter">Podržením Enteru</string>
+    <string name="voice_trigger_button">Tlačítkem vedle schránky</string>
+    <string name="voice_trigger_both">Obojím</string>
     <string name="style_saved">Vzhled uložen do stylu %1$d</string>
     <string name="style_loaded">Načten styl %1$d</string>
     <string name="style_pick_first">Nejdřív nahoře vyberte styl 1–5</string>
@@ -252,7 +256,6 @@
     <string name="outline_tap_color">Barva obrysu po klepnutí</string>
     <string name="outline_hover_color">Barva obrysu pod prstem</string>
     <string name="outline_passed_color">Barva obrysu po přejetí prstem</string>
-    <string name="neon_color2">Druhá barva efektu</string>
     <string name="tap_key_color2">Druhá barva klávesy po klepnutí</string>
     <string name="number_divider">Oddělovač</string>
     <string name="number_divider_hint">Čárka mezi číslicemi a písmeny</string>
@@ -353,7 +356,6 @@
     <string name="waiting_char_outline">Obrys znaku</string>
     <string name="waiting_char_outline_hint">Znak na klávese má tenký obrys. Bez vlastní barvy má barvu obrysu klávesy (nebo akcentu).</string>
     <string name="tap_effect_slide">Slide</string>
-    <string name="swipe_glow">Animace průchodu</string>
     <string name="font_sample">fAZT! Ahoj 123</string>
     <string name="tip_number_row">Řada čísel nad písmeny. Po vypnutí je klávesnice nižší.</string>
     <string name="tip_language">Jazyk slovníku a návrhů. Zvolený jazyk je vidět na mezerníku.</string>
@@ -407,5 +409,4 @@
     <string name="grad_dir_bg">Začátek přechodu: pozadí</string>
     <string name="grad_dir_key">Začátek přechodu: klávesy</string>
     <string name="grad_dir_text">Začátek přechodu: znaky</string>
-    <string name="passed_key_color">Barva kláves průchodu</string>
 </resources>

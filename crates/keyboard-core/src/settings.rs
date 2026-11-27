@@ -7,6 +7,7 @@ use std::sync::OnceLock;
 
 pub const LANGUAGES: [&str; 3] = ["cs", "en", "cs+en"];
 pub const LAYOUTS: [&str; 2] = ["qwertz", "qwerty"];
+const VOICE_TRIGGERS: &[&str] = &["both", "enter", "button"];
 pub const KEY_PLACES: [&str; 3] = ["left", "right", "hidden"];
 pub const THEMES: [&str; 4] = ["dark", "light", "oled_black", "custom"];
 pub const GLOW_STYLES: [&str; 4] = ["neon", "paint", "ghost", "flip"];
@@ -33,10 +34,12 @@ pub const STYLE_KEYS: &[&str] = &[
     "digit_key_color2", "digit_text_color2",
     "bg_grad_dir", "key_grad_dir", "digit_key_grad_dir", "text_grad_dir", "digit_text_grad_dir", "outline_grad_dir",
     "paint_color1", "paint_color2", "paint_color3",
-    "passed_text_color", "passed_key_color", "tap_text_color", "hover_text_color", "label_weight", "digit_weight",
+    "passed_text_color", "tap_text_color", "hover_text_color", "label_weight", "digit_weight",
     "neon_color2", "outline_color", "outline_color2", "outline_tap_color", "outline_hover_color",
     "outline_passed_color", "outline_width_dp", "char_outline", "char_outline_color",
     "special_outline", "trail_color2", "glow_color2", "tap_text_color2", "outline_tap_color2",
+    // Rozlozeni daneho profilu: posuny radku a poloha tlacitek emoji / maker ve spodni rade.
+    "row_offsets", "emoji_key", "macro_key",
 ];
 /// Jeden slot stylu: klic nastaveni -> hodnota (jen klice ze STYLE_KEYS).
 pub type StyleSlot = serde_json::Map<String, serde_json::Value>;
@@ -83,6 +86,8 @@ pub struct Settings {
     pub custom_text: String,
     /// Diktovani: podrzeni Enteru prepise rec na text (systemove rozpoznavani reci).
     pub voice_input: bool,
+    /// Jak se diktovani spousti: `enter` = podrzeni Enteru, `button` = tlacitko v liste vedle schranky, `both` = obojim.
+    pub voice_trigger: String,
     // --- vzhled (Faze 2) ---
     /// Bublina s pismenem nad stisknutou klavesou.
     pub key_popup: bool,
@@ -199,7 +204,6 @@ pub struct Settings {
     /// Barva znaku klavesy, kterou prochazi prst pri tahu ("" = automaticka).
     pub passed_text_color: String,
     /// Barva klavesy, pres kterou prst pri tahu prejel ("" = automaticka, odvozena z akcentu).
-    pub passed_key_color: String,
     /// Barva znaku po klepnuti ("" = vypnuto).
     pub tap_text_color: String,
     /// Barva znaku klavesy primo pod prstem pri tahu ("" = automaticka).
@@ -275,6 +279,7 @@ impl Settings {
             custom_key: "#26262B".into(),
             custom_text: "#F4F4F5".into(),
             voice_input: true,
+            voice_trigger: "both".into(),
             key_popup: true,
             key_hints: true,
             key_shadow: true,
@@ -336,7 +341,6 @@ impl Settings {
             key_label_x: 0.5,
             key_label_y: 0.5,
             passed_text_color: String::new(),
-            passed_key_color: String::new(),
             tap_text_color: String::new(),
             hover_text_color: String::new(),
             label_weight: 400,
@@ -681,6 +685,9 @@ impl Settings {
             self.key_hint_x = x;
             self.key_hint_y = y;
         }
+        if !VOICE_TRIGGERS.contains(&self.voice_trigger.as_str()) {
+            self.voice_trigger = d.voice_trigger.clone();
+        }
         if !KEY_PLACES.contains(&self.emoji_key.as_str()) {
             self.emoji_key = d.emoji_key.clone();
         }
@@ -691,7 +698,6 @@ impl Settings {
         fix_optional_color(&mut self.alts_color);
         fix_optional_color(&mut self.hint_color);
         fix_optional_color(&mut self.passed_text_color);
-        fix_optional_color(&mut self.passed_key_color);
         fix_optional_color(&mut self.tap_text_color);
         fix_optional_color(&mut self.hover_text_color);
         self.label_weight = round_weight(self.label_weight);
@@ -786,6 +792,23 @@ mod tests {
     use super::*;
 
     #[test]
+    fn voice_trigger_is_validated() {
+        assert_eq!(Settings::default().voice_trigger, "both");
+        for v in ["enter", "button", "both"] {
+            let s = Settings::from_json(&format!(r#"{{"voice_trigger":"{v}"}}"#)).unwrap();
+            assert_eq!(s.voice_trigger, v);
+        }
+        assert_eq!(Settings::from_json(r#"{"voice_trigger":"nejak"}"#).unwrap().voice_trigger, "both");
+    }
+
+    #[test]
+    fn layout_keys_belong_to_profiles() {
+        for k in ["row_offsets", "emoji_key", "macro_key"] {
+            assert!(STYLE_KEYS.contains(&k), "{k}");
+        }
+    }
+
+    #[test]
     fn row_offsets_are_padded_clamped_and_not_style() {
         let d = Settings::default();
         assert_eq!(d.row_offsets, vec![0.0; 5]);
@@ -793,7 +816,6 @@ mod tests {
         assert_eq!(s.row_offsets, vec![1.0, -1.0, 0.123, 0.0, 0.0]);
         let s = Settings::from_json(r#"{"row_offsets":[0,0,0,0,0,0,0,9]}"#).unwrap();
         assert_eq!(s.row_offsets.len(), 5);
-        assert!(!STYLE_KEYS.contains(&"row_offsets"));
         assert_eq!(Settings::from_json(&s.to_json()).unwrap().row_offsets, s.row_offsets);
     }
 
@@ -1210,12 +1232,10 @@ mod tests {
         let s = Settings::from_json(r##"{"key_label_x":0.2,"key_label_y":1.7,"passed_text_color":"#ff0000","tap_text_color":"bad"}"##).unwrap();
         assert_eq!((s.key_label_x, s.key_label_y), (0.2, 1.0));
         assert_eq!((s.passed_text_color.as_str(), s.tap_text_color.as_str()), ("#FF0000", ""));
-        assert_eq!(Settings::default().passed_key_color, "");
+        // passed_key_color uz neexistuje (barva projetych klaves je barva stopy); stary klic v souboru se ignoruje
         let s = Settings::from_json(r##"{"passed_key_color":"#00ff00"}"##).unwrap();
-        assert_eq!(s.passed_key_color, "#00FF00");
-        assert!(STYLE_KEYS.contains(&"passed_key_color"));
-        let s = Settings::from_json(r##"{"passed_key_color":"zle"}"##).unwrap();
-        assert_eq!(s.passed_key_color, "");
+        assert!(!s.to_json().contains("passed_key_color"));
+        assert!(!STYLE_KEYS.contains(&"passed_key_color"));
         let s = Settings::from_json(r#"{"key_label_x":-3.0}"#).unwrap();
         assert_eq!((s.key_label_x, s.key_label_y), (0.0, 0.5));
         let s = Settings::from_json(r#"{"key_macros":{"a":3,"bb":4,"c":0," ":5,"d":7}}"#).unwrap();

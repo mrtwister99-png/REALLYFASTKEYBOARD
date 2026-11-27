@@ -7,15 +7,15 @@ import android.graphics.Paint
 import android.graphics.RectF
 import android.view.View
 import android.view.accessibility.AccessibilityNodeInfo
-import android.view.animation.OvershootInterpolator
+import android.view.animation.DecelerateInterpolator
 
 /**
  * Vlastni prepinac (nahrazuje android.widget.Switch), kapsle 52 x 30 dp. Vypnuty: tmave seda kapsle
  * a svetle sedy palec; zapnuty: svetle seda kapsle a modry palec (pevna modra, ne accent barva).
- * Palec se pohybuje s mirnym preskocenim a behem pohybu se zmensi a zase zvetsi (vypnuty 70 %,
- * zapnuty 105 % zakladniho polomeru 10 dp); jeho stred je ale vzdy omezen tak, aby kruh nikdy
- * nepresahl vnitrni okraj kapsle (odsazeni 2 dp). Jedna animace 420 ms na kazde prepnuti;
- * obraceni uprostred navazuje z aktualni hodnoty. onDraw nealokuje.
+ * Klidovy palec je o tretinu vetsi nez driv (vypnuty 93 %, zapnuty 140 % zakladniho polomeru 10 dp).
+ * Prepnuti (520 ms): palec se nejdriv sploste na 5 % vysky, v tomto stavu dojede do 95 % cesty,
+ * pak se nafoukne na 125 % klidove velikosti a nakonec se usadi. Stred palce je vzdy omezen tak,
+ * aby kruh nepresahl vnitrni okraj kapsle vodorovne. onDraw nealokuje.
  */
 class ToggleView(context: Context) : View(context) {
 
@@ -28,15 +28,16 @@ class ToggleView(context: Context) : View(context) {
     private val d = resources.displayMetrics.density
     private val paint = Paint(Paint.ANTI_ALIAS_FLAG)
     private val rect = RectF()
-    private val overshoot = OvershootInterpolator(1.6f)
+    private val decel = DecelerateInterpolator(1.4f)
     private val animator = ValueAnimator.ofFloat(0f, 1f).apply {
         duration = DURATION
         addUpdateListener { step(it.animatedFraction) }
     }
 
-    // Aktualni stav vykresleni: poloha palce 0..1 (muze lehce presahnout) a velikost 0.6..1.05.
+    // Aktualni stav vykresleni: poloha palce 0..1, sirka palce (nasobek polomeru 10 dp) a vyska vuci sirce (0,05..1).
     private var pos = 0f
     private var size = SIZE_OFF
+    private var squash = 1f
     private var posFrom = 0f
     private var posTo = 0f
     private var sizeFrom = SIZE_OFF
@@ -67,16 +68,39 @@ class ToggleView(context: Context) : View(context) {
         } else {
             pos = posTo
             size = sizeTo
+            squash = 1f
             invalidate()
         }
     }
 
+    /** Casovy prubeh: A splosteni, B jizda v ploskem stavu do 95 %, C dojezd a nafouknuti na 125 %, D usazeni. */
     private fun step(t: Float) {
-        pos = posFrom + (posTo - posFrom) * overshoot.getInterpolation(t)
-        size = if (t < SIZE_MID_AT) {
-            sizeFrom + (SIZE_MIN - sizeFrom) * (t / SIZE_MID_AT)
-        } else {
-            SIZE_MIN + (sizeTo - SIZE_MIN) * ((t - SIZE_MID_AT) / (1f - SIZE_MID_AT))
+        val travel = posTo - posFrom
+        when {
+            t < PHASE_A -> {
+                val k = t / PHASE_A
+                squash = 1f - (1f - SQUASH_MIN) * k
+                pos = posFrom
+                size = sizeFrom
+            }
+            t < PHASE_B -> {
+                val k = decel.getInterpolation((t - PHASE_A) / (PHASE_B - PHASE_A))
+                squash = SQUASH_MIN
+                pos = posFrom + travel * 0.95f * k
+                size = sizeFrom + (sizeTo - sizeFrom) * k
+            }
+            t < PHASE_C -> {
+                val k = (t - PHASE_B) / (PHASE_C - PHASE_B)
+                pos = posFrom + travel * (0.95f + 0.05f * k)
+                squash = SQUASH_MIN + (1f - SQUASH_MIN) * k
+                size = sizeTo * (1f + (POP - 1f) * k)
+            }
+            else -> {
+                val k = (t - PHASE_C) / (1f - PHASE_C)
+                pos = posTo
+                squash = 1f
+                size = sizeTo * (POP - (POP - 1f) * k)
+            }
         }
         invalidate()
     }
@@ -96,14 +120,16 @@ class ToggleView(context: Context) : View(context) {
         paint.color = Theme.blend(OFF_TRACK, ON_TRACK, t)
         rect.set(left, top, left + trackW, top + trackH)
         canvas.drawRoundRect(rect, trackH / 2f, trackH / 2f, paint)
-        val r = 10f * d * size
-        // Stred palce: od vnitrniho okraje vlevo po vnitrni okraj vpravo, preskok se orizne.
+        val rw = 10f * d * size
+        val rh = rw * squash
+        // Stred palce: od vnitrniho okraje vlevo po vnitrni okraj vpravo.
         val inset = INSET * d
-        val minX = left + inset + r
-        val maxX = left + trackW - inset - r
-        val cx = (minX + (maxX - minX) * pos).coerceIn(minX, maxX)
+        val minX = left + inset + rw
+        val maxX = left + trackW - inset - rw
+        val cx = if (maxX > minX) (minX + (maxX - minX) * pos).coerceIn(minX, maxX) else (minX + maxX) / 2f
         paint.color = Theme.blend(OFF_THUMB, ON_THUMB, t)
-        canvas.drawCircle(cx, h / 2f, r, paint)
+        rect.set(cx - rw, h / 2f - rh, cx + rw, h / 2f + rh)
+        canvas.drawOval(rect, paint)
     }
 
     override fun onInitializeAccessibilityNodeInfo(info: AccessibilityNodeInfo) {
@@ -119,11 +145,14 @@ class ToggleView(context: Context) : View(context) {
     }
 
     private companion object {
-        const val DURATION = 420L
-        const val SIZE_OFF = 0.70f
-        const val SIZE_ON = 1.05f
-        const val SIZE_MIN = 0.60f
-        const val SIZE_MID_AT = 0.35f
+        const val DURATION = 520L
+        const val SIZE_OFF = 0.70f * 4f / 3f
+        const val SIZE_ON = 1.05f * 4f / 3f
+        const val SQUASH_MIN = 0.05f
+        const val POP = 1.25f
+        const val PHASE_A = 0.18f
+        const val PHASE_B = 0.62f
+        const val PHASE_C = 0.80f
         const val TRACK_W = 52f
         const val TRACK_H = 30f
         const val INSET = 2f

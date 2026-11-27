@@ -156,6 +156,17 @@ class ChevronView(
         }
     }
 
+    /** Kratke zablesknuti vyplne (zelena nebo zluta, nahodne) pri klepnuti na sipku posuvniku. */
+    fun flash() {
+        running?.cancel()
+        fillPaint.color = if (kotlin.random.Random.nextBoolean()) GREEN else YELLOW
+        running = ValueAnimator.ofFloat(0f, 1f, 0f).apply {
+            duration = 420L
+            addUpdateListener { progress = it.animatedValue as Float }
+            start()
+        }
+    }
+
     /** Zastavi rozehranou animaci a vrati sipku do zakladu. */
     fun reset() {
         running?.cancel()
@@ -279,6 +290,7 @@ class ChevronView(
     companion object {
         const val YELLOW = 0xFFFFD60A.toInt()
         const val RED = 0xFFEF4444.toInt()
+        const val GREEN = 0xFF22C55E.toInt()
         private const val SPARKS = 7
         private const val FILL_MS = 320L
         private const val GO_MS = 280L
@@ -338,5 +350,69 @@ class RestoreIconView(context: Context, color: Int) : View(context) {
     private companion object {
         const val START = -40f
         const val SWEEP = 280f
+    }
+}
+
+/** Rozprsknuti castic (kratke cary) od stredu pohledu; pohled by mel lezet nad tlacitkem a nesmi orezavat okoli (clipChildren = false). */
+class BurstView(context: Context) : View(context) {
+    private val d = resources.displayMetrics.density
+    private val paint = Paint(Paint.ANTI_ALIAS_FLAG)
+    private var t = -1f
+    private var count = 10
+    private var reach = 0f
+    private var anim: ValueAnimator? = null
+
+    init {
+        paint.style = Paint.Style.STROKE
+        paint.strokeCap = Paint.Cap.ROUND
+        paint.strokeWidth = 2.6f * d
+        isClickable = false
+        isFocusable = false
+    }
+
+    /** Rozprskne `n` cestic barvy `color` do vzdalenosti `reachDp` od stredu; trva `ms`. */
+    fun burst(color: Int, n: Int = 10, reachDp: Float = 46f, ms: Long = 520L) {
+        anim?.cancel()
+        paint.color = color
+        count = n
+        reach = reachDp * d
+        anim = ValueAnimator.ofFloat(0f, 1f).apply {
+            duration = ms
+            interpolator = DecelerateInterpolator()
+            addUpdateListener {
+                t = it.animatedValue as Float
+                invalidate()
+            }
+            addListener(object : AnimatorListenerAdapter() {
+                override fun onAnimationEnd(animation: Animator) {
+                    t = -1f
+                    invalidate()
+                }
+            })
+            start()
+        }
+    }
+
+    override fun onDraw(canvas: Canvas) {
+        if (t < 0f) return
+        val cx = width / 2f
+        val cy = height / 2f
+        val a = ((1f - t) * 255f).toInt().coerceIn(0, 255)
+        val base = (paint.color and 0x00FFFFFF)
+        paint.color = base or (a shl 24)
+        for (i in 0 until count) {
+            val ang = i * 2.0 * PI / count + 0.35
+            val r0 = reach * (0.25f + 0.75f * t)
+            val r1 = r0 + reach * 0.3f * (1f - t)
+            val c = cos(ang).toFloat()
+            val s = sin(ang).toFloat()
+            canvas.drawLine(cx + c * r0, cy + s * r0, cx + c * r1, cy + s * r1, paint)
+        }
+        paint.color = base or 0xFF000000.toInt()
+    }
+
+    override fun onDetachedFromWindow() {
+        anim?.cancel()
+        super.onDetachedFromWindow()
     }
 }

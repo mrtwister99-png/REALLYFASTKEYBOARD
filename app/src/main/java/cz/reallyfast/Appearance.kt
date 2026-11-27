@@ -258,7 +258,8 @@ class AppearanceActivity : SettingsScreen() {
         host.clipChildren = false
         host.visibility = View.GONE
         val kv = KeyboardView(this)
-        kv.addOnLayoutChangeListener { _, _, top, _, _, _, _, _, _ -> kv.overflowTop = top - captionRow.top }
+        // Slovo po tahu (styl Text) pristane nad celym nahledem, az nad caption radkem (nad jeho horni caru), ne uvnitr nej.
+        kv.addOnLayoutChangeListener { _, _, top, _, _, _, _, _, _ -> kv.overflowTop = 2 * (top - captionRow.top) + dp(80f) }
         kv.preview = true
         kv.swipeAllowed = false
         kv.voiceAllowed = false
@@ -1141,8 +1142,6 @@ class AppearanceActivity : SettingsScreen() {
         applyTrailColors()
         fontPainters.add { applyTrailColors() }
         sliderRow(s, R.string.trail_width, "trail_width_dp", 1, 12, 1) { getString(R.string.unit_dp, it) }
-        switchRow(s, R.string.swipe_glow, "swipe_glow")
-        colorRow(s, R.string.passed_key_color, "passed_key_color", allowAuto = true)
         val glowValues = listOf("none", "neon", "paint", "ghost", "flip")
         val glowLabels = listOf(getString(R.string.anim_none), getString(R.string.tap_effect_neon), getString(R.string.glow_style_paint), getString(R.string.glow_style_ghost), getString(R.string.glow_style_flip))
         dropdownRow(s, R.string.glow_style_label, glowValues, glowLabels,
@@ -1336,7 +1335,7 @@ class AppearanceActivity : SettingsScreen() {
         "alts_color" -> DEMO_ALTS
         "animations" -> DEMO_PRESS
         "swipe_trail", "trail_style", "trail_color", "trail_color2", "trail_width_dp",
-        "passed_text_color", "outline_passed_color", "passed_key_color", "hover_text_color", "outline_hover_color" -> DEMO_SWIPE
+        "passed_text_color", "outline_passed_color", "hover_text_color", "outline_hover_color" -> DEMO_SWIPE
         "glow_style", "glow_color", "glow_color2", "swipe_glow" -> DEMO_GLOW
         else -> DEMO_NONE
     }
