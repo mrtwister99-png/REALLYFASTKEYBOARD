@@ -294,9 +294,10 @@ class AppearanceActivity : SettingsScreen() {
         header.setBackgroundColor(bg)
         header.setPadding(dp(14f), dp(10f), dp(14f), dp(6f))
         // Zpet vlevo, Test / Obnovit / Ulozit vpravo (pevne ke krajum, ne pres pruznou mezeru).
-        val top = FrameLayout(this)
-        // Hlavicka ma vzdy plnou sirku obrazovky (bez pevne sirky se radek smrstil a tlacitka lezela pres sebe).
-        top.minimumWidth = resources.displayMetrics.widthPixels - dp(28f)
+        // Jeden vodorovny radek: Zpet vlevo, pruzna mezera, Test / Obnovit / Ulozit vpravo (nic se neprekryva).
+        val top = LinearLayout(this)
+        top.orientation = LinearLayout.HORIZONTAL
+        top.gravity = Gravity.CENTER_VERTICAL
         val right = LinearLayout(this)
         right.gravity = Gravity.CENTER_VERTICAL
         // Zpetna sipka: tlacitko zustane stat, sipka z nej po klepnuti vystreli doleva.
@@ -311,7 +312,8 @@ class AppearanceActivity : SettingsScreen() {
         backArrow = arrow
         top.clipChildren = false
         header.clipChildren = false
-        top.addView(back, FrameLayout.LayoutParams(dp(48f), dp(42f), Gravity.START or Gravity.CENTER_VERTICAL))
+        top.addView(back, LinearLayout.LayoutParams(dp(48f), dp(42f)))
+        top.addView(View(this), LinearLayout.LayoutParams(0, 1, 1f))
         val test = label(getString(R.string.preview_test), 13f)
         test.typeface = Typeface.DEFAULT_BOLD
         test.letterSpacing = 0.08f
@@ -354,7 +356,7 @@ class AppearanceActivity : SettingsScreen() {
             }
         }
         right.addView(saveHolder, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, dp(42f)))
-        top.addView(right, FrameLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, dp(42f), Gravity.END or Gravity.CENTER_VERTICAL))
+        top.addView(right, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, dp(42f)))
         header.addView(top, rowParams())
 
         val bar = LinearLayout(this)

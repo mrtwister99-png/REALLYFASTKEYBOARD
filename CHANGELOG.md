@@ -2,6 +2,9 @@
 
 Jedna věta za verzi, nejnovější nahoře. Čísla verzí odpovídají commitům (`vX.Y: …`).
 
+## 1.47.2 – 2026-11-27
+Hlavička Vzhledu je jeden vodorovný řádek: Zpět vlevo, Test, Obnovit a Uložit vpravo ke kraji obrazovky, bez překrývání tlačítek.
+
 ## 1.47.1 – 2026-11-27
 Hlavička Vzhledu má pevnou šířku, takže Obnovit a Uložit leží vpravo a ne přes sebe; Hlas má dva samostatné přepínače: diktování podržením Enteru a diktování tlačítkem vedle schránky (volba „Jak spouštět“ zmizela).
 
