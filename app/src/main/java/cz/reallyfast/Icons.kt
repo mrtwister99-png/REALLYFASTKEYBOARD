@@ -21,6 +21,7 @@ class LineIcon(private val kind: Int, color: Int, private val size: Int, strokeD
         const val MIC = 2
         const val KEYBOARD = 3
         const val INFO = 4
+        const val SAVE = 5
     }
 
     private val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
@@ -94,6 +95,18 @@ class LineIcon(private val kind: Int, color: Int, private val size: Int, strokeD
                 }
                 p.moveTo(8.5f, 15.6f)
                 p.lineTo(15.5f, 15.6f)
+            }
+            SAVE -> {
+                // zaloha: sipka dolu do podnosu
+                p.moveTo(4f, 15f)
+                p.lineTo(4f, 20f)
+                p.lineTo(20f, 20f)
+                p.lineTo(20f, 15f)
+                p.moveTo(12f, 4f)
+                p.lineTo(12f, 15f)
+                p.moveTo(8f, 11f)
+                p.lineTo(12f, 15f)
+                p.lineTo(16f, 11f)
             }
             INFO -> {
                 // informace: kruh, svisla cara a tecka

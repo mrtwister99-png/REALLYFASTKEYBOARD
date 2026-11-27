@@ -82,7 +82,7 @@ vždy znovu přečte z odpovědi (`refreshers` v `SettingsScreen`), takže zobra
 
 ## Obrazovky nastavení
 
-- `SettingsActivity` (hlavní: aktivace, rozcestník, schránka, záloha), `AppearanceActivity` (`Appearance.kt`: Vzhled a rozložení), `TypingActivity`, `VoiceActivity`,
+- `SettingsActivity` (hlavní: aktivace, rozcestník, schránka, ladění), `BackupActivity` (`Backup.kt`: záloha a obnovení), `AppearanceActivity` (`Appearance.kt`: Vzhled a rozložení), `TypingActivity`, `VoiceActivity`,
   `DictionaryActivity`, `MacrosActivity`, `AboutActivity`. Všechny dědí z `BaseScreen` (`Ui.kt`: barvy, dialogy, zpět); obrazovky s řádky voleb ze `SettingsScreen`, ostatní podobrazovky ze `SubScreen` (`Manage.kt`). Je to jen kód v Kotlinu, žádné layouty.
 - **`Appearance.kt`** má dvě záložky: `buildMain` (úroveň 1: základ; pod ním `buildAdvanced` = úroveň 2 ve sbalené kartě „Pokročilé“) a `buildExtra` (úroveň 3: záložka Waiting). Nadpis, záložky a výběr stylů 1–5 jsou připnuté nahoře mimo posuvnou část; nad náhledem je řádek Zpět / Uložit. Zpět drží historii snímků nastavení (`undoStack`, nejvýš 50 kroků, změny blíž než 700 ms tvoří jeden krok).
   Nahoře je živý náhled (`KeyboardView` v režimu `preview`), který ukazuje každou změnu; `onSettingUpdated` spouští krátké ukázky (`demoNeon`, `demoTrail`, …).

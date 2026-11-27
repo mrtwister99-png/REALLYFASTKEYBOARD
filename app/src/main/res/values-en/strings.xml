@@ -141,10 +141,12 @@
     <string name="dictionary_import_failed">Could not read the file</string>
     <string name="dictionary_show_more">Showing the first %1$d words</string>
 
-    <string name="sec_backup">Backup and tuning</string>
-    <string name="backup_export">Back up to file</string>
-    <string name="backup_import">Restore from file</string>
-    <string name="backup_hint">The backup contains settings, personal dictionary, corrections, macros, swipe adaptation and the swipe log. Clipboard history is not included. The backup is not encrypted, keep it somewhere safe.</string>
+    <string name="sec_backup">Tuning</string>
+    <string name="backup_open">Backup and restore</string>
+    <string name="backup_how">How it works: “Save” writes the keyboard settings, personal dictionary, corrections, macros, swipe adaptation and the swipe log into one file. “Restore” loads it back: settings are overwritten (saved styles 1–5 are merged with yours), dictionary and macros are merged with what you already have. Clipboard history is not included.</string>
+    <string name="backup_privacy">No data goes anywhere: the keyboard has no internet access and you save and load the file yourself, wherever you like. Everything stays with you. The backup is not encrypted, keep it somewhere safe.</string>
+    <string name="backup_export">Save keyboard settings (export)</string>
+    <string name="backup_import">Restore keyboard settings (import)</string>
     <string name="backup_exported">Backup saved</string>
     <string name="backup_export_failed">Could not save the backup</string>
     <string name="backup_restore_confirm">Restore from backup? Settings will be overwritten (saved styles 1–5 are merged with yours), dictionary and macros will be merged with what you already have.</string>

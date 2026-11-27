@@ -137,10 +137,12 @@
     <string name="dictionary_import_failed">Soubor se nepodařilo načíst</string>
     <string name="dictionary_show_more">Zobrazeno prvních %1$d slov</string>
 
-    <string name="sec_backup">Záloha a ladění</string>
-    <string name="backup_export">Zálohovat do souboru</string>
-    <string name="backup_import">Obnovit ze souboru</string>
-    <string name="backup_hint">Záloha obsahuje nastavení, osobní slovník, opravy, makra, přizpůsobení swipe a záznam tahů. Historie schránky v ní není. Záloha není šifrovaná, ukládej ji na bezpečné místo.</string>
+    <string name="sec_backup">Ladění</string>
+    <string name="backup_open">Záloha a obnovení</string>
+    <string name="backup_how">Jak to funguje: „Uložit“ zapíše nastavení klávesnice, osobní slovník, opravy, makra, přizpůsobení swipe a záznam tahů do jednoho souboru. „Obnovit“ ho načte zpět: nastavení se přepíše (uložené styly 1–5 se sloučí s těmi, co už máš), slovník a makra se sloučí s tím, co už máš. Historie schránky v záloze není.</string>
+    <string name="backup_privacy">Žádná data nikam neodcházejí: klávesnice nemá přístup k internetu a soubor ukládáš a načítáš sám, kam chceš. Vše zůstává jen u tebe. Záloha není šifrovaná, ukládej ji na bezpečné místo.</string>
+    <string name="backup_export">Uložit nastavení klávesnice (export)</string>
+    <string name="backup_import">Obnovit nastavení klávesnice (import)</string>
     <string name="backup_exported">Záloha uložena</string>
     <string name="backup_export_failed">Zálohu se nepodařilo uložit</string>
     <string name="backup_restore_confirm">Obnovit ze zálohy? Nastavení se přepíše (uložené styly 1–5 se sloučí s těmi, co už máš), slovník a makra se sloučí s tím, co už máš.</string>

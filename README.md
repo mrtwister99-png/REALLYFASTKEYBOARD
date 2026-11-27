@@ -109,7 +109,7 @@ app/                               Android aplikace (Kotlin, bez AndroidX)
     KeyboardService.kt             InputMethodService, InputConnection, haptika, diktování
     KeyboardView.kt                vykreslení kláves (Canvas), dotyk, efekty, TalkBack
     Panels.kt                      lišta návrhů, emoji panel, panel schránky
-    SettingsActivity.kt            hlavní obrazovka: aktivace, rozcestník, schránka, záloha
+    SettingsActivity.kt            hlavní obrazovka: aktivace, rozcestník, schránka, ladění (záloha je v Backup.kt)
     Appearance.kt                  Vzhled a rozložení (záložky Hlavní / Waiting, živý náhled, editor kláves)
     SettingsScreen.kt, Ui.kt       společné stavební prvky obrazovek (řádky, výběr barvy, dialogy)
     Typing.kt, Voice.kt, Manage.kt obrazovky Psaní, Hlas, Osobní slovník, Makra
@@ -191,11 +191,11 @@ Vykreslení snímku, odezva tapu, start klávesnice a paměť **nebyly na zaří
 
 ### Záloha a obnova
 
-Hlavní obrazovka → **Záloha a ladění** → *Zálohovat do souboru* uloží jeden JSON (`fazt-zaloha.json`):
+Hlavní obrazovka → **Záloha a obnovení** → *Uložit nastavení klávesnice (export)* uloží jeden JSON (`fazt-zaloha.json`):
 nastavení (včetně uložených stylů 1–5), osobní slovník (slova, bigramy, trigramy), opravy, makra, hlasové povely,
 přizpůsobení swipe a záznam tahů. Historie schránky a nedávná emoji se do zálohy **nedávají** (soukromí).
 
-*Obnovit ze souboru* se nejdřív zeptá a pak: nastavení **přepíše**, slovník, opravy a makra **sloučí**
+*Obnovit nastavení klávesnice (import)* se nejdřív zeptá a pak: nastavení **přepíše**, slovník, opravy a makra **sloučí**
 (u slov a oprav platí vyšší počet, existující makra se nezdvojují) a přizpůsobení swipe nahradí, pokud je
 v souboru. Záloha ze starší verze, která ještě neměla styly 1–5, nastavení obnoví a **styly v telefonu nechá,
 jak jsou**. Opakované obnovení stejného souboru už nic nezmění. Neplatný soubor (nebo soubor jiné aplikace)

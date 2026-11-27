@@ -2,6 +2,9 @@
 
 Jedna věta za verzi, nejnovější nahoře. Čísla verzí odpovídají commitům (`vX.Y: …`).
 
+## 1.48 – 2026-11-27
+Nová obrazovka Záloha a obnovení (export a import s vysvětlením, že data nikam neodcházejí); jiskry u „Nový povel“ v Hlasu vybuchují přesně na plusu; podržený návrh otevírá své dvě další slova přímo nad sebou, každý slot má vlastní dvojici (šest slov celkem, Rust vrací o 6 slov víc), výběr z nich lehce zabrní.
+
 ## 1.47.6 – 2026-11-27
 Po přidání slova v osobním slovníku písmena tlačítka Přidat odletí (P nahoru, ř dolů, i dolů, d nahoru, a dolů, t doprava) a tlačítko se vrátí; když je klávesnice aktivní, obě ozubená kola na úvodní stránce se při každém pootočení točí nahodilým směrem (stejně nebo každé jinak).
 

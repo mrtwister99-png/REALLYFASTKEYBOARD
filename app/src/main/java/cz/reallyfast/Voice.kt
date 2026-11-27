@@ -115,9 +115,17 @@ class VoiceActivity : SubScreen() {
         btn.addView(txt)
         holder.addView(btn, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
         val burst = BurstView(this)
-        val blp = FrameLayout.LayoutParams(dp(120f), dp(120f), Gravity.START or Gravity.CENTER_VERTICAL)
-        blp.leftMargin = dp(16f) + dp(13f) - dp(60f)
+        // Pohled s jiskrami ma velikost presne jako plus a lezi na nem (stred na stred); jiskry kresli mimo sve hranice.
+        val blp = FrameLayout.LayoutParams(dp(26f), dp(26f), Gravity.START or Gravity.CENTER_VERTICAL)
+        blp.leftMargin = dp(16f)
         holder.addView(burst, blp)
+        holder.post {
+            var up = holder.parent as? ViewGroup
+            while (up != null && up !is android.widget.ScrollView) {
+                up.clipChildren = false
+                up = up.parent as? ViewGroup
+            }
+        }
         val lp = rowParams()
         lp.topMargin = dp(5f)
         lp.bottomMargin = dp(5f)

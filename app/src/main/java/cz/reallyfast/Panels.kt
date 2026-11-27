@@ -165,8 +165,8 @@ class IconView(context: Context, private val icon: Int) : View(context) {
 class SuggestionBar(context: Context, private var theme: Theme, private val callbacks: Callbacks) : FrameLayout(context) {
     interface Callbacks {
         fun onSuggestionPicked(index: Int, word: String)
-        /** Podrzeni navrhu: dalsi slova (nejvyse 2), ktera se ukazou nad listou. */
-        fun onMoreSuggestions(): List<String>
+        /** Podrzeni navrhu ve slotu `slot` (0-2): jeho dvojice dalsich slov (nejvyse 2), ktera se ukazou nad nim. */
+        fun onMoreSuggestions(slot: Int): List<String>
         fun onClipboardClicked()
         fun onVoiceClicked()
         fun onAddWordClicked()
@@ -174,7 +174,7 @@ class SuggestionBar(context: Context, private var theme: Theme, private val call
         fun onSearchClosed()
     }
 
-    private companion object {
+    companion object {
         /** Index predavany pri vyberu slova z podrzeneho navrhu (mimo tri sloty). */
         const val MORE_INDEX = 3
     }
@@ -223,7 +223,7 @@ class SuggestionBar(context: Context, private var theme: Theme, private val call
                 setOnClickListener { words.getOrNull(i)?.let { w -> callbacks.onSuggestionPicked(i, w) } }
                 setOnLongClickListener {
                     if (status != null || words.getOrNull(i) == null) return@setOnLongClickListener false
-                    showMore(this, callbacks.onMoreSuggestions())
+                    showMore(this, callbacks.onMoreSuggestions(i))
                     true
                 }
             }
@@ -323,10 +323,10 @@ class SuggestionBar(context: Context, private var theme: Theme, private val call
             setColor(theme.background)
             setStroke(dp(1f), theme.divider)
         })
-        val loc = IntArray(2)
-        anchor.getLocationOnScreen(loc)
         try {
-            pw.showAtLocation(anchor, Gravity.NO_GRAVITY, loc[0] + (anchor.width - wPx) / 2, loc[1] - h - dp(4f))
+            // Vuci kotvici (ne vuci obrazovce): okno klavesnice nezacina na vrcholu obrazovky, a souradnice by pak lezely nize.
+            // Dolni okraj okna lezi 4 dp nad hornim okrajem slotu, tedy primo nad nabizenym slovem.
+            pw.showAsDropDown(anchor, (anchor.width - wPx) / 2, -(anchor.height + h + dp(4f)))
             morePopup = pw
         } catch (_: Throwable) {
             // okno nejde zobrazit (napr. klavesnice se zrovna zavira)

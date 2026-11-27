@@ -924,7 +924,7 @@ class KeyboardService : InputMethodService(), KeyboardView.Listener,
     }
 
     /** Podrzeni navrhu v liste: dalsi dve slova ke stejnemu slovu / kontextu, ktera v liste nejsou. */
-    override fun onMoreSuggestions(): List<String> {
+    override fun onMoreSuggestions(slot: Int): List<String> {
         val bar = bar ?: return emptyList()
         if (searchMode || dictating || voiceStatus || lastSwipe != null) return emptyList()
         val ic = currentInputConnection ?: return emptyList()
@@ -935,7 +935,9 @@ class KeyboardService : InputMethodService(), KeyboardView.Listener,
             else -> RustBridge.suggestMore("", ic.textBefore(48), shift != KeyboardView.SHIFT_OFF)
         }
         val shown = bar.shownWords
-        return all.filter { it !in shown }.take(2)
+        // Sest dalsich slov (3 sloty po dvou): kazdy slot ukaze svou dvojici; je-li jich min, dvojice se opakuji.
+        val pairs = all.filter { it !in shown }.take(6).chunked(2)
+        return if (pairs.isEmpty()) emptyList() else pairs[slot % pairs.size]
     }
 
     override fun onSuggestionPicked(index: Int, word: String) {
@@ -943,6 +945,8 @@ class KeyboardService : InputMethodService(), KeyboardView.Listener,
         if (dictating || voiceStatus) return // v liste je stav diktovani, ne navrh
         val ic = currentInputConnection ?: return
         onPressFeedback(keyboardSpaceKey)
+        // Slovo z podrzene nabidky: lehke zabrneni i kdyz jsou vibrace klaves vypnute.
+        if (index == SuggestionBar.MORE_INDEX && settings.vibrationMs <= 0) vibrate(30)
         val ls = lastSwipe
         if (ls != null) {
             if (word == ls.word) {

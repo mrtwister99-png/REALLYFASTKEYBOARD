@@ -81,6 +81,11 @@
             android:windowSoftInputMode="adjustResize" />
 
         <activity
+            android:name=".BackupActivity"
+            android:exported="false"
+            android:label="@string/backup_open" />
+
+        <activity
             android:name=".AboutActivity"
             android:exported="false"
             android:label="@string/sec_about" />

@@ -854,7 +854,7 @@ pub fn dispatch(op: i32, a: &[u8], b: &[u8], num: i64) -> Vec<u8> {
             e.layout_with_offsets(f[0], f[1], f[2] as u8, num == 0, offs).to_json().into_bytes()
         }
         OP_SUGGEST => {
-            let limit = if num & FLAG_MORE != 0 { predict::MAX_SUGGESTIONS + 2 } else { predict::MAX_SUGGESTIONS };
+            let limit = if num & FLAG_MORE != 0 { predict::MAX_SUGGESTIONS + 6 } else { predict::MAX_SUGGESTIONS };
             lines(e.suggest_n(&sa, &sb, num & FLAG_CAPITALIZE != 0, now, limit))
         }
         OP_LEARN => bool_bytes(e.learn(&sa, &sb, num & FLAG_FROM_SWIPE != 0, now)),

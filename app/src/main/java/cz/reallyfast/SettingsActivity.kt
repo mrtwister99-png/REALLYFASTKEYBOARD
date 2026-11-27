@@ -36,8 +36,6 @@ class SettingsActivity : SettingsScreen() {
 
     private companion object {
         const val REQ_MIC = 3
-        const val REQ_BACKUP_EXPORT = 10
-        const val REQ_BACKUP_IMPORT = 11
         const val REQ_SWIPE_LOG_EXPORT = 12
         const val TITLE_MS = 900L
         const val TITLE_BRAKE_AT = 0.7f
@@ -307,6 +305,7 @@ class SettingsActivity : SettingsScreen() {
         navRow(box, getString(R.string.dictionary_open), kind = LineIcon.BOOK) { startActivity(Intent(this, DictionaryActivity::class.java)) }
         navRow(box, getString(R.string.voice_open), kind = LineIcon.MIC) { startActivity(Intent(this, VoiceActivity::class.java)) }
         navRow(box, getString(R.string.typing_open), kind = LineIcon.KEYBOARD) { startActivity(Intent(this, TypingActivity::class.java)) }
+        navRow(box, getString(R.string.backup_open), kind = LineIcon.SAVE) { startActivity(Intent(this, BackupActivity::class.java)) }
         navRow(box, getString(R.string.sec_about), kind = LineIcon.INFO) { startActivity(Intent(this, AboutActivity::class.java)) }
 
         // Schranka
@@ -322,20 +321,6 @@ class SettingsActivity : SettingsScreen() {
 
         // Zaloha a ladeni
         box = section(container, getString(R.string.sec_backup))
-        buttonRow(box, getString(R.string.backup_export), accent) {
-            val i = Intent(Intent.ACTION_CREATE_DOCUMENT)
-            i.addCategory(Intent.CATEGORY_OPENABLE)
-            i.type = "application/json"
-            i.putExtra(Intent.EXTRA_TITLE, "fazt-zaloha.json")
-            @Suppress("DEPRECATION") startActivityForResult(i, REQ_BACKUP_EXPORT)
-        }
-        buttonRow(box, getString(R.string.backup_import), accent) {
-            val i = Intent(Intent.ACTION_OPEN_DOCUMENT)
-            i.addCategory(Intent.CATEGORY_OPENABLE)
-            i.type = "*/*"
-            @Suppress("DEPRECATION") startActivityForResult(i, REQ_BACKUP_IMPORT)
-        }
-        hintText(box, getString(R.string.backup_hint))
         switchRow(box, R.string.swipe_log, "swipe_log", R.string.swipe_log_hint, 10000)
         swipeLogButton = buttonRow(box, getString(R.string.swipe_log_export, RustBridge.swipeLogCount()), accent) {
             val i = Intent(Intent.ACTION_CREATE_DOCUMENT)
@@ -406,16 +391,6 @@ class SettingsActivity : SettingsScreen() {
         if (resultCode != RESULT_OK || uri == null) return
         try {
             when (requestCode) {
-                REQ_BACKUP_EXPORT -> {
-                    contentResolver.openOutputStream(uri)?.use {
-                        it.write(RustBridge.exportBackup().toByteArray(Charsets.UTF_8))
-                    }
-                    Toast.makeText(this, R.string.backup_exported, Toast.LENGTH_SHORT).show()
-                }
-                REQ_BACKUP_IMPORT -> {
-                    val json = contentResolver.openInputStream(uri)?.use { it.readBytes().toString(Charsets.UTF_8) } ?: ""
-                    confirmRestore(json)
-                }
                 REQ_SWIPE_LOG_EXPORT -> {
                     contentResolver.openOutputStream(uri)?.use {
                         it.write(RustBridge.exportSwipeLog().toByteArray(Charsets.UTF_8))
@@ -424,55 +399,8 @@ class SettingsActivity : SettingsScreen() {
                 }
             }
         } catch (_: Throwable) {
-            val msg = if (requestCode == REQ_BACKUP_IMPORT) R.string.backup_restore_failed else R.string.backup_export_failed
-            Toast.makeText(this, msg, Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, R.string.backup_export_failed, Toast.LENGTH_SHORT).show()
         }
-    }
-
-    /** Obnova prepise nastaveni, proto se pred ni zeptame. Po uspechu se obrazovka postavi znovu. */
-    private fun confirmRestore(json: String) {
-        AlertDialog.Builder(this)
-            .setMessage(R.string.backup_restore_confirm)
-            .setPositiveButton(R.string.backup_restore) { _, _ ->
-                val n = RustBridge.importBackup(json)
-                if (n >= 0) {
-                    Toast.makeText(this, getString(R.string.backup_restored, n), Toast.LENGTH_SHORT).show()
-                    askPendingStyles()
-                } else {
-                    Toast.makeText(this, R.string.backup_restore_failed, Toast.LENGTH_SHORT).show()
-                }
-            }
-            .setNegativeButton(R.string.cancel, null)
-            .show()
-    }
-
-    /**
-     * Styly ze zalohy, pro ktere nezbylo misto (vsech 5 slotu je obsazeno): zepta se, ktery slot smazat a nahradit.
-     * Kazdy cekajici styl se vyridi zvlast; po poslednim se obrazovka postavi znovu.
-     */
-    private fun askPendingStyles() {
-        if (RustBridge.pendingStyleCount() == 0) {
-            recreate()
-            return
-        }
-        var picked = 0
-        val names = Array(5) { getString(R.string.style_slot_n, it + 1) }
-        AlertDialog.Builder(this)
-            .setMessage(R.string.style_import_full)
-            .setSingleChoiceItems(names, 0) { _, which -> picked = which }
-            .setPositiveButton(R.string.style_import_replace) { _, _ ->
-                RustBridge.placePendingStyle(picked)
-                askPendingStyles()
-            }
-            .setNegativeButton(R.string.style_import_skip) { _, _ ->
-                RustBridge.discardPendingStyles()
-                recreate()
-            }
-            .setOnCancelListener {
-                RustBridge.discardPendingStyles()
-                recreate()
-            }
-            .show()
     }
 
     private fun updateStatus() {
