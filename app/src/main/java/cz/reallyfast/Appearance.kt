@@ -69,6 +69,7 @@ class AppearanceActivity : SettingsScreen() {
     private lateinit var backBtn: View
     private lateinit var backArrow: ChevronView
     private lateinit var restoreBtn: FrameLayout
+    private lateinit var randomBtn: TextView
     private lateinit var restoreIcon: RestoreIconView
     private lateinit var saveBtn: TextView
     private val slotViews = ArrayList<StyleSlotView>()
@@ -324,6 +325,16 @@ class AppearanceActivity : SettingsScreen() {
         val tlp = LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, dp(42f))
         tlp.rightMargin = dp(8f)
         right.addView(test, tlp)
+        // R: uplne nahodny styl (barvy, tvary, efekty); vratit ho jde tlacitkem Obnovit nebo dalsim R.
+        val rnd = label("R", 17f)
+        rnd.typeface = Typeface.DEFAULT_BOLD
+        rnd.gravity = Gravity.CENTER
+        rnd.contentDescription = getString(R.string.style_random)
+        rnd.setOnClickListener { randomStyle() }
+        randomBtn = rnd
+        val rndLp = LinearLayout.LayoutParams(dp(42f), dp(42f))
+        rndLp.rightMargin = dp(8f)
+        right.addView(rnd, rndLp)
         // Obnova profilu: nedokonceny kruh se sipkou na konci; po zeptani vrati ulozenou podobu vybraneho profilu.
         val restore = FrameLayout(this)
         val ricon = RestoreIconView(this, text)
@@ -854,6 +865,43 @@ class AppearanceActivity : SettingsScreen() {
         paintPills()
     }
 
+    /** Uplne nahodny styl: barvy, tvary klaves a efekty se vylosuji; citelnost textu se hlida jen minimalne. */
+    private fun randomStyle() {
+        val r = java.util.Random()
+        fun hex(): String = String.format("#%06X", r.nextInt(0x1000000))
+        fun <T> pick(vararg v: T): T = v[r.nextInt(v.size)]
+        fun int(lo: Int, hi: Int): Int = lo + r.nextInt(hi - lo + 1)
+        val bgc = hex()
+        val keyc = hex()
+        val keyLum = Theme.luminance(Theme.parse(keyc, 0xFF000000.toInt()))
+        val textc = if (keyLum > 0.5f) "#111111" else "#FFFFFF"
+        val second = if (r.nextBoolean()) hex() else ""
+        updateAll(
+            "theme" to "custom",
+            "accent_color" to hex(),
+            "custom_background" to bgc,
+            "custom_key" to keyc,
+            "custom_text" to textc,
+            "key_radius_dp" to int(2, 22),
+            "key_gap_dp" to int(0, 10),
+            "row_gap_dp" to int(0, 16),
+            "key_text_percent" to int(90, 130),
+            "key_shadow" to r.nextBoolean(),
+            "special_outline" to r.nextBoolean(),
+            "number_divider" to r.nextBoolean(),
+            "key_glow" to true,
+            "tap_effect" to pick("neon", "glitch", "paint", "ghost", "orbit", "pop", "cut", "slide"),
+            "neon_color" to hex(),
+            "neon_color2" to second,
+            "paint_color1" to hex(), "paint_color2" to hex(), "paint_color3" to hex(),
+            "paint_color4" to hex(), "paint_color5" to hex(), "paint_color6" to hex(),
+            "glow_style" to pick("neon", "paint", "ghost", "flip"),
+            "glow_color" to hex(),
+            "trail_style" to pick("line", "dashed", "fire", "pixel"),
+            "trail_color" to hex(),
+        )
+    }
+
     private fun saveAdjust() {
         if (!adjusting || saving) return
         saving = true
@@ -1138,13 +1186,18 @@ class AppearanceActivity : SettingsScreen() {
     /** 3. II. Druha barva klavesy a znaku po klepnuti. */
     private fun buildTap2(box: LinearLayout) {
         val s = section(box, getString(R.string.cat_tap_2))
-        colorRow(s, R.string.tap_key_color2, "neon_color2", allowAuto = true, allowRainbow = true)
         colorRow(s, R.string.tap_text_color2, "tap_text_color2", allowAuto = true)
     }
 
     /** 3. III. Druha barva obrysu po klepnuti. */
     private fun buildTap3(box: LinearLayout) {
         val s = section(box, getString(R.string.cat_tap_3))
+        // Druha barva efektu: Neon a Duch ji strida, Glitch losuje; Barvy maji dalsi tri barvy; Vybuch a Rez ji pouzivaji take.
+        colorRow(s, R.string.tap_key_color2, "neon_color2", allowAuto = true, allowRainbow = true)
+        colorDotsRow(s, listOf(R.string.paint_color4 to "paint_color4", R.string.paint_color5 to "paint_color5", R.string.paint_color6 to "paint_color6")) {
+            val j = RustBridge.settings.json
+            j.optBoolean("key_glow") && j.optString("tap_effect") == "paint"
+        }
         colorRow(s, R.string.outline_tap_color2, "outline_tap_color2", allowAuto = true)
     }
 
@@ -1352,7 +1405,7 @@ class AppearanceActivity : SettingsScreen() {
     /** Druh zive ukazky k nastaveni: co se na klavesach zahraje (slovo, bublina...). */
     private fun demoKind(key: String): Int = when (key) {
         "neon_color", "neon_color2", "tap_effect", "tap_text_color", "tap_text_color2", "outline_tap_color", "outline_tap_color2" -> DEMO_TAP
-        "paint_color1", "paint_color2", "paint_color3" -> DEMO_PAINT
+        "paint_color1", "paint_color2", "paint_color3", "paint_color4", "paint_color5", "paint_color6" -> DEMO_PAINT
         "key_font" -> DEMO_FONT
         "key_popup", "popup_color" -> DEMO_POPUP
         "alts_color" -> DEMO_ALTS
@@ -1462,6 +1515,8 @@ class AppearanceActivity : SettingsScreen() {
         backBtn.background = rounded(field, dp(14f).toFloat())
         restoreIcon.color = text
         restoreBtn.background = rounded(field, dp(21f).toFloat())
+        randomBtn.background = rounded(field, dp(21f).toFloat())
+        randomBtn.setTextColor(text)
         restoreBtn.isEnabled = canSave
         restoreBtn.alpha = if (canSave) 1f else 0.4f
         saveBtn.isEnabled = canSave

@@ -307,6 +307,10 @@
     <string name="key_color2">Second key color</string>
     <string name="background_color2">Second background color</string>
     <string name="paint_color1">Color 1</string>
+    <string name="paint_color4">Color 4</string>
+    <string name="paint_color5">Color 5</string>
+    <string name="paint_color6">Color 6</string>
+    <string name="style_random">Random style</string>
     <string name="paint_color2">Color 2</string>
     <string name="paint_color3">Color 3</string>
     <string name="notice_ok">OK</string>
@@ -344,8 +348,8 @@
     <string name="cat_colors_2">II. Second colors</string>
     <string name="cat_colors_3">III. Digit colors</string>
     <string name="cat_tap_1">I. Pick animation</string>
-    <string name="cat_tap_2">II. Second key &amp; char color</string>
-    <string name="cat_tap_3">III. Second outline color</string>
+    <string name="cat_tap_2">II. Second char color</string>
+    <string name="cat_tap_3">III. Second key &amp; outline color</string>
     <string name="cat_swipe_1">I. Trail + pass + word</string>
     <string name="cat_swipe_2">II. Pass color</string>
     <string name="cat_keys_hint">Tap a key = edit letter, hold = macro.</string>

@@ -66,6 +66,7 @@ class KeyboardView(context: Context) : View(context) {
         var neonCol = 0
         /** Cas klepnuti pro efekt Duch (dozvuk), 0 = zadny. */
         var ghostAt = 0L
+        var ghostCol2 = 0
         /** Efekt Obvod: cas klepnuti (0 = nic) a nahodny bod startu na obrysu (0..1 delky obvodu). */
         var orbitAt = 0L
         var orbitStart = 0f
@@ -259,6 +260,8 @@ class KeyboardView(context: Context) : View(context) {
         private const val POP_BORN_MS = 330L
         // Jiskry vybuchu: kazda ma nahodny smer, rychlost, zpozdeni, dobu letu, zakriveni drahy a velikost (z popSeed).
         private const val POP_SPARKS = 18
+        private const val POP_CHUNKS = 7
+        private const val POP_CHUNK_MS = 460L
         private const val POP_SPARK_MAX_DELAY_MS = 90
         private const val POP_SPARK_MIN_LIFE_MS = 260
         private const val POP_SPARK_LIFE_SPAN_MS = 480
@@ -513,7 +516,7 @@ class KeyboardView(context: Context) : View(context) {
     private var glowFlyStyle = false
     // Efekt "barvy": pevna tabulka obarvenych klaves podle `src` (index barvy, cas obarveni, doba drzeni); jen v pameti.
     private var paintEffect = false
-    private val paintCols = IntArray(3)
+    private val paintCols = IntArray(6)
     private val paintSrc = IntArray(PAINT_SLOTS)
     private val paintIdx = IntArray(PAINT_SLOTS) { -1 }
     private val paintAt = LongArray(PAINT_SLOTS)
@@ -840,6 +843,9 @@ class KeyboardView(context: Context) : View(context) {
         paintCols[0] = Theme.parse(s.paintColor1, 0xFF0080FF.toInt())
         paintCols[1] = Theme.parse(s.paintColor2, 0xFFFF5100.toInt())
         paintCols[2] = Theme.parse(s.paintColor3, 0xFF6A02E8.toInt())
+        paintCols[3] = Theme.parse(s.paintColor4, 0xFF22C55E.toInt())
+        paintCols[4] = Theme.parse(s.paintColor5, 0xFFFFD60A.toInt())
+        paintCols[5] = Theme.parse(s.paintColor6, 0xFFEC4899.toInt())
         digitTextCol = Theme.parse(s.digitTextColor, 0)
         digitKeyCol = Theme.parse(s.digitKeyColor, 0)
         digitKeyCol2 = Theme.parse(s.digitKeyColor2, 0)
@@ -954,7 +960,8 @@ class KeyboardView(context: Context) : View(context) {
         // Druhe barvy po klepnuti a neonu: prechod uvnitr jedne klavesy (shora dolu).
         tapTextShader = if (tapTextCol2 != 0 && labelSize > 0f) gradShader(if (tapTextCol != 0) tapTextCol else theme.text, tapTextCol2, false, 0, tw, th) else null
         tapOutShader = if (outlineTapCol2 != 0) gradShader(if (outlineTapCol != 0) outlineTapCol else theme.accent, outlineTapCol2, false, 0, kw, kh) else null
-        neonShader = if (neon2 != 0 || neon2Rainbow) gradShader(neon, neon2, neon2Rainbow, 0, kw, kh) else null
+        // Prechod uvnitr klavesy jen u obvodu; ostatni efekty druhou barvu strida / losuje (nextNeon).
+        neonShader = if (orbitEffect && (neon2 != 0 || neon2Rainbow)) gradShader(neon, neon2, neon2Rainbow, 0, kw, kh) else null
         val bw = width.toFloat()
         val bh = height.toFloat()
         val bx0 = if (bgDir == 3) bw else 0f
@@ -986,8 +993,30 @@ class KeyboardView(context: Context) : View(context) {
 
     /** Barva dalsiho klepnuti: duha = nahodny odstin, dve barvy = stridani, jinak barva efektu. */
     private fun nextNeon(): Int {
-        // Druha barva neonu (i duha) tvori prechod uvnitr klavesy (neonShader), ne stridani klavesy po klavese.
-        return neon
+        val has2 = neon2 != 0 || neon2Rainbow
+        // Obvod: druha barva tvori prechod uvnitr klavesy (neonShader), barva efektu je jedna.
+        if (!has2 || orbitEffect) return neon
+        // Glitch losuje barvu pri kazdem zablesku, ostatni efekty se po klepnuti stridaji.
+        val second = if (glitchEffect) random.nextBoolean() else { neonToggle = !neonToggle; neonToggle }
+        if (!second) return neon
+        return if (neon2Rainbow) rainbow(random.nextFloat()) else neon2
+    }
+
+    private var neonToggle = false
+
+    /** Druha barva k `first` (barva efektu <-> druha barva); u duhy nahodny odstin. */
+    private fun otherNeon(first: Int): Int {
+        if (neon2 == 0 && !neon2Rainbow) return first
+        return if (first == neon) (if (neon2Rainbow) rainbow(random.nextFloat()) else neon2) else neon
+    }
+
+    /** Pruhlednost vyplne klavesy pri vybuchu: pri vybuchu zmizi a znovu se narodi. */
+    private fun popKeyAlpha(t: Long): Float = when {
+        t < 0L -> 1f
+        t < POP_BURST_MS -> 1f - t / POP_BURST_MS.toFloat()
+        t < POP_BURST_MS + POP_GAP_MS -> 0f
+        t < POP_BURST_MS + POP_GAP_MS + POP_BORN_MS -> (t - POP_BURST_MS - POP_GAP_MS) / POP_BORN_MS.toFloat()
+        else -> 1f
     }
 
     private fun tint(cur: Int, x: Int, t: Float): Int {
@@ -1668,7 +1697,8 @@ class KeyboardView(context: Context) : View(context) {
                             ghostPaint.shader = null
                             canvas.restore()
                         } else {
-                            ghostPaint.color = (nc and 0x00FFFFFF) or (a shl 24)
+                            val ec = if (e % 2 == 1 && k.ghostCol2 != 0) k.ghostCol2 else nc
+                            ghostPaint.color = (ec and 0x00FFFFFF) or (a shl 24)
                             rect.set(cx - hw - grow, cy - hh - grow, cx + hw + grow, cy + hh + grow)
                             canvas.drawRoundRect(rect, radius + grow, radius + grow, ghostPaint)
                         }
@@ -1676,12 +1706,15 @@ class KeyboardView(context: Context) : View(context) {
                 }
             }
             if (dimKey) keyColor = tint(keyColor, theme.background, 0.7f)
+            val popKeyA = if (popEffect && k.popAt != 0L) popKeyAlpha(now - k.popAt) else 1f
+            if (popKeyA < 1f) keyColor = (keyColor and 0x00FFFFFF) or ((Color.alpha(keyColor) * popKeyA).toInt().coerceIn(0, 255) shl 24)
             if (gradKey) {
                 // Prechod z barvy klavesy do druhe barvy: platno se posune na stred klavesy, kde je shader vystredeny.
                 canvas.save()
                 canvas.translate(cx, cy)
                 rect.set(-hw, -hh, hw, hh)
                 fill.color = WHITE
+                fill.alpha = (255f * popKeyA).toInt().coerceIn(0, 255)
                 fill.shader = shader
                 canvas.drawRoundRect(rect, radius, radius, fill)
                 fill.shader = null
@@ -2051,6 +2084,28 @@ class KeyboardView(context: Context) : View(context) {
                     canvas.restore()
                 } else {
                     drawIcon(canvas, k.kind, cx, cy, min(k.vw, k.h) * 0.2f, fg)
+                }
+            }
+            if (popTime >= 0L && popTime < POP_CHUNK_MS) {
+                // Vybuch cele klavesy: vetsi kusy vyplne letí od stredu do stran, otaceji se a miznou.
+                val seedC = (k.popSeed * 1000f).toInt()
+                val cq = popTime / POP_CHUNK_MS.toFloat()
+                val cease = 1f - (1f - cq) * (1f - cq)
+                val baseCol = if (k.isDigit && digitKeyCol != 0) digitKeyCol else theme.key
+                for (i in 0 until POP_CHUNKS) {
+                    val ang = (i + sparkRand(seedC, i, 6)) * (2f * PI.toFloat() / POP_CHUNKS)
+                    val reach = hh * (1.4f + 1.6f * sparkRand(seedC, i, 7))
+                    val px = cx + cos(ang) * reach * cease
+                    val py = cy + sin(ang) * reach * cease + hh * 0.8f * cq * cq
+                    val cw = hw * (0.22f + 0.2f * sparkRand(seedC, i, 8))
+                    val ch = hh * (0.3f + 0.25f * sparkRand(seedC, i, 9))
+                    val calpha = (255f * (1f - cq)).toInt().coerceIn(0, 255)
+                    fill.color = (baseCol and 0x00FFFFFF) or (calpha shl 24)
+                    canvas.save()
+                    canvas.rotate(720f * (sparkRand(seedC, i, 10) - 0.5f) * cq, px, py)
+                    rect.set(px - cw, py - ch, px + cw, py + ch)
+                    canvas.drawRoundRect(rect, radius * 0.4f, radius * 0.4f, fill)
+                    canvas.restore()
                 }
             }
             if (popTime >= 0L && popTime < POP_SPARK_END_MS) {
@@ -3369,7 +3424,7 @@ class KeyboardView(context: Context) : View(context) {
                 for (ch in word) {
                     val k = demoKeyFor(ch)
                     if (k != null && n < 6) {
-                        if (glitchEffect) startGlitch(k, now + n * 140L) else if (ghostEffect) { k.neonCol = nextNeon(); k.ghostAt = now + n * 140L } else if (orbitEffect) { k.neonCol = nextNeon(); k.orbitStart = random.nextFloat(); k.orbitAt = now + n * 140L } else if (popEffect) { k.neonCol = nextNeon(); k.popSeed = random.nextFloat() * 2f * PI.toFloat(); k.popAt = now + n * 140L } else { k.neonCol = nextNeon(); k.neonAt = now }
+                        if (glitchEffect) startGlitch(k, now + n * 140L) else if (ghostEffect) { k.neonCol = nextNeon(); k.ghostCol2 = otherNeon(k.neonCol); k.ghostAt = now + n * 140L } else if (orbitEffect) { k.neonCol = nextNeon(); k.orbitStart = random.nextFloat(); k.orbitAt = now + n * 140L } else if (popEffect) { k.neonCol = nextNeon(); k.popSeed = random.nextFloat() * 2f * PI.toFloat(); k.popAt = now + n * 140L } else { k.neonCol = nextNeon(); k.neonAt = now }
                         n++
                     }
                 }

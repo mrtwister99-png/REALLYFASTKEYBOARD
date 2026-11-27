@@ -2,6 +2,9 @@
 
 Jedna věta za verzi, nejnovější nahoře. Čísla verzí odpovídají commitům (`vX.Y: …`).
 
+## 1.50 – 2026-11-27
+Druhá barva klávesy po klepnutí je v Animaci po kliknutí III a řídí se efektem (Neon, Výbuch, Řez a Slide střídají, Glitch losuje, Duch střídá barvu dozvuků); Barvy mají další tři barvy (4–6); Výbuch rozmetá i celou klávesu na větší kusy; nahoře vedle Obnovit je tlačítko R s úplně náhodným stylem.
+
 ## 1.49 – 2026-11-27
 Po úpravě polohy / výšky řádků se náhled vrací do zkušebního režimu; nový posuvník Výška lišty návrhů (`bar_height_dp`); podržení ikony schránky otevře nabídku připnutých položek (až 100, ukládají se jen v telefonu a jdou do zálohy); podržení mikrofonu nadiktuje spouštěč nového hlasového povelu a nabídne „Použít makro“ nebo „Poslat ze schránky“.
 

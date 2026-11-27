@@ -32,7 +32,7 @@ pub const STYLE_KEYS: &[&str] = &[
     "digit_text_color", "digit_key_color", "key_color2", "background_color2",
     "digit_key_color2", "digit_text_color2",
     "bg_grad_dir", "key_grad_dir", "digit_key_grad_dir", "text_grad_dir", "digit_text_grad_dir", "outline_grad_dir",
-    "paint_color1", "paint_color2", "paint_color3",
+    "paint_color1", "paint_color2", "paint_color3", "paint_color4", "paint_color5", "paint_color6",
     "passed_text_color", "tap_text_color", "hover_text_color", "label_weight", "digit_weight",
     "neon_color2", "outline_color", "outline_color2", "outline_tap_color", "outline_hover_color",
     "outline_passed_color", "outline_width_dp", "char_outline", "char_outline_color",
@@ -196,6 +196,9 @@ pub struct Settings {
     pub paint_color1: String,
     pub paint_color2: String,
     pub paint_color3: String,
+    pub paint_color4: String,
+    pub paint_color5: String,
+    pub paint_color6: String,
     /// Poloha hlavniho znaku na klavese: x, y v 0..1 (0,5 = uprostred).
     pub key_label_x: f32,
     pub key_label_y: f32,
@@ -336,6 +339,9 @@ impl Settings {
             paint_color1: "#0080FF".into(),
             paint_color2: "#FF5100".into(),
             paint_color3: "#6A02E8".into(),
+            paint_color4: "#22C55E".into(),
+            paint_color5: "#FFD60A".into(),
+            paint_color6: "#EC4899".into(),
             key_label_x: 0.5,
             key_label_y: 0.5,
             passed_text_color: String::new(),
@@ -712,6 +718,9 @@ impl Settings {
         fix_color(&mut self.paint_color1, &d.paint_color1);
         fix_color(&mut self.paint_color2, &d.paint_color2);
         fix_color(&mut self.paint_color3, &d.paint_color3);
+        fix_color(&mut self.paint_color4, &d.paint_color4);
+        fix_color(&mut self.paint_color5, &d.paint_color5);
+        fix_color(&mut self.paint_color6, &d.paint_color6);
         fix_color(&mut self.neon_color, &d.neon_color);
         fix_optional_color_or_rainbow(&mut self.neon_color2);
         fix_optional_color(&mut self.outline_color);

@@ -307,6 +307,10 @@
     <string name="key_color2">Druhá barva kláves</string>
     <string name="background_color2">Druhá barva pozadí</string>
     <string name="paint_color1">Barva 1</string>
+    <string name="paint_color4">Barva 4</string>
+    <string name="paint_color5">Barva 5</string>
+    <string name="paint_color6">Barva 6</string>
+    <string name="style_random">Náhodný styl</string>
     <string name="paint_color2">Barva 2</string>
     <string name="paint_color3">Barva 3</string>
     <string name="notice_ok">OK</string>
@@ -344,8 +348,8 @@
     <string name="cat_colors_2">II. Druhé barvy</string>
     <string name="cat_colors_3">III. Barvy číslic</string>
     <string name="cat_tap_1">I. Výběr animace</string>
-    <string name="cat_tap_2">II. Druhá barva klávesy a znaku</string>
-    <string name="cat_tap_3">III. Druhá barva obrysu</string>
+    <string name="cat_tap_2">II. Druhá barva znaku</string>
+    <string name="cat_tap_3">III. Druhá barva klávesy a obrysu</string>
     <string name="cat_swipe_1">I. Linka + průchod + úspěšné slovo</string>
     <string name="cat_swipe_2">II. Barva průchodu</string>
     <string name="cat_keys_hint">Klik na klávesu = úprava písmenka, podržení = makro.</string>

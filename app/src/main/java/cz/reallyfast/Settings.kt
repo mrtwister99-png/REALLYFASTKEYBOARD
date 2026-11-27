@@ -100,6 +100,9 @@ class Settings(val json: JSONObject) {
     val paintColor1: String get() = json.optString("paint_color1", "#0080FF")
     val paintColor2: String get() = json.optString("paint_color2", "#FF5100")
     val paintColor3: String get() = json.optString("paint_color3", "#6A02E8")
+    val paintColor4: String get() = json.optString("paint_color4", "#22C55E")
+    val paintColor5: String get() = json.optString("paint_color5", "#FFD60A")
+    val paintColor6: String get() = json.optString("paint_color6", "#EC4899")
     /** Poloha hlavniho znaku na klavese: 0..1, 0,5 = uprostred. */
     val keyLabelX: Float get() = json.optDouble("key_label_x", 0.5).toFloat().coerceIn(0f, 1f)
     val keyLabelY: Float get() = json.optDouble("key_label_y", 0.5).toFloat().coerceIn(0f, 1f)
