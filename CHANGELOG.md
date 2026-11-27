@@ -2,6 +2,9 @@
 
 Jedna věta za verzi, nejnovější nahoře. Čísla verzí odpovídají commitům (`vX.Y: …`).
 
+## 1.47.3 – 2026-11-27
+Revize kódu: klávesnice po odpojení ruší zbylé časovače, dva bezpečnostní přepisy `!!` na lokální hodnoty; release APK sestaven a podepsán.
+
 ## 1.47.2 – 2026-11-27
 Hlavička Vzhledu je jeden vodorovný řádek: Zpět vlevo, Test, Obnovit a Uložit vpravo ke kraji obrazovky, bez překrývání tlačítek.
 

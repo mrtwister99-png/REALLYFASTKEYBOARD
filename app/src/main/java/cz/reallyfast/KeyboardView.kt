@@ -679,7 +679,8 @@ class KeyboardView(context: Context) : View(context) {
 
     private fun loadKeyFont(name: String, weight: Int): Typeface {
         if (name == "system" || name.isBlank()) return weightFace(weight)
-        if (customFont != null && customFontName == name) return customFont!!
+        val cached = customFont
+        if (cached != null && customFontName == name) return cached
         return try { val tf = Typeface.createFromAsset(context.assets, "fonts/$name"); customFont = tf; customFontName = name; tf } catch (_: Throwable) { customFont = null; customFontName = null; weightFace(weight) }
     }
     /** Banner "slovo X je ulozeno!" - probehne 1x zprava doleva uvnitr mezerniku. */
@@ -2673,8 +2674,8 @@ class KeyboardView(context: Context) : View(context) {
     }
     /** Enter / Mazat navzdy: znak jede za klavesu do strany, pak 2 mini pulzy nahoru + 2 dolu. */
     private fun drawEnterSlide(canvas: Canvas, now: Long): Boolean {
-        if (enterSlideStart == 0L || enterSlideKey == null) return false
-        val k = enterSlideKey!!
+        val k = enterSlideKey
+        if (enterSlideStart == 0L || k == null) return false
         val dt = now - enterSlideStart
         if (dt >= 720L) {
             enterSlideStart = 0L
@@ -4234,6 +4235,8 @@ class KeyboardView(context: Context) : View(context) {
     override fun onDetachedFromWindow() {
         handler.removeCallbacks(wake)
         cancelTouch()
+        // Zadne zbytkove casovace (opakovani mazani, dlouhy stisk) po odpojeni pohledu.
+        handler.removeCallbacksAndMessages(null)
         super.onDetachedFromWindow()
     }
 }
