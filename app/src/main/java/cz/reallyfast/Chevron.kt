@@ -333,6 +333,14 @@ class RingWaveView(context: Context) : View(context) {
     private val oval = android.graphics.RectF()
     private var t = -1f
     private var reach = 28f * d
+
+    /** Vlna sama nema zadnou vlastni velikost: nesmi roztahnout rodice (jinak tlacitko Ulozit zabere celou sirku radku). */
+    override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
+        val w = if (MeasureSpec.getMode(widthMeasureSpec) == MeasureSpec.EXACTLY) MeasureSpec.getSize(widthMeasureSpec) else 0
+        val h = if (MeasureSpec.getMode(heightMeasureSpec) == MeasureSpec.EXACTLY) MeasureSpec.getSize(heightMeasureSpec) else 0
+        setMeasuredDimension(w, h)
+    }
+
     private val animator = android.animation.ValueAnimator.ofFloat(0f, 1f).apply {
         addUpdateListener {
             t = it.animatedValue as Float

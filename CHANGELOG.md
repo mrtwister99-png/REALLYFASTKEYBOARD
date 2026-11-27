@@ -2,6 +2,9 @@
 
 Jedna věta za verzi, nejnovější nahoře. Čísla verzí odpovídají commitům (`vX.Y: …`).
 
+## 1.47.4 – 2026-11-27
+Skutečná příčina slepeného řádku hlavičky: vlna kolem tlačítka Uložit roztahovala obal na celou šířku; má teď vlastní míru nula, takže Obnovit a Uložit leží vpravo ke kraji.
+
 ## 1.47.3 – 2026-11-27
 Revize kódu: klávesnice po odpojení ruší zbylé časovače, dva bezpečnostní přepisy `!!` na lokální hodnoty; release APK sestaven a podepsán.
 
