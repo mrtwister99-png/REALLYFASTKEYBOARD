@@ -30,8 +30,8 @@ pub const STYLE_KEYS: &[&str] = &[
     "hint_color", "hint_percent", "tap_effect", "neon_color", "glow_color", "glow_style",
     "popup_color", "alts_color", "number_divider", "trail_color", "trail_style", "text_color2",
     "digit_text_color", "digit_key_color", "key_color2", "background_color2",
-    "digit_key_color2", "digit_text_color2", "digit_outline_color2",
-    "bg_grad_dir", "key_grad_dir", "digit_key_grad_dir", "text_grad_dir", "digit_text_grad_dir", "outline_grad_dir", "digit_outline_grad_dir",
+    "digit_key_color2", "digit_text_color2",
+    "bg_grad_dir", "key_grad_dir", "digit_key_grad_dir", "text_grad_dir", "digit_text_grad_dir", "outline_grad_dir",
     "paint_color1", "paint_color2", "paint_color3",
     "passed_text_color", "passed_key_color", "tap_text_color", "hover_text_color", "label_weight", "digit_weight",
     "neon_color2", "outline_color", "outline_color2", "outline_tap_color", "outline_hover_color",
@@ -174,7 +174,6 @@ pub struct Settings {
     /// Druhe barvy cislicovych klaves, jejich znaku a obrysu: prechod zleva doprava; "" = vypnuto.
     pub digit_key_color2: String,
     pub digit_text_color2: String,
-    pub digit_outline_color2: String,
     /// Zacatek prechodu druhe barvy pro pozadi, klavesy, klavesy cisel, znaky, znaky cisel, obrysy a obrysy cisel.
     pub bg_grad_dir: String,
     pub key_grad_dir: String,
@@ -182,7 +181,6 @@ pub struct Settings {
     pub text_grad_dir: String,
     pub digit_text_grad_dir: String,
     pub outline_grad_dir: String,
-    pub digit_outline_grad_dir: String,
     /// Druha barva klaves: prechod zleva (barva klavesy) doprava (barva klavesy) dolu (tato barva); "" = vypnuto.
     pub key_color2: String,
     /// Druha barva pozadi: prechod zleva (pozadi) doprava (tato barva); "" = vypnuto.
@@ -317,14 +315,12 @@ impl Settings {
             key_color2: String::new(),
             digit_key_color2: String::new(),
             digit_text_color2: String::new(),
-            digit_outline_color2: String::new(),
             bg_grad_dir: "top".into(),
             key_grad_dir: "top".into(),
             digit_key_grad_dir: "top".into(),
             text_grad_dir: "top".into(),
             digit_text_grad_dir: "top".into(),
             outline_grad_dir: "top".into(),
-            digit_outline_grad_dir: "top".into(),
             background_color2: String::new(),
             paint_color1: "#0080FF".into(),
             paint_color2: "#FF5100".into(),
@@ -693,14 +689,12 @@ impl Settings {
         fix_optional_color(&mut self.digit_key_color);
         fix_optional_color_or_rainbow(&mut self.digit_key_color2);
         fix_optional_color_or_rainbow(&mut self.digit_text_color2);
-        fix_optional_color_or_rainbow(&mut self.digit_outline_color2);
         fix_grad_dir(&mut self.bg_grad_dir);
         fix_grad_dir(&mut self.key_grad_dir);
         fix_grad_dir(&mut self.digit_key_grad_dir);
         fix_grad_dir(&mut self.text_grad_dir);
         fix_grad_dir(&mut self.digit_text_grad_dir);
         fix_grad_dir(&mut self.outline_grad_dir);
-        fix_grad_dir(&mut self.digit_outline_grad_dir);
         fix_optional_color_or_rainbow(&mut self.key_color2);
         fix_optional_color_or_rainbow(&mut self.background_color2);
         fix_color(&mut self.paint_color1, &d.paint_color1);
@@ -816,13 +810,14 @@ mod tests {
     #[test]
     fn second_digit_colors_and_gradient_directions() {
         let d = Settings::default();
-        assert_eq!((d.digit_key_color2.as_str(), d.digit_text_color2.as_str(), d.digit_outline_color2.as_str()), ("", "", ""));
-        let s = Settings::from_json(r##"{"digit_key_color2":"#ff0000","digit_text_color2":"rainbow","digit_outline_color2":"x"}"##).unwrap();
-        assert_eq!((s.digit_key_color2.as_str(), s.digit_text_color2.as_str(), s.digit_outline_color2.as_str()), ("#FF0000", "rainbow", ""));
-        assert_eq!((d.bg_grad_dir.as_str(), d.digit_outline_grad_dir.as_str()), ("top", "top"));
+        assert_eq!((d.digit_key_color2.as_str(), d.digit_text_color2.as_str()), ("", ""));
+        let s = Settings::from_json(r##"{"digit_key_color2":"#ff0000","digit_text_color2":"rainbow","digit_outline_color2":"#00ff00"}"##).unwrap();
+        assert_eq!((s.digit_key_color2.as_str(), s.digit_text_color2.as_str()), ("#FF0000", "rainbow"));
+        assert!(!s.to_json().contains("digit_outline_color2"));
+        assert_eq!(d.bg_grad_dir.as_str(), "top");
         let s = Settings::from_json(r#"{"bg_grad_dir":"left","key_grad_dir":"bottom","text_grad_dir":"right","outline_grad_dir":"diag"}"#).unwrap();
         assert_eq!((s.bg_grad_dir.as_str(), s.key_grad_dir.as_str(), s.text_grad_dir.as_str(), s.outline_grad_dir.as_str()), ("left", "bottom", "right", "top"));
-        for k in ["digit_key_color2", "digit_text_color2", "digit_outline_color2", "bg_grad_dir", "key_grad_dir", "digit_key_grad_dir", "text_grad_dir", "digit_text_grad_dir", "outline_grad_dir", "digit_outline_grad_dir"] {
+        for k in ["digit_key_color2", "digit_text_color2", "bg_grad_dir", "key_grad_dir", "digit_key_grad_dir", "text_grad_dir", "digit_text_grad_dir", "outline_grad_dir"] {
             assert!(STYLE_KEYS.contains(&k), "{k}");
         }
     }

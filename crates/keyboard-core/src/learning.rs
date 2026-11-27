@@ -52,6 +52,8 @@ pub struct Learned {
 #[derive(Debug, Default)]
 pub struct UserDict {
     words: HashMap<String, UserWord>,
+    /// Zakodovana slova (cache pro navrhy a swipe, aby se nekodovalo pri kazdem stisku).
+    encs: HashMap<String, Vec<u8>>,
     bigrams: HashMap<String, Vec<(String, u32)>>,
     /// Kontext "predposledni posledni" (malymi) -> nasledujici slova.
     trigrams: HashMap<String, Vec<(String, u32)>>,
@@ -97,8 +99,22 @@ impl UserDict {
         self.words.iter()
     }
 
+    /// Osobni slova se zakodovanym tvarem (slova, ktera nejdou zakodovat, se preskoci).
+    pub fn iter_enc(&self) -> impl Iterator<Item = (&String, &UserWord, &[u8])> {
+        self.words.iter().filter_map(|(w, u)| self.encs.get(w).map(|e| (w, u, e.as_slice())))
+    }
+
+    fn sync_enc(&mut self, word: &str) {
+        if !self.encs.contains_key(word) {
+            if let Some(e) = crate::charmap::encode_word(word) {
+                self.encs.insert(word.to_string(), e);
+            }
+        }
+    }
+
     pub fn insert_word(&mut self, word: &str, count: u32, last_used: i64) {
         self.words.insert(word.to_string(), UserWord { count, last_used });
+        self.sync_enc(word);
     }
 
     pub fn insert_bigram(&mut self, w1: &str, w2: &str, count: u32) {
@@ -118,6 +134,7 @@ impl UserDict {
         e.count = e.count.saturating_add(1);
         e.last_used = now;
         let count = e.count;
+        self.sync_enc(word);
         let mut bigram = None;
         if is_learnable(prev) {
             let w1 = prev.to_lowercase();
@@ -157,6 +174,7 @@ impl UserDict {
 
     pub fn remove(&mut self, word: &str) -> bool {
         let removed = self.words.remove(word).is_some();
+        self.encs.remove(word);
         self.corrections.remove(word);
         for list in self.trigrams.values_mut() {
             list.retain(|(w, _)| w != word);
@@ -172,6 +190,7 @@ impl UserDict {
 
     pub fn clear(&mut self) {
         self.words.clear();
+        self.encs.clear();
         self.bigrams.clear();
         self.trigrams.clear();
         self.corrections.clear();
@@ -232,6 +251,7 @@ impl UserDict {
             let e = self.words.entry(w.word.clone()).or_insert(UserWord { count: 0, last_used: w.last_used });
             e.count = e.count.max(w.count);
             e.last_used = e.last_used.max(w.last_used);
+            self.sync_enc(&w.word);
             n += 1;
         }
         for b in &data.bigrams {

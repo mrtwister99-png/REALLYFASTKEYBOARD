@@ -25,6 +25,7 @@ import android.speech.RecognitionListener
 import android.speech.RecognizerIntent
 import android.speech.SpeechRecognizer
 import android.text.InputType
+import android.util.Log
 import android.view.KeyEvent
 import android.view.View
 import android.view.ViewGroup
@@ -385,6 +386,7 @@ class KeyboardService : InputMethodService(), KeyboardView.Listener,
             SystemClock.uptimeMillis() - reattachAt < REATTACH_GRACE_MS
         if (composing.isNotEmpty() && !staleAfterReattach &&
             (candidatesStart == -1 || newSelStart != candidatesEnd || newSelEnd != candidatesEnd)) {
+            Log.w("fAZT", "editor zrusil skladani: cand=$candidatesStart..$candidatesEnd sel=$newSelStart composing=${composing.length}")
             composing.setLength(0)
             reattached = null
             currentInputConnection?.finishComposingText()
@@ -504,6 +506,12 @@ class KeyboardService : InputMethodService(), KeyboardView.Listener,
         keyboard?.shiftState = state
     }
 
+    /** Text pred kurzorem (nejvyse `n` znaku), prazdny retezec kdyz editor neodpovi. */
+    private fun InputConnection.textBefore(n: Int): String = getTextBeforeCursor(n, 0)?.toString() ?: ""
+
+    /** Konci text pred kurzorem presne retezcem `t`? */
+    private fun InputConnection.endsWithBefore(t: String): Boolean = getTextBeforeCursor(t.length, 0)?.toString() == t
+
     private fun isWordChar(text: String): Boolean {
         if (text.isEmpty()) return false
         val cp = text.codePointAt(0)
@@ -522,6 +530,7 @@ class KeyboardService : InputMethodService(), KeyboardView.Listener,
         flushSwipeLearning()
         val out = if (!alreadyCased && shift != KeyboardView.SHIFT_OFF) text.uppercase() else text
         if (useComposing && isWordChar(out)) {
+            dropStaleComposing(ic)
             if (composing.isEmpty()) reattached = null
             composing.append(out)
             ic.setComposingText(composing, 1)
@@ -532,7 +541,7 @@ class KeyboardService : InputMethodService(), KeyboardView.Listener,
             ic.beginBatchEdit()
             commitComposing(ic)
             // Po automaticke mezere (swipe / navrh) patri interpunkce tesne za slovo.
-            if (punctuation && autoSpace && ic.getTextBeforeCursor(1, 0)?.toString() == " ") {
+            if (punctuation && autoSpace && ic.endsWithBefore(" ")) {
                 ic.deleteSurroundingText(1, 0)
             }
             ic.commitText(out, 1)
@@ -542,6 +551,18 @@ class KeyboardService : InputMethodService(), KeyboardView.Listener,
             updateShift()
         }
         scheduleSuggestions()
+    }
+
+    /**
+     * Aplikace (napr. po odeslani zpravy) mohla pole vyprazdnit bez hlaseni zmeny vyberu.
+     * Kdyz rozepsane slovo neni pred kurzorem, zahodime ho, aby se nevratilo zpet do pole.
+     */
+    private fun dropStaleComposing(ic: InputConnection) {
+        if (composing.isEmpty()) return
+        if (ic.endsWithBefore(composing.toString())) return
+        Log.w("fAZT", "rozepsane slovo v poli chybi, zahazuji: ${composing.length} znaku")
+        composing.setLength(0)
+        reattached = null
     }
 
     /** Potvrdi rozepsane slovo (a nauci se ho). */
@@ -592,7 +613,7 @@ class KeyboardService : InputMethodService(), KeyboardView.Listener,
         } else if (autoSpace) {
             // Mezera uz byla vlozena automaticky za slovem ze swipe / navrhu.
         } else {
-            val before = ic.getTextBeforeCursor(2, 0)?.toString() ?: ""
+            val before = ic.textBefore(2)
             if (settings.doubleSpaceToPeriod && useComposing && RustBridge.doubleSpacePeriod(before)) {
                 ic.deleteSurroundingText(1, 0)
                 ic.commitText(". ", 1)
@@ -680,13 +701,14 @@ class KeyboardService : InputMethodService(), KeyboardView.Listener,
         }
         val ic = currentInputConnection ?: return
         var wholeWord = false
+        dropStaleComposing(ic)
         if (composing.isNotEmpty()) {
             composing.setLength(composing.offsetByCodePoints(composing.length, -1))
             ic.setComposingText(composing, 1)
         } else {
             val ls = lastSwipe
             lastSwipe = null
-            if (ls != null && ic.getTextBeforeCursor(ls.text.length, 0)?.toString() == ls.text) {
+            if (ls != null && ic.endsWithBefore(ls.text)) {
                 wholeWord = true
                 // Backspace hned po swipe smaze cele vlozene slovo; klavesnice si zapamatuje,
                 // ze tohle slovo nebylo to prave, a priste ho nabidne niz.
@@ -776,7 +798,7 @@ class KeyboardService : InputMethodService(), KeyboardView.Listener,
     }
 
     private fun needsSpaceBefore(ic: InputConnection): Boolean {
-        val before = ic.getTextBeforeCursor(1, 0)?.toString() ?: ""
+        val before = ic.textBefore(1)
         if (before.isEmpty()) return false
         val c = before[0]
         return !c.isWhitespace() && c !in "([{\"'/-@#_"
@@ -800,7 +822,7 @@ class KeyboardService : InputMethodService(), KeyboardView.Listener,
         flushSwipeLearning()
         ic.beginBatchEdit()
         commitComposing(ic)
-        val before = ic.getTextBeforeCursor(64, 0)?.toString() ?: ""
+        val before = ic.textBefore(64)
         val word = words[0]
         val text = (if (needsSpaceBefore(ic)) " " else "") + word + " "
         ic.commitText(text, 1)
@@ -871,7 +893,7 @@ class KeyboardService : InputMethodService(), KeyboardView.Listener,
                 lastWordTapAt = 0L
             }
             // Nahrada slova ze swipe jinou alternativou.
-            if (word != ls.word && ic.getTextBeforeCursor(ls.text.length, 0)?.toString() == ls.text) {
+            if (word != ls.word && ic.endsWithBefore(ls.text)) {
                 val newText = (if (ls.text.startsWith(" ")) " " else "") + word + " "
                 ic.beginBatchEdit()
                 ic.deleteSurroundingText(ls.text.length, 0)
@@ -902,11 +924,12 @@ class KeyboardService : InputMethodService(), KeyboardView.Listener,
             }
             reattached = null
         } else {
-            val raw = ic.getTextBeforeCursor(64, 0)?.toString() ?: ""
+            val raw = ic.textBefore(64)
             // Editor (typicky po zalomeni radku) muze rozepsane slovo uz "ztratit": kurzor je stale tesne za
             // jeho zacatkem. Navrh pak nahradi tento zacatek, aby se slovo nezdvojilo.
             val tail = raw.takeLastWhile { it.isLetter() || it == '\'' }
             if (tail.isNotEmpty() && tail.length <= REATTACH_MAX && word.startsWith(tail, ignoreCase = true)) {
+                Log.w("fAZT", "navrh nahradil ztracene slovo: tail=$tail word=$word")
                 before = raw.dropLast(tail.length)
                 ic.deleteSurroundingText(tail.length, 0)
                 ic.commitText("$word ", 1)
@@ -993,7 +1016,7 @@ class KeyboardService : InputMethodService(), KeyboardView.Listener,
 
     /** Smaze slovo pred kurzorem (bez rozepsaneho slova). */
     private fun deleteWordBeforeCursor(ic: InputConnection) {
-        val n = RustBridge.deleteWordLen(ic.getTextBeforeCursor(64, 0)?.toString() ?: "")
+        val n = RustBridge.deleteWordLen(ic.textBefore(64))
         if (n > 0) ic.deleteSurroundingText(n, 0) else sendDownUpKeyEvents(KeyEvent.KEYCODE_DEL)
     }
 
@@ -1226,7 +1249,7 @@ class KeyboardService : InputMethodService(), KeyboardView.Listener,
 
     /** Mezera pred diktovanym textem a velke pocatecni pismeno podle textu pred kurzorem. */
     private fun refreshDictationContext(ic: InputConnection) {
-        val before = ic.getTextBeforeCursor(48, 0)?.toString() ?: ""
+        val before = ic.textBefore(48)
         dictationPrefix = if (needsSpaceBefore(ic)) " " else ""
         dictationCapitalize = settings.autoCapitalize && RustBridge.shouldCapitalize(before)
     }
@@ -1290,7 +1313,7 @@ class KeyboardService : InputMethodService(), KeyboardView.Listener,
                 "delete_word" -> deleteWordBeforeCursor(ic)
                 "delete_last" -> {
                     val n = lastDictated.length
-                    if (n > 0 && ic.getTextBeforeCursor(n, 0)?.toString() == lastDictated) {
+                    if (n > 0 && ic.endsWithBefore(lastDictated)) {
                         ic.deleteSurroundingText(n, 0)
                         lastDictated = ""
                     } else {
@@ -1298,7 +1321,7 @@ class KeyboardService : InputMethodService(), KeyboardView.Listener,
                     }
                 }
                 "newline" -> {
-                    if (ic.getTextBeforeCursor(1, 0)?.toString() == " ") ic.deleteSurroundingText(1, 0)
+                    if (ic.endsWithBefore(" ")) ic.deleteSurroundingText(1, 0)
                     ic.commitText("\n", 1)
                 }
                 "enter" -> enter()
@@ -1306,7 +1329,7 @@ class KeyboardService : InputMethodService(), KeyboardView.Listener,
                     val t = s.text
                     var out = t
                     if (t.isNotEmpty() && t[0] in ".,!?:;)") {
-                        if (ic.getTextBeforeCursor(1, 0)?.toString() == " ") ic.deleteSurroundingText(1, 0)
+                        if (ic.endsWithBefore(" ")) ic.deleteSurroundingText(1, 0)
                     } else if (needsSpaceBefore(ic)) {
                         out = " $t"
                     }
@@ -1637,7 +1660,7 @@ class KeyboardService : InputMethodService(), KeyboardView.Listener,
             return
         }
         val ic = currentInputConnection ?: return closeSearch(true)
-        val replace = ic.getTextBeforeCursor(target.text.length, 0)?.toString() == target.text
+        val replace = ic.endsWithBefore(target.text)
         closeSearch(false)
         if (replace) {
             val newText = (if (target.text.startsWith(" ")) " " else "") + query + " "

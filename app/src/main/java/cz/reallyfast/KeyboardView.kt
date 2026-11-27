@@ -86,6 +86,8 @@ class KeyboardView(context: Context) : View(context) {
         var flipAt = 0L
         var flipTarget = 0f
         var flipMix = 0f
+        /** Poradi pismene ve slove pri otoceni po tahu (stridani prvni a druhe barvy). */
+        var flipIdx = 0
         var slideAt = 0L
         var passAt = 0L
         var passTarget = 0f
@@ -291,9 +293,9 @@ class KeyboardView(context: Context) : View(context) {
         private const val FILL_OUT_MS = 300L
         private const val DEMO_POPUP_MS = 700L
         private const val DEMO_FONT_MS = 1800L
-        private const val DEMO_TRAIL_MS = 900L
-        private const val DEMO_TRAIL_STEPS = 12
         private const val DEMO_TRAIL_POINTS = 36
+        private const val DEMO_SWIPE_MS = 1600L
+        private const val DEMO_SWIPE_STEPS = 32
         private const val DEMO_ALTS_MS = 900L
         private const val DEMO_PRESS_STEP_MS = 230L
         private const val SPOT_MAX = 64
@@ -438,7 +440,6 @@ class KeyboardView(context: Context) : View(context) {
     private var keyWidthDp = 0
     private var cutEffect = false
     private var slideEffect = false
-    private var glowSlideStyle = false
     private var customFont: Typeface? = null
     private var customFontName: String? = null
     private var dashedTrail = false
@@ -447,11 +448,9 @@ class KeyboardView(context: Context) : View(context) {
     private var enterSlideStart = 0L
     private var enterSlideKey: Key? = null
     private var enterSlideDir = 1f
-    private val pulses = ArrayList<FloatArray>()
     private var savedBannerText = ""
     private var savedBannerStart = 0L
     private var savedBannerEndedAt = 0L
-    private var voiceAgainTouch = false
     private var drawShadow = true
     private var drawHints = true
     private var drawTrailEnabled = true
@@ -511,7 +510,6 @@ class KeyboardView(context: Context) : View(context) {
     // Druha barva efektu po klepnuti (0 = vypnuto) a prepinac stridani; barva se vybira pri klepnuti, ne v onDraw.
     private var neon2 = 0
     private var neon2Rainbow = false
-    private var neonFlip = false
     // Obrys klaves (0 = bez obrysu / bez zmeny); prechod obrysu se stavi jen pri zmene (updateMetrics).
     private var outlineOn = false
     private var outlineCol = 0
@@ -520,7 +518,6 @@ class KeyboardView(context: Context) : View(context) {
     private var outlineTapCol = 0
     private var outlineTapCol2 = 0
     private var tapTextCol2 = 0
-    private var tapSecond = false
     private var specialOutline = true
     private var glowCol2 = 0
     private var trailCol2 = 0
@@ -533,10 +530,8 @@ class KeyboardView(context: Context) : View(context) {
     // Druhe barvy cislic (klavesy, znak, obrys): prechod zleva doprava, stavi se jen pri zmene.
     private var digitKeyCol2 = 0
     private var digitTextCol2 = 0
-    private var digitOutlineCol2 = 0
     private var digitKeyShader: LinearGradient? = null
     private var digitTextShader: LinearGradient? = null
-    private var digitOutlineShader: LinearGradient? = null
     private var tapTextShader: LinearGradient? = null
     private var tapOutShader: LinearGradient? = null
     private var neonShader: LinearGradient? = null
@@ -554,7 +549,6 @@ class KeyboardView(context: Context) : View(context) {
     private var textDir = 0
     private var digitTextDir = 0
     private var outlineDir = 0
-    private var digitOutlineDir = 0
     private var bgShader: LinearGradient? = null
     // Prekryti stisku / neonu / zare pres prechod klavesy: barva a pruhlednost slozena z kroku `tint`.
     private var gradKey = false
@@ -650,11 +644,6 @@ class KeyboardView(context: Context) : View(context) {
         if (hintFocus && !anyHint) hintSample = keys.firstOrNull { it.kind == KIND_CHAR }
     }
 
-    fun availableKeyFonts(): List<String> {
-        val out = ArrayList<String>()
-        try { val list = context.assets.list("fonts") ?: emptyArray(); for (f in list) if (f.endsWith(".ttf", true) || f.endsWith(".otf", true) || f.endsWith(".ttc", true)) out.add(f) } catch (_: Throwable) {}
-        out.sort(); return out
-    }
     private fun loadKeyFont(name: String, weight: Int): Typeface {
         if (name == "system" || name.isBlank()) return weightFace(weight)
         if (customFont != null && customFontName == name) return customFont!!
@@ -706,10 +695,10 @@ class KeyboardView(context: Context) : View(context) {
         else LinearGradient(x0, y0, x1, y1, c1, c2, Shader.TileMode.CLAMP)
     }
 
-    /** Barva pismene pri otoceni po uspesnem tahu: barva pismen po tahu (a druha barva podle poradi v slove). */
+    /** Barva pismene pri otoceni po uspesnem tahu: barva pismen po tahu (a druha barva se s ni strida po pismenech). */
     private fun flipColor(k: Key): Int = when {
         glowRainbow -> rainbow(k.flipMix)
-        glowCol2 != 0 -> Theme.blend(glowColor, glowCol2, k.flipMix)
+        glowCol2 != 0 -> if (k.flipIdx % 2 == 0) glowColor else glowCol2
         else -> glowColor
     }
 
@@ -765,7 +754,6 @@ class KeyboardView(context: Context) : View(context) {
         textDir = gradDirCode(s.textGradDir)
         digitTextDir = gradDirCode(s.digitTextGradDir)
         outlineDir = gradDirCode(s.outlineGradDir)
-        digitOutlineDir = gradDirCode(s.digitOutlineGradDir)
         charOutlineOn = s.charOutline
         keyWidthDp = s.keyWidthDp
         dashedTrail = s.trailStyle == "dashed"
@@ -797,7 +785,6 @@ class KeyboardView(context: Context) : View(context) {
         digitKeyCol = Theme.parse(s.digitKeyColor, 0)
         digitKeyCol2 = Theme.parse(s.digitKeyColor2, 0)
         digitTextCol2 = Theme.parse(s.digitTextColor2, 0)
-        digitOutlineCol2 = Theme.parse(s.digitOutlineColor2, 0)
         keyCol2 = Theme.parse(s.keyColor2, 0)
         bgCol2 = Theme.parse(s.backgroundColor2, 0)
         keyRainbow = s.keyColor2 == Theme.RAINBOW
@@ -830,7 +817,7 @@ class KeyboardView(context: Context) : View(context) {
         outlineHoverCol = Theme.parse(s.outlineHoverColor, 0)
         outlinePassedCol = Theme.parse(s.outlinePassedColor, 0)
         outlineW = s.outlineWidthDp * density
-        outlineOn = digitOutlineCol2 != 0 || outlineCol != 0 || outlineTapCol != 0 || outlineHoverCol != 0 || outlinePassedCol != 0 || specialOutline
+        outlineOn = outlineCol != 0 || outlineTapCol != 0 || outlineHoverCol != 0 || outlinePassedCol != 0 || specialOutline
         glowRainbow = s.glowColor == Theme.RAINBOW
         glowColor = if (glowRainbow) Theme.RAINBOW_COLORS[0] else Theme.parse(s.glowColor, 0xFF0080FF.toInt())
         glowText = textOn(glowColor)
@@ -905,7 +892,6 @@ class KeyboardView(context: Context) : View(context) {
         }
         digitKeyShader = if (digitKeyCol2 != 0) gradShader(if (digitKeyCol != 0) digitKeyCol else theme.key, digitKeyCol2, false, digitKeyDir, kw, kh) else null
         digitTextShader = if (digitTextCol2 != 0 && labelSize > 0f) gradShader(if (digitTextCol != 0) digitTextCol else theme.text, digitTextCol2, false, digitTextDir, tw, th) else null
-        digitOutlineShader = if (digitOutlineCol2 != 0) gradShader(if (outlineCol != 0) outlineCol else theme.accent, digitOutlineCol2, false, digitOutlineDir, kw, kh) else null
         // Druhe barvy po klepnuti a neonu: prechod uvnitr jedne klavesy (shora dolu).
         tapTextShader = if (tapTextCol2 != 0 && labelSize > 0f) gradShader(if (tapTextCol != 0) tapTextCol else theme.text, tapTextCol2, false, 0, tw, th) else null
         tapOutShader = if (outlineTapCol2 != 0) gradShader(if (outlineTapCol != 0) outlineTapCol else theme.accent, outlineTapCol2, false, 0, kw, kh) else null
@@ -1492,9 +1478,9 @@ class KeyboardView(context: Context) : View(context) {
                 glowRainbow && glow > 0f -> rainbow(if (glowCount > 1) glowHit / (glowCount - 1f) else 0f)
                 glowRainbow && fillSide >= 0 -> rainbow(cx / max(1f, width.toFloat()))
                 glowRainbow -> glowColor
-                // Druha barva: pismena slova plynule prechazeji z barvy 1 do barvy 2 (podle poradi / polohy).
-                glowCol2 != 0 && glow > 0f -> Theme.blend(glowColor, glowCol2, if (glowCount > 1) glowHit / (glowCount - 1f) else 0f)
-                glowCol2 != 0 && fillSide >= 0 -> Theme.blend(glowColor, glowCol2, (cx / max(1f, width.toFloat())).coerceIn(0f, 1f))
+                // Druha barva: pismena slova se strida (licha = barva 2); ve vybarveni podle sloupce klavesy.
+                glowCol2 != 0 && glow > 0f -> if (glowHit % 2 == 0) glowColor else glowCol2
+                glowCol2 != 0 && fillSide >= 0 -> if ((cx / max(1f, width / 10f)).toInt() % 2 == 0) glowColor else glowCol2
                 else -> glowColor
             }
             val gText = if (glowRainbow || glowCol2 != 0) textOn(gCol) else glowText
@@ -1621,8 +1607,7 @@ class KeyboardView(context: Context) : View(context) {
             if (outlineOn) {
                 // Obrys: zakladni barva (pripadne prechod), po projeti, po klepnuti, pod prstem (posledni vyhrava).
                 val special = specialOutline && (k.kind == KIND_SHIFT || k.kind == KIND_MODE || k.kind == KIND_BACKSPACE || k.kind == KIND_EMOJI || k.kind == KIND_MACRO)
-                val digitOut = k.isDigit && digitOutlineShader != null
-                val baseOc = if (digitOut && outlineCol == 0) theme.accent else outlineCol
+                val baseOc = outlineCol
                 var oc = if (special) theme.accent else baseOc
                 if (k.passed && outlinePassedCol != 0) {
                     oc = outlinePassedCol
@@ -1636,7 +1621,7 @@ class KeyboardView(context: Context) : View(context) {
                     val ins = outlineW / 2f
                     val r = max(0f, radius - ins)
                     outlinePaint.strokeWidth = outlineW
-                    val os = if (digitOut) digitOutlineShader else outlineShader
+                    val os = outlineShader
                     if (os != null && oc == baseOc && !special && !dimKey) {
                         // Prechod obrysu: shader je vystredeny na nulu, platno se posune na stred klavesy.
                         canvas.save()
@@ -2108,7 +2093,7 @@ class KeyboardView(context: Context) : View(context) {
                 val b = if (pop > 0f) Theme.blend(c, flyFlash, pop) else c
                 flyFill.color = (b and 0x00FFFFFF) or (alpha shl 24)
             } else if (glowCol2 != 0) {
-                val c = Theme.blend(glowColor, glowCol2, if (flyCount > 1) j / (flyCount - 1f) else 0f)
+                val c = if (j % 2 == 0) glowColor else glowCol2
                 val b = if (pop > 0f) Theme.blend(c, flyFlash, pop) else c
                 flyFill.color = (b and 0x00FFFFFF) or (alpha shl 24)
             }
@@ -2182,7 +2167,7 @@ class KeyboardView(context: Context) : View(context) {
         for (j in 0 until flyCount) {
             val c = when {
                 glowRainbow -> rainbow(if (flyCount > 1) j / (flyCount - 1f) else 0f)
-                glowCol2 != 0 -> Theme.blend(glowColor, glowCol2, if (flyCount > 1) j / (flyCount - 1f) else 0f)
+                glowCol2 != 0 -> if (j % 2 == 0) glowColor else glowCol2
                 else -> glowColor
             }
             flyFill.color = (c and 0x00FFFFFF) or (alpha shl 24)
@@ -2862,6 +2847,7 @@ class KeyboardView(context: Context) : View(context) {
                 for (k in keys) {
                     if (k.isLetter && k.code == code) {
                         k.flipMix = if (total > 1) n / (total - 1f) else 0f
+                        k.flipIdx = n
                         k.flipAt = now + n * 110L
                         k.flipTarget = (if (random.nextBoolean()) 1f else -1f) * (90f + random.nextFloat() * 90f)
                         n++
@@ -3013,20 +2999,38 @@ class KeyboardView(context: Context) : View(context) {
         handler.removeCallbacksAndMessages(demoToken)
         previewKey = null
         startPreview(k)
-        handler.postAtTime({ endPreview() }, demoToken, SystemClock.uptimeMillis() + DEMO_POPUP_MS)
+        if (!popupHeld) handler.postAtTime({ endPreview() }, demoToken, SystemClock.uptimeMillis() + DEMO_POPUP_MS)
         invalidate()
     }
 
-    /** Ukazka stopy za prstem (nahled v nastaveni): na ~0,9 s se nakresli cara pres pismena slova a pak vybledne. */
-    fun demoTrail(word: String = "ahoj") {
+    /** Bublina nad klavesou zustane videt, dokud je `on` (vyber barvy bubliny v nastaveni); po vypnuti zmizi. */
+    private var popupHeld = false
+
+    fun holdPopup(on: Boolean) {
+        popupHeld = on
+        if (on) demoPopup() else endPreview()
+    }
+
+    /**
+     * Ukazka tahu po domaci rade od pismene a do l (nahled v nastaveni): cara za prstem, prejete klavesy
+     * (barva pruchodu, obrys, znak) a po konci jejich doznivani; kazde spusteni tah zopakuje.
+     */
+    fun demoSwipe() {
         if (touchMode != T_NONE) return
+        val ka = demoLetter('a') ?: return
+        val kl = demoLetter('l') ?: return
         val pts = ArrayList<Key>()
-        for (ch in word) {
-            val k = demoKeyFor(ch) ?: continue
-            if (pts.isEmpty() || pts[pts.size - 1] !== k) pts.add(k)
-        }
+        for (k in keys) if (k.isLetter && abs(k.y - ka.y) < 1f && k.vx >= ka.vx - 1f && k.vx <= kl.vx + 1f) pts.add(k)
+        pts.sortBy { it.vx }
+        runDemoPath(pts, DEMO_SWIPE_MS, DEMO_SWIPE_STEPS)
+    }
+
+    /** Lomena cara pres klavesy `pts`; postupne se oznacuji prejete klavesy a po konci doznivaji. */
+    private fun runDemoPath(pts: List<Key>, durationMs: Long, stepCount: Int) {
         if (pts.size < 2) return
         handler.removeCallbacksAndMessages(demoToken)
+        for (k in keys) { k.passed = false }
+        hoverKey = null
         // Lomena cara pres klavesy slova do bufferu vzorku (stejny jako u skutecneho tahu).
         val segs = pts.size - 1
         for (i in 0 until DEMO_TRAIL_POINTS) {
@@ -3046,15 +3050,35 @@ class KeyboardView(context: Context) : View(context) {
         trailHeld = true
         trailCount = 2
         val start = SystemClock.uptimeMillis()
-        for (step in 1..DEMO_TRAIL_STEPS) {
-            val n = max(2, DEMO_TRAIL_POINTS * step / DEMO_TRAIL_STEPS)
-            handler.postAtTime({ trailCount = n; invalidate() }, demoToken, start + DEMO_TRAIL_MS * step / DEMO_TRAIL_STEPS)
+        for (step in 1..stepCount) {
+            val n = max(2, DEMO_TRAIL_POINTS * step / stepCount)
+            handler.postAtTime({
+                trailCount = n
+                if (glowEnabled) {
+                    // Klavesa pod hlavou cary je pod prstem, vsechny pred ni jsou prejete.
+                    val head = min(pts.size - 1, ((n - 1f) / (DEMO_TRAIL_POINTS - 1f) * (pts.size - 1) + 0.5f).toInt())
+                    for (i in 0..head) {
+                        val k = pts[i]
+                        if (!k.passed) { k.passed = true; k.passAt = SystemClock.uptimeMillis(); k.passTarget = 0f }
+                    }
+                    hoverKey = pts[head]
+                }
+                invalidate()
+            }, demoToken, start + durationMs * step / stepCount)
         }
         handler.postAtTime({
             trailHeld = false
-            trailEndedAt = SystemClock.uptimeMillis()
+            val endAt = SystemClock.uptimeMillis()
+            trailEndedAt = endAt
+            // Po konci tahu prejete klavesy doznivaji, stejne jako po skutecnem tahu.
+            val fade = passedTextCol != 0 || outlinePassedCol != 0 || passedKeyCol != 0
+            for (k in pts) {
+                if (k.passed && fade) k.passedFadeAt = endAt
+                k.passed = false
+            }
+            hoverKey = null
             invalidate()
-        }, demoToken, start + DEMO_TRAIL_MS + 1L)
+        }, demoToken, start + durationMs + 1L)
         invalidate()
     }
 
@@ -3068,6 +3092,7 @@ class KeyboardView(context: Context) : View(context) {
                 k.flipAt = 0L
             }
         }
+        hoverKey = null
         trailHeld = false
         trailCount = 0
         glowCount = 0
@@ -3157,13 +3182,6 @@ class KeyboardView(context: Context) : View(context) {
 
     /** Horni okraj nabidky variant (souradnice pohledu), kdyz je zobrazena pro `key`; jinak horni okraj klavesy. */
     fun stripTopFor(key: Key): Float = if (altsDemo && popupKey === key) popupTop else key.y
-
-    /** Ukazka barvy po projeti tahem (nahled v nastaveni): par pismen vybledne z barvy po projeti. */
-    fun demoPassed(word: String = "aho") {
-        val now = SystemClock.uptimeMillis()
-        for (c in word) demoKeyFor(c)?.passedFadeAt = now
-        invalidate()
-    }
 
     /** Ukazka neonu po klepnuti (nahled v nastaveni): par pismenovych klaves se rozsviti a doznivaji. */
     fun demoNeon(word: String = "ahoj") {
@@ -3308,9 +3326,11 @@ class KeyboardView(context: Context) : View(context) {
         hypot(x - width / 2f, y - playCy()) <= 30f * density
 
     /** Velke tlacitko "Znovu mluvit": vpravo uprostred, velke jako tlacitko Odeslat (Enter). */
+    private val voiceAgainBox = android.graphics.RectF()
     private fun voiceAgainRect(): android.graphics.RectF {
         val w = 64f * density; val h = 64f * density; val right = width - 6f * density; val cy = height * 0.5f
-        return android.graphics.RectF(right - w, cy - h / 2f, right, cy + h / 2f)
+        voiceAgainBox.set(right - w, cy - h / 2f, right, cy + h / 2f)
+        return voiceAgainBox
     }
     private fun inVoiceAgainButton(x: Float, y: Float): Boolean {
         val r = voiceAgainRect()

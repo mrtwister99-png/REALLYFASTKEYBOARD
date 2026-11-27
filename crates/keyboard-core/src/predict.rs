@@ -346,10 +346,13 @@ pub fn suggest_composing(ctx: &Context, typed: &str) -> Vec<String> {
     // Osobni slova (i ta mimo vestaveny slovnik). Slovo pridane uzivatelem ma spodni mez sily,
     // aby ho jedno pouziti nenechalo propadnout za bezna slova.
     let folded = charmap::fold_bytes(&enc);
-    for (w, uw) in ctx.user.iter() {
-        let Some(wenc) = charmap::encode_word(w) else { continue };
+    for (w, uw, wenc) in ctx.user.iter_enc() {
+        // Rychle vyrazeni: delka musi sedet (shoda) nebo byt delsi (doplneni).
+        if wenc.len() < enc.len() {
+            continue;
+        }
         let s = crate::learning::strength_of(*uw, ctx.now).max(PERSONAL_FLOOR);
-        if wenc == enc {
+        if wenc == enc.as_slice() {
             exact_known = true;
             pool.add(w.clone(), 1.0 + quality(USER_FREQ, s));
         } else if ctx.predictions && wenc.len() > enc.len() && charmap::fold_bytes(&wenc[..enc.len()]) == folded {
@@ -442,17 +445,19 @@ pub fn predict_next(ctx: &Context, prev2: &str, prev: &str, capitalize: bool) ->
         }
     }
     // Nejpouzivanejsi osobni slova (i pridana rucne) se nabidnou drive nez obecna nejcastejsi slova.
-    let mut best: [Option<(&String, f32)>; 2] = [None, None];
+    // Razeni podle (pocet, posledni pouziti) je levne (bez mocniny); sila se pocita jen pro dve vitezne.
+    let mut best: [Option<(&String, &crate::learning::UserWord)>; 2] = [None, None];
+    let key = |u: &crate::learning::UserWord| (u.count, u.last_used);
     for (w, uw) in ctx.user.iter() {
-        let s = crate::learning::strength_of(*uw, ctx.now).max(PERSONAL_FLOOR * 0.5);
-        if best[1].is_none_or(|(_, b)| s > b) {
-            best[1] = Some((w, s));
-            if best[0].is_none_or(|(_, b)| s > b) {
+        if best[1].is_none_or(|(_, b)| key(uw) > key(b)) {
+            best[1] = Some((w, uw));
+            if best[0].is_none_or(|(_, b)| key(uw) > key(b)) {
                 best.swap(0, 1);
             }
         }
     }
-    for (w, s) in best.into_iter().flatten() {
+    for (w, uw) in best.into_iter().flatten() {
+        let s = crate::learning::strength_of(*uw, ctx.now).max(PERSONAL_FLOOR * 0.5);
         pool.add(w.clone(), 0.5 + 0.4 * s);
     }
     pool.top(MAX_SUGGESTIONS)
@@ -691,5 +696,18 @@ mod tests {
         let dicts = [&d];
         let p = predict_next(&ctx(&dicts, &u), "", "", false);
         assert!(p.contains(&"Krakonos".to_string()), "{p:?}");
+    }
+
+    #[test]
+    fn encoded_cache_follows_add_and_remove() {
+        let mut u = UserDict::new();
+        u.learn("Krakonos", "", NOW);
+        assert_eq!(u.iter_enc().count(), 1);
+        u.remove("Krakonos");
+        assert_eq!(u.iter_enc().count(), 0);
+        u.insert_word("pes", 3, NOW);
+        assert_eq!(u.iter_enc().next().unwrap().2, enc("pes").as_slice());
+        u.clear();
+        assert_eq!(u.iter_enc().count(), 0);
     }
 }

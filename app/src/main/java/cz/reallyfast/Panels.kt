@@ -359,7 +359,8 @@ class EmojiGrid(context: Context) : View(context) {
         paint.textSize = cell * 0.58f
         paint.color = textColor
         val dy = -(paint.ascent() + paint.descent()) / 2f
-        for ((i, e) in items.withIndex()) {
+        for (i in items.indices) {
+            val e = items[i]
             val cx = (i % cols + 0.5f) * cell
             val cy = (i / cols + 0.5f) * cell
             canvas.drawText(e, cx, cy + dy, paint)

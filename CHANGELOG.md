@@ -2,6 +2,12 @@
 
 Jedna věta za verzi, nejnovější nahoře. Čísla verzí odpovídají commitům (`vX.Y: …`).
 
+## 1.38 – 2026-11-27
+Po odeslání zprávy se rozepsané slovo už nevrací do prázdného pole (Messenger), bublina zůstává vidět při výběru její barvy, ukázka tahu běží dokola po řadě od a do l i s barvami průchodu, druhá barva písmen po tahu se střídá po písmenech, odstraněna druhá barva obrysu čísel a nadbytečné druhé barvy ze Swipe II a Animace po kliknutí III, Animace po kliknutí II má druhou barvu klávesy a znaku, barva nápovědy je jen v Barvách II.
+
+## 1.37.1 – 2026-11-26
+Osobní slova se v Rustu kódují jen jednou (rychlejší návrhy a swipe), úklid mrtvého kódu a 38 nepoužitých řetězců, pomocné funkce pro text před kurzorem, bez alokace v kreslení hlasového režimu, ladicí zápisy `fAZT` do logcatu a testovací slovník (`testdata/`).
+
 ## 1.37 – 2026-11-26
 Vzhled a Rozložení má vždy vybraný profil (výchozí první), zkušební režim se obnoví po návratu z plochy a platí i ve Waiting; lišta návrhů nabízí i podobná slova a slova z vlastního slovníku častěji; návrh nezdvojí slovo, když editor po zalomení řádku ztratí rozepsané slovo.
 

@@ -412,6 +412,14 @@ class AppearanceActivity : SettingsScreen() {
         }
     }
 
+    /** Klic nastaveni, jehoz vyber barvy je prave otevreny (prazdny = zadny). */
+    private var pickerKey = ""
+
+    override fun onColorPickerState(key: String, open: Boolean) {
+        if (open) pickerKey = key else if (pickerKey == key) pickerKey = ""
+        if (key == "popup_color" && ::previewHost.isInitialized && !explicitTest() && !adjusting && previewOpen) preview.holdPopup(open)
+    }
+
     override fun onSettingTouched(key: String, anchor: View) {
         showTip(key, anchor)
         if (spotDone == key) {
@@ -552,17 +560,17 @@ class AppearanceActivity : SettingsScreen() {
             ui.postDelayed(loopRun, USER_IDLE_MS - idle + 50L)
             return
         }
-        val word = loopWord()
         if (expandedCat == CAT_TAP) {
-            preview.demoPress(word)
+            preview.demoPress(loopWord())
             ui.postDelayed(loopRun, 2600L)
         } else {
-            preview.demoTrail(word)
+            // Tah po domaci rade od a do l dokola; po nem se slovo z tech pismen rozsviti.
+            preview.demoSwipe()
             val stamp = lastTouchAt
             ui.postDelayed({
-                if (loopWanted() && stamp == lastTouchAt) preview.glowWord(word)
-            }, 950L)
-            ui.postDelayed(loopRun, 3800L)
+                if (loopWanted() && stamp == lastTouchAt) preview.glowWord(SWIPE_WORD)
+            }, 1800L)
+            ui.postDelayed(loopRun, 4600L)
         }
     }
 
@@ -950,7 +958,6 @@ class AppearanceActivity : SettingsScreen() {
         val s = section(box, getString(R.string.sec_layout_pos))
         labelAdjustButton = adjustRow(s, R.string.label_pos, R.string.label_adjust, true)
         hintAdjustButton = adjustRow(s, R.string.layout_hint_pos, R.string.hint_adjust, false)
-        colorRow(s, R.string.hint_color, "hint_color", allowAuto = true)
         // Tloustka se meni jen u systemoveho pisma; vlastni pismo ma tloustku pevnou, proto se posuvniky zatmi.
         val systemFont = { RustBridge.settings.json.optString("key_font", "system") == "system" }
         sliderRow(s, R.string.label_weight, "label_weight", 100, 900, 1, 100, systemFont) { it.toString() }
@@ -973,7 +980,6 @@ class AppearanceActivity : SettingsScreen() {
         colorRow(s, R.string.custom_background, "custom_background")
         colorRow(s, R.string.custom_key, "custom_key")
         colorRow(s, R.string.custom_text, "custom_text")
-        colorRow(s, R.string.hint_color, "hint_color", allowAuto = true)
         colorRow(s, R.string.outline_color, "outline_color", allowAuto = true)
         sliderRow(s, R.string.outline_width, "outline_width_dp", 1, 6, 1) { getString(R.string.unit_dp, it) }
         colorRow(s, R.string.accent_color, "accent_color")
@@ -988,6 +994,7 @@ class AppearanceActivity : SettingsScreen() {
         colorRow(s, R.string.key_color2, "key_color2", allowAuto = true, allowRainbow = true)
         colorRow(s, R.string.text_color2, "text_color2", allowAuto = true, allowRainbow = true)
         colorRow(s, R.string.outline_color2, "outline_color2", allowAuto = true, allowRainbow = true)
+        colorRow(s, R.string.hint_color, "hint_color", allowAuto = true)
     }
 
     /** 2. III. Barvy cislic (a jejich druhe barvy). */
@@ -997,7 +1004,6 @@ class AppearanceActivity : SettingsScreen() {
         colorRow(s, R.string.digit_text_color, "digit_text_color", allowAuto = true)
         colorRow(s, R.string.digit_key_color2, "digit_key_color2", allowAuto = true, allowRainbow = true)
         colorRow(s, R.string.digit_text_color2, "digit_text_color2", allowAuto = true, allowRainbow = true)
-        colorRow(s, R.string.digit_outline_color2, "digit_outline_color2", allowAuto = true, allowRainbow = true)
     }
 
     private fun tapEffects(): Pair<List<String>, List<String>> = Pair(
@@ -1021,21 +1027,16 @@ class AppearanceActivity : SettingsScreen() {
         colorRow(s, R.string.outline_tap_color, "outline_tap_color", allowAuto = true)
     }
 
-    /** 3. II. Obrys a znak. */
+    /** 3. II. Druha barva klavesy a znaku po klepnuti. */
     private fun buildTap2(box: LinearLayout) {
         val s = section(box, getString(R.string.cat_tap_2))
-        colorRow(s, R.string.outline_tap_color, "outline_tap_color", allowAuto = true)
-        colorRow(s, R.string.tap_text_color, "tap_text_color", allowAuto = true)
+        colorRow(s, R.string.tap_key_color2, "neon_color2", allowAuto = true, allowRainbow = true)
+        colorRow(s, R.string.tap_text_color2, "tap_text_color2", allowAuto = true)
     }
 
-    /** 3. III. Druhe barvy. */
+    /** 3. III. Druha barva obrysu po klepnuti. */
     private fun buildTap3(box: LinearLayout) {
         val s = section(box, getString(R.string.cat_tap_3))
-        colorRow(s, R.string.key_color2, "key_color2", allowAuto = true, allowRainbow = true)
-        colorRow(s, R.string.text_color2, "text_color2", allowAuto = true, allowRainbow = true)
-        colorRow(s, R.string.outline_color2, "outline_color2", allowAuto = true, allowRainbow = true)
-        colorRow(s, R.string.neon_color2, "neon_color2", allowAuto = true, allowRainbow = true)
-        colorRow(s, R.string.tap_text_color2, "tap_text_color2", allowAuto = true)
         colorRow(s, R.string.outline_tap_color2, "outline_tap_color2", allowAuto = true)
     }
 
@@ -1074,9 +1075,6 @@ class AppearanceActivity : SettingsScreen() {
         colorRow(s, R.string.outline_passed_color, "outline_passed_color", allowAuto = true, dependsOn = "swipe_glow")
         colorRow(s, R.string.hover_text_color, "hover_text_color", allowAuto = true, dependsOn = "swipe_glow")
         colorRow(s, R.string.outline_hover_color, "outline_hover_color", allowAuto = true, dependsOn = "swipe_glow")
-        colorRow(s, R.string.key_color2, "key_color2", allowAuto = true, allowRainbow = true)
-        colorRow(s, R.string.text_color2, "text_color2", allowAuto = true, allowRainbow = true)
-        colorRow(s, R.string.outline_color2, "outline_color2", allowAuto = true, allowRainbow = true)
     }
 
     /** 5. Konfigurace klavesnice: klik + podrzeni = uprava pismenka / makra. */
@@ -1133,8 +1131,6 @@ class AppearanceActivity : SettingsScreen() {
         choiceRow(s, R.string.grad_dir_digit_text, "digit_text_grad_dir", dirValues, dirLabels)
         colorRow(s, R.string.outline_color2, "outline_color2", allowAuto = true, allowRainbow = true)
         choiceRow(s, R.string.grad_dir_outline, "outline_grad_dir", dirValues, dirLabels)
-        colorRow(s, R.string.digit_outline_color2, "digit_outline_color2", allowAuto = true, allowRainbow = true)
-        choiceRow(s, R.string.grad_dir_digit_outline, "digit_outline_grad_dir", dirValues, dirLabels)
     }
 
     /** Tlacitko s popiskem, ktere zapne nastavovani polohy (znaku nebo napovedy) nad klavesnici. */
@@ -1273,15 +1269,20 @@ class AppearanceActivity : SettingsScreen() {
         "key_font" -> DEMO_FONT
         "key_popup", "popup_color" -> DEMO_POPUP
         "alts_color" -> DEMO_ALTS
-        "animations", "outline_hover_color" -> DEMO_PRESS
-        "outline_passed_color" -> DEMO_PASSED
-        "swipe_trail", "trail_style", "trail_color", "trail_color2", "trail_width_dp" -> DEMO_TRAIL
+        "animations" -> DEMO_PRESS
+        "swipe_trail", "trail_style", "trail_color", "trail_color2", "trail_width_dp",
+        "passed_text_color", "outline_passed_color", "passed_key_color", "hover_text_color", "outline_hover_color" -> DEMO_SWIPE
         "glow_style", "glow_color", "glow_color2", "swipe_glow" -> DEMO_GLOW
         else -> DEMO_NONE
     }
 
     private fun demoFor(key: String) {
         if (explicitTest() || adjusting || !previewOpen) return
+        // Pri vyberu barvy bubliny bublina zustava videt (po zmene se jen obnovi).
+        if (pickerKey == "popup_color" && demoKind(key) == DEMO_POPUP) {
+            preview.holdPopup(true)
+            return
+        }
         // V kategoriich animaci bezi opakovana ukazka: po zmene se jen rozbehne hned.
         if (loopWanted() && demoKind(key) != DEMO_NONE) {
             restartLoop(250L)
@@ -1298,8 +1299,7 @@ class AppearanceActivity : SettingsScreen() {
             DEMO_POPUP -> preview.demoPopup()
             DEMO_ALTS -> preview.demoAlts()
             DEMO_PRESS -> { spotWord(w); preview.demoPress(w) }
-            DEMO_PASSED -> { spotWord(w); preview.demoPassed(w) }
-            DEMO_TRAIL -> { spotWord(w); preview.demoTrail(w) }
+            DEMO_SWIPE -> preview.demoSwipe()
             DEMO_GLOW -> { spotWord(w); preview.glowWord(w) }
         }
     }
@@ -1843,12 +1843,12 @@ class AppearanceActivity : SettingsScreen() {
         const val KEY_CHOSEN_SLOT = "chosen_slot"
         const val MAX_ALTS_EDIT = 5
 
-        const val CAT_LAYOUT = 1
         const val CAT_TAP = 3
         const val CAT_SWIPE = 4
         const val CAT_KEYS = 5
         const val CAT_EXTRA = 6
         const val USER_IDLE_MS = 3000L
+        const val SWIPE_WORD = "asdfghjkl"
 
         const val DEMO_NONE = 0
         const val DEMO_TAP = 1
@@ -1856,8 +1856,7 @@ class AppearanceActivity : SettingsScreen() {
         const val DEMO_POPUP = 3
         const val DEMO_ALTS = 4
         const val DEMO_PRESS = 5
-        const val DEMO_PASSED = 6
-        const val DEMO_TRAIL = 7
+        const val DEMO_SWIPE = 6
         const val DEMO_GLOW = 8
         const val DEMO_FONT = 9
 
@@ -1879,7 +1878,6 @@ class AppearanceActivity : SettingsScreen() {
             "key_width_dp" to R.string.tip_key_width,
             "digit_key_color2" to R.string.tip_digit_colors2,
             "digit_text_color2" to R.string.tip_digit_colors2,
-            "digit_outline_color2" to R.string.tip_digit_colors2,
             "key_radius_dp" to R.string.tip_key_radius,
             "key_gap_dp" to R.string.tip_key_gap,
             "row_gap_dp" to R.string.tip_row_gap,

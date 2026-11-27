@@ -573,12 +573,11 @@ impl SwipeDecoder {
         }
 
         // Osobni slova, ktera vestaveny slovnik nezna.
-        for (w, uw) in user.iter() {
-            let Some(enc) = charmap::encode_word(w) else { continue };
-            if enc.len() < MIN_WORD_LEN || dicts.iter().any(|d| d.lookup(&enc).is_some()) {
+        for (w, uw, enc) in user.iter_enc() {
+            if enc.len() < MIN_WORD_LEN || dicts.iter().any(|d| d.lookup(enc).is_some()) {
                 continue;
             }
-            if let Some(cost) = align_cost(&enc, &self.pts, geom, sens) {
+            if let Some(cost) = align_cost(enc, &self.pts, geom, sens) {
                 let mean = cost / RESAMPLE_N as f32;
                 let score = wt.geometry * (-wt.geo_k * mean).exp()
                     + wt.language * USER_ONLY_LM

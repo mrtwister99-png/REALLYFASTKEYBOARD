@@ -124,6 +124,9 @@ abstract class SettingsScreen : BaseScreen() {
     /** Zavolano po zapisu jedne hodnoty z radku (napr. ukazka neonu v nahledu). */
     protected open fun onSettingUpdated(key: String, value: Any) {}
 
+    /** Vyber barvy nastaveni `key` se otevrel / zavrel (nahled muze po dobu vyberu drzet ukazku). */
+    protected open fun onColorPickerState(key: String, open: Boolean) {}
+
     /** Zavolano tesne pred zapisem hodnoty (rozlozeni je jeste puvodni). */
     protected open fun onSettingWillUpdate(key: String, value: Any) {}
 
@@ -497,7 +500,8 @@ abstract class SettingsScreen : BaseScreen() {
             showColorPicker(getString(labelRes), initial, allowAuto,
                 onCommit = { c -> if (!hex(c).equals(shownColor(key), ignoreCase = true)) writeColor(key, hex(c)) },
                 onAuto = { if (shownColor(key).isNotEmpty()) update(key, "") },
-                onRainbow = if (allowRainbow) ({ if (shownColor(key) != Theme.RAINBOW) update(key, Theme.RAINBOW) }) else null)
+                onRainbow = if (allowRainbow) ({ if (shownColor(key) != Theme.RAINBOW) update(key, Theme.RAINBOW) }) else null,
+                key = key)
         }
         box.addView(row, rowParams())
         // Radek zavisly na prepinaci je zasedly a nereaguje, dokud je ten vypnuty.
@@ -554,8 +558,9 @@ abstract class SettingsScreen : BaseScreen() {
      * (sytost a jas) s pruhem odstinu, hex kod a tlacitko OK. Hodnota se zapisuje (`onCommit`) po zvednuti
      * prstu nebo po zadani platneho hex kodu; "Vychozi" (jen s `allowAuto`) zavola `onAuto` a dialog zavre.
      */
-    private fun showColorPicker(titleText: String, initial: Int, allowAuto: Boolean, onCommit: (Int) -> Unit, onAuto: () -> Unit, onRainbow: (() -> Unit)? = null) {
+    private fun showColorPicker(titleText: String, initial: Int, allowAuto: Boolean, onCommit: (Int) -> Unit, onAuto: () -> Unit, onRainbow: (() -> Unit)? = null, key: String = "") {
         colorDialog?.dismiss()
+        if (key.isNotEmpty()) onColorPickerState(key, true)
         val dialog = Dialog(this)
         dialog.requestWindowFeature(Window.FEATURE_NO_TITLE)
         val root = LinearLayout(this)
@@ -654,7 +659,10 @@ abstract class SettingsScreen : BaseScreen() {
         }
 
         dialog.setContentView(root)
-        dialog.setOnDismissListener { if (colorDialog === dialog) colorDialog = null }
+        dialog.setOnDismissListener {
+            if (colorDialog === dialog) colorDialog = null
+            if (key.isNotEmpty()) onColorPickerState(key, false)
+        }
         dialog.window?.let { w ->
             w.setBackgroundDrawable(ColorDrawable(0))
             w.clearFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND)
