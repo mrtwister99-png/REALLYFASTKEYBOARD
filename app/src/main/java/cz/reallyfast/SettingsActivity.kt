@@ -65,6 +65,7 @@ class SettingsActivity : SettingsScreen() {
     private var statusView: TextView? = null
     private var statusCard: LinearLayout? = null
     private var statusBadge: TextView? = null
+    private var gearViews: List<GearView> = emptyList()
     private var swipeLogButton: TextView? = null
     private var enableButton: TextView? = null
     private var selectButton: TextView? = null
@@ -193,6 +194,7 @@ class SettingsActivity : SettingsScreen() {
         slp.topMargin = dp(33f) - logoH - dp(4f)
         slp.rightMargin = dp(3f)
         gears.addView(smallGear, slp)
+        gearViews = listOf(bigGear, smallGear)
         container.addView(gears, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0))
         if (animateTitle) {
             // logo1 a logo2 vyjedou zprava za okrajem obrazovky a dolete nad zaklad; pak se stridaji (jen pri vytvoreni obrazovky).
@@ -496,6 +498,8 @@ class SettingsActivity : SettingsScreen() {
             else -> 0xFFEF4444.toInt()
         }
         statusBadge?.text = if (active) "✓" else if (enabled) "!" else "✕"
+        // Kdyz je klavesnice aktivni, kazde kolo se pri kazdem pootoceni toci nahodnym smerem.
+        for (g in gearViews) g.randomDirection = active
         // Symbol bez vyplneneho kolecka: jen znak v barve stavu.
         statusBadge?.setTextColor(tone)
         statusCard?.background = android.graphics.drawable.GradientDrawable().apply {

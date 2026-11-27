@@ -2,6 +2,9 @@
 
 Jedna věta za verzi, nejnovější nahoře. Čísla verzí odpovídají commitům (`vX.Y: …`).
 
+## 1.47.6 – 2026-11-27
+Po přidání slova v osobním slovníku písmena tlačítka Přidat odletí (P nahoru, ř dolů, i dolů, d nahoru, a dolů, t doprava) a tlačítko se vrátí; když je klávesnice aktivní, obě ozubená kola na úvodní stránce se při každém pootočení točí nahodilým směrem (stejně nebo každé jinak).
+
 ## 1.47.5 – 2026-11-27
 Osobní slovník má zpět textové pole před Přidat (jiskry roztahovaly obal tlačítka); stav klávesnice je samostatný symbol bez kolečka a 1,5× větší (✓, !, ✕), znaky kroků 1 a 2 jsou o třetinu menší.
 

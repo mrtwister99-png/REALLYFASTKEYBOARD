@@ -434,10 +434,14 @@ class StepMark(context: Context, lineColor: Int) : android.widget.FrameLayout(co
  * Vsechna kola se toci stejnou rychlosti (stupnu za sekundu), proto delsi otoceni trva dele. Bez animaci jen stoji.
  */
 class GearView(context: Context, res: Int, tint: Int, private val minDeg: Int, private val maxDeg: Int) : android.widget.ImageView(context) {
+    /** Je-li zapnuto, kazde pootoceni zvoli nahodny smer (kola se mohou tocit stejne i kazde jinak). */
+    var randomDirection = false
+
     private val tick = object : Runnable {
         override fun run() {
             val deg = minDeg + kotlin.random.Random.nextInt(maxDeg - minDeg + 1)
-            animate().rotationBy(deg.toFloat()).setDuration((deg * 1000L / SPEED_DEG_PER_S)).setInterpolator(android.view.animation.LinearInterpolator()).start()
+            val sign = if (randomDirection && kotlin.random.Random.nextBoolean()) -1f else 1f
+            animate().rotationBy(sign * deg.toFloat()).setDuration((deg * 1000L / SPEED_DEG_PER_S)).setInterpolator(android.view.animation.LinearInterpolator()).start()
             postDelayed(this, PERIOD_MS)
         }
     }

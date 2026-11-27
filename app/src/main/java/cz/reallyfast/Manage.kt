@@ -83,27 +83,61 @@ class DictionaryActivity : SubScreen() {
         }
     }
 
-    /** Tlacitko Pridat se zvetsi na 200 %, zezelena, vybouchne (jiskry) a vrati se do zakladu. */
-    private fun playAddedAnimation(add: android.widget.TextView, burst: BurstView, wave: RingWaveView) {
-        val base = accent
-        val green = 0xFF22C55E.toInt()
-        add.animate().cancel()
-        add.alpha = 1f
-        val grow = android.animation.ValueAnimator.ofFloat(0f, 1f).apply {
-            duration = 380L
-            addUpdateListener { add.setTextColor(Theme.blend(base, green, it.animatedFraction)) }
+    private var adding = false
+
+    /**
+     * Pismena tlacitka Pridat po pridani slova odletí kazde jinam (nahoru na okraj, dolu za obrazovku, doprava) a pak se tlacitko vrati.
+     * Pismena letí v preklopne vrstve okna, aby je nic neorezavalo. Smery se opakuji podle poradi pismene.
+     */
+    private fun playAddedAnimation(add: android.widget.TextView) {
+        if (adding) return
+        adding = true
+        val decor = window.decorView as ViewGroup
+        val dloc = IntArray(2)
+        decor.getLocationOnScreen(dloc)
+        val aloc = IntArray(2)
+        add.getLocationOnScreen(aloc)
+        val text = add.text.toString()
+        val baseX = (aloc[0] - dloc[0] + add.totalPaddingLeft).toFloat()
+        val baseY = (aloc[1] - dloc[1] + add.totalPaddingTop).toFloat()
+        val dirs = intArrayOf(0, 1, 1, 0, 1, 2) // 0 nahoru, 1 dolu, 2 doprava
+        val letters = ArrayList<android.widget.TextView>()
+        add.alpha = 0f
+        for (i in text.indices) {
+            val ch = text.substring(i, i + 1)
+            if (ch.isBlank()) continue
+            val tv = android.widget.TextView(this)
+            tv.text = ch
+            tv.setTextSize(TypedValue.COMPLEX_UNIT_PX, add.textSize)
+            tv.typeface = add.typeface
+            tv.setTextColor(accent)
+            tv.measure(android.view.View.MeasureSpec.UNSPECIFIED, android.view.View.MeasureSpec.UNSPECIFIED)
+            val x = (baseX + add.paint.measureText(text, 0, i)).toInt()
+            val y = baseY.toInt()
+            tv.layout(x, y, x + tv.measuredWidth, y + tv.measuredHeight)
+            decor.overlay.add(tv)
+            letters.add(tv)
+            var dx = 0f
+            var dy = 0f
+            when (dirs[i % dirs.size]) {
+                0 -> dy = -y.toFloat()
+                1 -> dy = (decor.height - y + tv.measuredHeight).toFloat()
+                else -> dx = (decor.width - x + tv.measuredWidth).toFloat()
+            }
+            tv.animate().translationX(dx).translationY(dy).setStartDelay(i * 40L).setDuration(560L)
+                .setInterpolator(android.view.animation.AccelerateInterpolator(1.4f)).start()
         }
-        grow.start()
-        add.animate().scaleX(2f).scaleY(2f).setDuration(380L).withEndAction {
-            burst.burst(green, 14, 80f, 600L)
-            wave.fire(70f, 800L)
-            add.animate().scaleX(3.2f).scaleY(3.2f).alpha(0f).setDuration(200L).withEndAction {
-                add.scaleX = 1f
-                add.scaleY = 1f
-                add.alpha = 1f
-                add.setTextColor(base)
-            }.start()
-        }.start()
+        add.postDelayed({
+            for (tv in letters) {
+                tv.animate().cancel()
+                decor.overlay.remove(tv)
+            }
+            add.scaleX = 0.6f
+            add.scaleY = 0.6f
+            add.animate().alpha(1f).scaleX(1f).scaleY(1f).setDuration(260L)
+                .setInterpolator(android.view.animation.OvershootInterpolator(1.6f))
+                .withEndAction { adding = false }.start()
+        }, 900L)
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -120,8 +154,6 @@ class DictionaryActivity : SubScreen() {
         addRow.addView(word, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
         val add = label(getString(R.string.dictionary_add), 15f, accent)
         add.setPadding(dp(16f), dp(12f), dp(4f), dp(12f))
-        val addBurst = BurstView(this)
-        val addWave = RingWaveView(this)
         val doAdd = {
             val w = word.text.toString().trim()
             if (w.isNotEmpty()) {
@@ -129,7 +161,7 @@ class DictionaryActivity : SubScreen() {
                     word.setText("")
                     refresh()
                     vibrateSaved()
-                    playAddedAnimation(add, addBurst, addWave)
+                    playAddedAnimation(add)
                 } else {
                     Toast.makeText(this, R.string.dictionary_add_failed, Toast.LENGTH_SHORT).show()
                 }
@@ -146,9 +178,6 @@ class DictionaryActivity : SubScreen() {
         val addHolder = FrameLayout(this)
         addHolder.clipChildren = false
         addHolder.addView(add, FrameLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.CENTER))
-        // Jiskry a vlna lezi pres cele tlacitko (MATCH_PARENT, bez orezu), aby nezvetsovaly radek.
-        addHolder.addView(addBurst, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
-        addHolder.addView(addWave, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
         addRow.clipChildren = false
         box.clipChildren = false
         addRow.addView(addHolder)
