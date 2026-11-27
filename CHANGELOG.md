@@ -2,6 +2,9 @@
 
 Jedna věta za verzi, nejnovější nahoře. Čísla verzí odpovídají commitům (`vX.Y: …`).
 
+## 1.44 – 2026-11-27
+APK jen pro arm64 (z 13,3 na 9,9 MB), návrhy se při psaní počítají po 35 ms pauze, rychlejší sběr kandidátů na návrhy (`Pool` s hash mapou) i pro velké osobní slovníky, audit doplněn o rozhodnutí k `panic = abort` a `mmap`.
+
 ## 1.43 – 2026-11-27
 Úprava výšky řádků (Rozložení a písmo III: ztmavená klávesnice bez písmen, šipky u řad, tah nahoru a dolů s mezemi pro každou řadu, nové nastavení `row_offsets` platné i pro swipe), šipka zpět podle nového obrázku, úroveň I se v kartách vybarvuje do zelena.
 

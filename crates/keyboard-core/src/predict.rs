@@ -249,26 +249,50 @@ fn quality(freq: u8, personal: f32) -> f32 {
     (0.25 * (freq as f32 / 255.0) + 0.15 * personal) / 0.40
 }
 
+/// Sber kandidatu na navrhy: slovo se zapamatuje jednou (bez ohledu na velikost pismen) s nejlepsim skore.
+/// Hledani duplikatu jde pres hash mapu, takze `add` je O(1) a sber zvlada i velke osobni slovniky
+/// (tisice kandidatu na kratkou predponu); `top` vybere nejlepsi bez razeni vseho.
 struct Pool {
+    /// (slovo, skore) v poradi vlozeni.
     items: Vec<(String, f32)>,
+    /// Klic (slovo malymi pismeny) -> index v `items`.
+    index: std::collections::HashMap<String, usize>,
 }
 
 impl Pool {
+    fn new() -> Pool {
+        Pool { items: Vec::new(), index: std::collections::HashMap::new() }
+    }
+
     fn add(&mut self, word: String, score: f32) {
         let key = word.to_lowercase();
-        match self.items.iter_mut().find(|(w, _)| w.to_lowercase() == key) {
-            Some(e) => {
-                if score > e.1 {
-                    *e = (word, score);
+        match self.index.get(&key) {
+            Some(&i) => {
+                if score > self.items[i].1 {
+                    self.items[i] = (word, score);
                 }
             }
-            None => self.items.push((word, score)),
+            None => {
+                self.index.insert(key, self.items.len());
+                self.items.push((word, score));
+            }
         }
     }
 
-    fn top(mut self, n: usize) -> Vec<String> {
-        self.items.sort_by(|a, b| b.1.total_cmp(&a.1));
-        self.items.into_iter().take(n).map(|(w, _)| w).collect()
+    /// `n` nejlepsich slov podle skore; shodne skore rozhoduje poradi vlozeni (stejny vysledek jako stabilni razeni).
+    fn top(self, n: usize) -> Vec<String> {
+        let items = self.items;
+        let better = |a: &usize, b: &usize| items[*b].1.total_cmp(&items[*a].1).then(a.cmp(b));
+        let mut order: Vec<usize> = (0..items.len()).collect();
+        if n == 0 {
+            return Vec::new();
+        }
+        if order.len() > n {
+            order.select_nth_unstable_by(n - 1, better);
+            order.truncate(n);
+        }
+        order.sort_unstable_by(better);
+        order.into_iter().map(|i| items[i].0.clone()).collect()
     }
 }
 
@@ -320,7 +344,7 @@ pub fn suggest_composing_n(ctx: &Context, typed: &str, limit: usize) -> Vec<Stri
         return vec![typed.to_string()];
     };
     let typed_lower = typed.to_lowercase();
-    let mut pool = Pool { items: Vec::new() };
+    let mut pool = Pool::new();
     let mut exact_known = false;
 
     for dict in ctx.dicts {
@@ -458,7 +482,7 @@ pub fn predict_next_n(ctx: &Context, prev2: &str, prev: &str, capitalize: bool, 
     if !ctx.predictions {
         return Vec::new();
     }
-    let mut pool = Pool { items: Vec::new() };
+    let mut pool = Pool::new();
     let prev_lower = prev.to_lowercase();
     let prev2_lower = prev2.to_lowercase();
 
@@ -550,6 +574,40 @@ mod tests {
         assert_eq!(v[0].dist, 3);
         let both: Vec<String> = accent_variants(&d, &enc("byt")).iter().map(|f| charmap::decode_word(&f.enc)).collect();
         assert!(both.contains(&"byt".to_string()) && both.contains(&"být".to_string()));
+    }
+
+    #[test]
+    fn pool_keeps_best_per_word_and_stable_order_for_ties() {
+        let mut p = Pool::new();
+        p.add("Ahoj".into(), 0.5);
+        p.add("ahoj".into(), 0.9); // stejne slovo, lepsi skore: prepise
+        p.add("dobry".into(), 0.5);
+        p.add("den".into(), 0.5);
+        p.add("AHOJ".into(), 0.1); // horsi: ignoruje se
+        assert_eq!(p.top(3), vec!["ahoj", "dobry", "den"]);
+        let mut p = Pool::new();
+        for w in ["a", "b", "c", "d"] {
+            p.add(w.into(), 1.0);
+        }
+        assert_eq!(p.top(0), Vec::<String>::new());
+        let mut p = Pool::new();
+        for w in ["a", "b", "c", "d"] {
+            p.add(w.into(), 1.0);
+        }
+        assert_eq!(p.top(2), vec!["a", "b"]);
+    }
+
+    #[test]
+    fn pool_copes_with_huge_candidate_lists() {
+        // Narocny uzivatel: desetitisice osobnich slov na kratkou predponu. Sber nesmi byt kvadraticky.
+        let mut p = Pool::new();
+        for i in 0..60_000u32 {
+            p.add(format!("slovo{i}"), (i % 997) as f32 / 997.0);
+        }
+        let start = std::time::Instant::now();
+        let best = p.top(MAX_SUGGESTIONS + 1);
+        assert_eq!(best.len(), MAX_SUGGESTIONS + 1);
+        assert!(start.elapsed().as_millis() < 200, "top trva {:?}", start.elapsed());
     }
 
     #[test]

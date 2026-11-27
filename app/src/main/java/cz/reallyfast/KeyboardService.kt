@@ -53,6 +53,8 @@ class KeyboardService : InputMethodService(), KeyboardView.Listener,
         const val BACKEND_DEFAULT = 2
         const val GOOGLE_APP = "com.google.android.googlequicksearchbox"
         const val GOOGLE_RECOGNIZER = "com.google.android.voicesearch.serviceapi.GoogleRecognitionService"
+        /** Pauza pred prepoctem navrhu behem psani slova (ms). */
+        const val SUGGEST_DELAY_MS = 35L
         const val REATTACH_MAX = 48
         const val REATTACH_GRACE_MS = 400L
     }
@@ -397,7 +399,8 @@ class KeyboardService : InputMethodService(), KeyboardView.Listener,
             currentInputConnection?.let { reattachWord(it) }
         }
         if (composing.isEmpty() && SystemClock.uptimeMillis() - lastShiftTap > 600) updateShift()
-        scheduleSuggestions()
+        // Pri psani slova se navrhy pocitaji az po kratke pauze (kazde dalsi pismeno starsi vypocet zahodi).
+        scheduleSuggestions(if (composing.isNotEmpty()) SUGGEST_DELAY_MS else 0L)
     }
 
     // ------------------------------------------------------------------ odezva
@@ -556,7 +559,7 @@ class KeyboardService : InputMethodService(), KeyboardView.Listener,
             if (shift == KeyboardView.SHIFT_ONCE) setShift(KeyboardView.SHIFT_OFF)
             updateShift()
         }
-        scheduleSuggestions()
+        scheduleSuggestions(if (composing.isNotEmpty()) SUGGEST_DELAY_MS else 0L)
     }
 
     /**
@@ -743,7 +746,7 @@ class KeyboardService : InputMethodService(), KeyboardView.Listener,
         autoSpace = false
         if (!wholeWord) reattachWord(ic)
         updateShift()
-        scheduleSuggestions()
+        scheduleSuggestions(if (composing.isNotEmpty()) SUGGEST_DELAY_MS else 0L)
     }
 
     /**
@@ -860,9 +863,10 @@ class KeyboardService : InputMethodService(), KeyboardView.Listener,
 
     // ------------------------------------------------------------------ navrhy
 
-    private fun scheduleSuggestions() {
+    /** Naplanuje prepocet navrhu; s `delayMs` se pri rychlem psani spoji do jednoho vypoctu po poslednim pismenu. */
+    private fun scheduleSuggestions(delayMs: Long = 0L) {
         handler.removeCallbacks(suggestionUpdate)
-        handler.post(suggestionUpdate)
+        if (delayMs > 0L) handler.postDelayed(suggestionUpdate, delayMs) else handler.post(suggestionUpdate)
     }
 
     private fun refreshSuggestions() {

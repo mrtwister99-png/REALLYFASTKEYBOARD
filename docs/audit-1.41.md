@@ -4,7 +4,7 @@ Shrnutí kontroly kódu, výkonu a prvního měření na skutečném telefonu. S
 
 ## 1. Je to kompaktní a rychlá klávesnice?
 
-- **Kompaktní: ano.** Release APK má asi 13 MB (obsahuje slovníky a nativní knihovnu pro arm64 i x86_64), žádný AndroidX, žádné XML layouty,
+- **Kompaktní: ano.** Release APK má asi 13 MB (obsahoval slovníky a nativní knihovnu pro arm64 i x86_64; od 1.44 jen arm64), žádný AndroidX, žádné XML layouty,
   žádný internet a jen dvě oprávnění (`VIBRATE`, `RECORD_AUDIO`). Veškerá logika je v jednom Rust jádru, Kotlin je tenká slupka.
 - **Rychlá: podle prvního měření ano.** Viz měření níž (medián snímku 7 ms, 1,98 % zaseknutých snímků). Měření ale proběhlo v nastavení
   vzhledu s živým náhledem, ne při dlouhém psaní, a swipe latenci jsem na telefonu neměřil. Co je opravdu rychlé při psaní, je potřeba ještě změřit.
@@ -34,14 +34,23 @@ slova po zalomení řádku ani po odeslání zprávy v Messengeru zatím není o
 - Oprava zdvojeného slova: ochrana v `onSuggestionPicked`, zahození rozepsaného slova, které už v poli není (`dropStaleComposing`), logování `fAZT`.
 - Obrys znaku (Waiting) zachovává průhlednost při animacích a neztrácí barvu obrysu, když má znak přechod.
 
-## 4. Možné zrychlení (zatím nehotové)
+## 4. Zrychlení a rozhodnutí
 
-1. **APK jen pro arm64** (nebo rozdělené APK): ušetří asi třetinu velikosti, x86_64 je jen pro emulátor.
-2. **`panic = "abort"`** v release profilu Rustu: menší a rychlejší knihovna; předtím zkontrolovat, že `jni.rs` nespoléhá na `catch_unwind`.
-3. **Slovníky přes `mmap`** a líné načítání druhého jazyka: rychlejší start a menší paměť.
-4. **`Pool::add` v `predict.rs`** je O(k²) kvůli porovnávání malých písmen; při 12–20 kandidátech nevadí, ale jde zrychlit mapou.
-5. **Ladění kreslení klávesy**: bloky pro „půl klávesy“ se opakují, dají se sloučit do jedné funkce.
-6. **Cache návrhů**: při rychlém psaní se návrhy počítají po každém písmenu; stačí zpoždění o několik ms, nebo přerušení starého výpočtu.
+Hotovo ve verzi 1.44:
+
+1. **APK jen pro arm64**: knihovna pro x86_64 (emulátor) je pryč z buildu i z repozitáře, APK má asi 9,9 MB místo 13,3 MB.
+2. **Zpoždění výpočtu návrhů**: při psaní slova se návrhy počítají 35 ms po posledním písmenu, takže při rychlém psaní zbyde jeden výpočet místo jednoho po každém písmenu.
+3. **`Pool::add`**: sběr kandidátů používá hash mapu s klíčem malými písmeny a `top` vybírá nejlepší bez řazení všeho. Dřív bylo hledání duplikátů kvadratické,
+   což by u velkého osobního slovníku (tisíce kandidátů na krátkou předponu) bolelo. Výsledky návrhů jsou stejné (test), rychlost běžných návrhů se nezhoršila
+   (0,19 ms průměr).
+
+Rozhodnuto nedělat (zatím):
+
+- **`panic = "abort"`**: `jni.rs` chytá chyby jádra přes `catch_unwind` (obecné volání i swipe) a vrací prázdný výsledek, klávesnice jede dál. S `abort` by každá chyba
+  ukončila celý proces. Úspora je jen pár stovek kB, riziko je větší.
+- **Slovníky přes `mmap`**: načtení `dictionary.bin` (9,3 MB, cs 1,98 mil. slov, en 58 tis.) trvá na PC 3,3 ms, na telefonu řádově desítky ms při startu a drží asi 9 MB paměti.
+  `mmap` by to zkrátil o pár ms a ušetřil paměť, ale vyžaduje novou závislost (`memmap2`), `unsafe` mimo `jni.rs` a rozbalení souboru z `assets` na disk.
+  Vyplatí se, až slovníky povyrostou (další jazyky, desítky MB). Do té doby se nevyplatí.
 
 ## 5. Nápady na zlepšení
 
@@ -55,7 +64,7 @@ slova po zalomení řádku ani po odeslání zprávy v Messengeru zatím není o
 
 | Sada | Počet | Stav |
 |---|---|---|
-| Rust `cargo test --lib` | 211 | prošly |
+| Rust `cargo test --lib` | 213 | prošly |
 | JVM (`:app:testDebugUnitTest`: most, kódy `OP_*`, odemykání) | 20 | prošly |
 
 Nové testy z těchto verzí: osobní slova a pořadí návrhů, doplnění diakritiky (`auto_accent`), učení z vybraných oprav, rozšířený seznam návrhů,

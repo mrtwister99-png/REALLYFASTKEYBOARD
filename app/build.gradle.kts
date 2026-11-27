@@ -14,11 +14,11 @@ android {
         applicationId = "cz.reallyfast"
         minSdk = 24
         targetSdk = 35
-        versionCode = 59
-        versionName = "1.43"
+        versionCode = 60
+        versionName = "1.44"
         ndk {
-            // arm64-v8a = Galaxy S25 Ultra a vsechny dnesni telefony, x86_64 = emulator.
-            abiFilters += listOf("arm64-v8a", "x86_64")
+            // Jen arm64-v8a (Galaxy S25 Ultra a vsechny dnesni telefony); emulator x86_64 se nepodporuje.
+            abiFilters += listOf("arm64-v8a")
         }
     }
 
@@ -120,7 +120,7 @@ val canBuildRust = rustEnabled && cargoExe != null && cargoNdkExe != null && ndk
 
 val cargoNdkBuild = tasks.register<Exec>("cargoNdkBuild") {
     group = "rust"
-    description = "Prelozi keyboard-core pro Android (arm64-v8a, x86_64) do app/src/main/jniLibs."
+    description = "Prelozi keyboard-core pro Android (arm64-v8a) do app/src/main/jniLibs."
     onlyIf { canBuildRust }
     workingDir = cargoDir
     inputs.dir(File(cargoDir, "src"))
@@ -130,7 +130,7 @@ val cargoNdkBuild = tasks.register<Exec>("cargoNdkBuild") {
         environment("ANDROID_NDK_HOME", ndkDir!!.absolutePath)
         commandLine(
             cargoExe!!.absolutePath, "ndk",
-            "-t", "arm64-v8a", "-t", "x86_64",
+            "-t", "arm64-v8a",
             "-o", jniLibsDir.absolutePath,
             "build", "--release", "--lib"
         )
@@ -152,7 +152,7 @@ tasks.named("preBuild") {
             throw GradleException(
                 "Chybi app/src/main/jniLibs/arm64-v8a/libkeyboard_core.so. " +
                     "Nainstaluj Rust (rustup), `cargo install cargo-ndk`, " +
-                    "`rustup target add aarch64-linux-android x86_64-linux-android` a NDK v SDK Manageru."
+                    "`rustup target add aarch64-linux-android` a NDK v SDK Manageru."
             )
         }
     }
