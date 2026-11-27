@@ -915,6 +915,21 @@ class KeyboardService : InputMethodService(), KeyboardView.Listener,
         return TapWord(wb.length, wa.length, wb + wa)
     }
 
+    /** Podrzeni navrhu v liste: dalsi dve slova ke stejnemu slovu / kontextu, ktera v liste nejsou. */
+    override fun onMoreSuggestions(): List<String> {
+        val bar = bar ?: return emptyList()
+        if (searchMode || dictating || voiceStatus || lastSwipe != null) return emptyList()
+        val ic = currentInputConnection ?: return emptyList()
+        val tw = tapWord
+        val all = when {
+            composing.isNotEmpty() -> RustBridge.suggestMore(composing.toString(), "", false)
+            tw != null -> RustBridge.suggestMore(tw.word, "", false)
+            else -> RustBridge.suggestMore("", ic.textBefore(48), shift != KeyboardView.SHIFT_OFF)
+        }
+        val shown = bar.shownWords
+        return all.filter { it !in shown }.take(2)
+    }
+
     override fun onSuggestionPicked(index: Int, word: String) {
         if (searchMode) return // v liste je pole hledani / opravy, ne navrhy
         if (dictating || voiceStatus) return // v liste je stav diktovani, ne navrh

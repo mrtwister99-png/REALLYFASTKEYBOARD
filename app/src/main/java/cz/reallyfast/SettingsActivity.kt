@@ -2,6 +2,7 @@ package cz.reallyfast
 
 import android.animation.Animator
 import android.animation.AnimatorListenerAdapter
+import android.animation.ObjectAnimator
 import android.animation.ValueAnimator
 import android.app.AlertDialog
 import android.graphics.Bitmap
@@ -65,6 +66,11 @@ class SettingsActivity : SettingsScreen() {
     private var statusCard: LinearLayout? = null
     private var statusBadge: TextView? = null
     private var swipeLogButton: TextView? = null
+    private var enableButton: TextView? = null
+    private var selectButton: TextView? = null
+    /** Tlacitko, jehoz obrys prave bliká (krok nastaveni, ktery zbyva), a jeho animace. */
+    private var blinkTarget: View? = null
+    private var blinkAnim: ObjectAnimator? = null
     private var logoTop: ImageView? = null
     private var logoAlt: ImageView? = null
     private var logoSlide: ValueAnimator? = null
@@ -121,6 +127,7 @@ class SettingsActivity : SettingsScreen() {
     }
 
     override fun onPause() {
+        stopBlink()
         stopLogo()
         super.onPause()
     }
@@ -222,10 +229,10 @@ class SettingsActivity : SettingsScreen() {
         statusCard = card
         statusBadge = badge
         statusView = st
-        buttonRow(box, getString(R.string.setup_enable), accent) {
+        enableButton = buttonRow(box, getString(R.string.setup_enable), accent) {
             startActivity(Intent(SystemSettings.ACTION_INPUT_METHOD_SETTINGS))
         }
-        buttonRow(box, getString(R.string.setup_select), accent) {
+        selectButton = buttonRow(box, getString(R.string.setup_select), accent) {
             (getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager).showInputMethodPicker()
         }
         val test = EditText(this)
@@ -448,5 +455,36 @@ class SettingsActivity : SettingsScreen() {
             setColor((tone and 0x00FFFFFF) or 0x26000000)
             setStroke(dp(2f), tone)
         }
+        // Zbyvajici krok nastaveni bliká obrysem: 1. povolit klavesnici v systemu, 2. vybrat ji; kdyz je vse hotove, zhasne.
+        blinkOutline(if (active) null else if (enabled) selectButton else enableButton)
+    }
+
+    /** Obrys `target` bliká (plynule pulzuje); null = nic nebliká. Pri vypnutych animacich obrys jen svítí. */
+    private fun blinkOutline(target: View?) {
+        if (blinkTarget === target && (target == null || blinkAnim != null || !RustBridge.settings.animations)) return
+        stopBlink()
+        blinkTarget = target
+        if (target == null) return
+        val outline = android.graphics.drawable.GradientDrawable().apply {
+            cornerRadius = dp(12f).toFloat()
+            setColor(0)
+            setStroke(dp(3f), accent)
+        }
+        target.foreground = outline
+        if (RustBridge.settings.animations) {
+            blinkAnim = ObjectAnimator.ofInt(outline, "alpha", 40, 255).apply {
+                duration = 650L
+                repeatMode = ValueAnimator.REVERSE
+                repeatCount = ValueAnimator.INFINITE
+                start()
+            }
+        }
+    }
+
+    private fun stopBlink() {
+        blinkAnim?.cancel()
+        blinkAnim = null
+        blinkTarget?.foreground = null
+        blinkTarget = null
     }
 }

@@ -89,6 +89,8 @@ pub const OP_DISCARD_STYLES: i32 = 54;
 
 /// Priznaky pro swipe / suggest.
 pub const FLAG_CAPITALIZE: i64 = 1;
+/// Navrhy: misto 3 az 5 slov (podrzeni navrhu v liste ukaze dalsi dva).
+pub const FLAG_MORE: i64 = 8;
 /// Zkusebni tah z nahledu v nastaveni: nesmi skoncit v zaznamu tahu.
 pub const FLAG_PREVIEW: i64 = 2;
 /// Uceni: slovo bylo napsano swipem (pouzije se k prizpusobeni swipe).
@@ -291,6 +293,11 @@ impl Engine {
     /// Navrhy do suggestion baru: pro rozepsane slovo doplneni/opravy, jinak predikce dalsiho slova.
     /// `before` je text pred kurzorem (bez rozepsaneho slova) - z nej se bere kontext dvou slov.
     pub fn suggest(&self, composing: &str, before: &str, capitalize: bool, now: i64) -> Vec<String> {
+        self.suggest_n(composing, before, capitalize, now, predict::MAX_SUGGESTIONS)
+    }
+
+    /// Jako `suggest`, ale nejvyse `limit` navrhu.
+    pub fn suggest_n(&self, composing: &str, before: &str, capitalize: bool, now: i64, limit: usize) -> Vec<String> {
         if !self.settings.show_suggestions {
             return Vec::new();
         }
@@ -304,14 +311,14 @@ impl Engine {
         };
         if composing.is_empty() {
             let (prev2, prev) = gestures::last_two_words(before);
-            predict::predict_next(&ctx, prev2, prev, capitalize)
+            predict::predict_next_n(&ctx, prev2, prev, capitalize, limit)
         } else {
-            let mut out = predict::suggest_composing(&ctx, composing);
+            let mut out = predict::suggest_composing_n(&ctx, composing, limit);
             // Zkratka makra: rozvinuty text jako prvni navrh.
             if let Some(text) = macros::expand(&self.macros, composing) {
                 out.retain(|w| w != text);
                 out.insert(0, text.to_string());
-                out.truncate(predict::MAX_SUGGESTIONS);
+                out.truncate(limit);
             }
             out
         }
@@ -839,7 +846,10 @@ pub fn dispatch(op: i32, a: &[u8], b: &[u8], num: i64) -> Vec<u8> {
             }
             e.layout(f[0], f[1], f[2] as u8, num == 0).to_json().into_bytes()
         }
-        OP_SUGGEST => lines(e.suggest(&sa, &sb, num & FLAG_CAPITALIZE != 0, now)),
+        OP_SUGGEST => {
+            let limit = if num & FLAG_MORE != 0 { predict::MAX_SUGGESTIONS + 2 } else { predict::MAX_SUGGESTIONS };
+            lines(e.suggest_n(&sa, &sb, num & FLAG_CAPITALIZE != 0, now, limit))
+        }
         OP_LEARN => bool_bytes(e.learn(&sa, &sb, num & FLAG_FROM_SWIPE != 0, now)),
         OP_USER_ADD => bool_bytes(e.add_user_word(&sa, now)),
         OP_MACRO_LIST => serde_json::to_vec(e.macros()).unwrap_or_default(),

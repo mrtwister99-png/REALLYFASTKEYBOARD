@@ -2,6 +2,9 @@
 
 Jedna věta za verzi, nejnovější nahoře. Čísla verzí odpovídají commitům (`vX.Y: …`).
 
+## 1.41 – 2026-11-27
+Na hlavní obrazovce bliká obrys dalšího kroku nastavení (povolit klávesnici, pak ji vybrat) a po dokončení zhasne, podržení návrhu v liště ukáže další dvě slova, obrys znaku ve Waiting drží průhlednost i barvu obrysu, zapsán audit a první měření výkonu (docs/audit-1.41.md).
+
 ## 1.40 – 2026-11-27
 Obnova ze zálohy sloučí uložené styly: tvoje zůstanou, styl ze zálohy se uloží na své číslo (je-li volné) nebo na první volný slot, a když je všech 5 obsazených, zeptá se, který slot nahradit; testovací skript ukládá log spolehlivě po Ctrl+C.
 

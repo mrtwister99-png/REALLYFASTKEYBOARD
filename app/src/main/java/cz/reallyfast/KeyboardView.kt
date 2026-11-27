@@ -695,6 +695,27 @@ class KeyboardView(context: Context) : View(context) {
         else LinearGradient(x0, y0, x1, y1, c1, c2, Shader.TileMode.CLAMP)
     }
 
+    /**
+     * Tenky obrys znaku v `charBuf` (Waiting): barva obrysu, pruhlednost znaku (mizeni pri animacich) se zachova
+     * a gradient znaku obrys neprebarvi. Po kresleni se pismo vrati do puvodniho stavu.
+     */
+    private fun drawCharOutline(canvas: Canvas, x: Float, y: Float, n: Int, color: Int) {
+        val keepAlpha = textPaint.alpha
+        val keepColor = textPaint.color
+        val keepShader = textPaint.shader
+        val keepStyle = textPaint.style
+        textPaint.shader = null
+        textPaint.style = Paint.Style.STROKE
+        textPaint.strokeWidth = 1.5f * density
+        textPaint.color = color
+        textPaint.alpha = (Color.alpha(color) * keepAlpha / 255).coerceIn(0, 255)
+        canvas.drawText(charBuf, 0, n, x, y, textPaint)
+        textPaint.style = keepStyle
+        textPaint.shader = keepShader
+        textPaint.color = keepColor
+        textPaint.alpha = keepAlpha
+    }
+
     /** Barva pismene pri otoceni po uspesnem tahu: barva pismen po tahu (a druha barva se s ni strida po pismenech). */
     private fun flipColor(k: Key): Int = when {
         glowRainbow -> rainbow(k.flipMix)
@@ -1604,6 +1625,8 @@ class KeyboardView(context: Context) : View(context) {
                     }
                 }
             }
+            // Barva obrysu znaku (Waiting): stejna jako aktualni obrys klavesy, bez nej barva akcentu.
+            var charOc = if (outlineCol != 0) outlineCol else theme.accent
             if (outlineOn) {
                 // Obrys: zakladni barva (pripadne prechod), po projeti, po klepnuti, pod prstem (posledni vyhrava).
                 val special = specialOutline && (k.kind == KIND_SHIFT || k.kind == KIND_MODE || k.kind == KIND_BACKSPACE || k.kind == KIND_EMOJI || k.kind == KIND_MACRO)
@@ -1617,6 +1640,7 @@ class KeyboardView(context: Context) : View(context) {
                 if (tapF > 0f && outlineTapCol != 0 && tapOutShader == null) oc = mixArgb(oc, if (k.tapOut != 0) k.tapOut else outlineTapCol, tapF)
                 val over = (k.pressed && !k.passed) || (k.passed && k === hoverKey)
                 if (over && outlineHoverCol != 0) oc = outlineHoverCol
+                if (oc != 0) charOc = oc
                 if (oc != 0 && cutS > 0f) {
                     val ins = outlineW / 2f
                     val r = max(0f, radius - ins)
@@ -1826,14 +1850,14 @@ class KeyboardView(context: Context) : View(context) {
                         canvas.translate(cx + offX + totalDx, cy + offY + shift + slideDy)
                         textPaint.shader = gShader
                         if (passRot != 0f) canvas.rotate(passRot, 0f, -(textPaint.ascent() + textPaint.descent()) / 2f)
-                        if (charOutlineOn) { val sv = textPaint.style; textPaint.style = Paint.Style.STROKE; textPaint.strokeWidth = 1.5f * density; textPaint.color = outlineCol; canvas.drawText(charBuf, 0, n, 0f, -(textPaint.ascent() + textPaint.descent()) / 2f, textPaint); textPaint.style = sv; textPaint.color = fg }
+                        if (charOutlineOn) drawCharOutline(canvas, 0f, -(textPaint.ascent() + textPaint.descent()) / 2f, n, charOc)
                         canvas.drawText(charBuf, 0, n, 0f, -(textPaint.ascent() + textPaint.descent()) / 2f, textPaint)
                         if (passRot != 0f) canvas.rotate(-passRot, 0f, -(textPaint.ascent() + textPaint.descent()) / 2f)
                         textPaint.shader = null
                         canvas.restore()
                     } else {
                         if (passRot != 0f) canvas.save().also { canvas.rotate(passRot, cx + offX + totalDx, cy + offY + shift + slideDy - (textPaint.ascent() + textPaint.descent()) / 2f) }
-                        if (charOutlineOn) { val sv = textPaint.style; textPaint.style = Paint.Style.STROKE; textPaint.strokeWidth = 1.5f * density; textPaint.color = outlineCol; canvas.drawText(charBuf, 0, n, cx + offX + totalDx, cy + offY + shift + slideDy - (textPaint.ascent() + textPaint.descent()) / 2f, textPaint); textPaint.style = sv; textPaint.color = fg }
+                        if (charOutlineOn) drawCharOutline(canvas, cx + offX + totalDx, cy + offY + shift + slideDy - (textPaint.ascent() + textPaint.descent()) / 2f, n, charOc)
                         canvas.drawText(charBuf, 0, n, cx + offX + totalDx, cy + offY + shift + slideDy - (textPaint.ascent() + textPaint.descent()) / 2f, textPaint)
                         if (passRot != 0f) canvas.restore()
                     }

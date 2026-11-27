@@ -75,6 +75,7 @@ object RustBridge {
     const val FLAG_CAPITALIZE = 1
     const val FLAG_PREVIEW = 2
     const val FLAG_FROM_SWIPE = 4
+    const val FLAG_MORE = 8
 
     // Akce gest (gestures.rs)
     const val ACTION_NONE = 0
@@ -280,6 +281,10 @@ object RustBridge {
      * Navrhy: pro rozepsane slovo doplneni/opravy, pro prazdne `composing` predikce dalsiho slova.
      * `textBefore` = text pred kurzorem (bez rozepsaneho slova); Rust z nej vezme kontext dvou slov.
      */
+    /** Stejne navrhy, ale o dva delsi seznam (pro slova ukazana po podrzeni navrhu v liste). */
+    fun suggestMore(composing: String, textBefore: String, capitalize: Boolean): List<String> =
+        lines(call(OP_SUGGEST, composing, textBefore, FLAG_MORE.toLong() or (if (capitalize) FLAG_CAPITALIZE.toLong() else 0)))
+
     fun suggest(composing: String, textBefore: String, capitalize: Boolean): List<String> {
         val t0 = Perf.now()
         val r = lines(call(OP_SUGGEST, composing, textBefore, if (capitalize) FLAG_CAPITALIZE.toLong() else 0))

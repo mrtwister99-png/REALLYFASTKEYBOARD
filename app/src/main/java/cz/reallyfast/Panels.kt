@@ -165,11 +165,18 @@ class IconView(context: Context, private val icon: Int) : View(context) {
 class SuggestionBar(context: Context, private var theme: Theme, private val callbacks: Callbacks) : FrameLayout(context) {
     interface Callbacks {
         fun onSuggestionPicked(index: Int, word: String)
+        /** Podrzeni navrhu: dalsi slova (nejvyse 2), ktera se ukazou nad listou. */
+        fun onMoreSuggestions(): List<String>
         fun onClipboardClicked()
         fun onVoiceClicked()
         fun onAddWordClicked()
         fun onSearchResultPicked(emoji: String)
         fun onSearchClosed()
+    }
+
+    private companion object {
+        /** Index predavany pri vyberu slova z podrzeneho navrhu (mimo tri sloty). */
+        const val MORE_INDEX = 3
     }
 
     private val normalRow = LinearLayout(context)
@@ -214,6 +221,11 @@ class SuggestionBar(context: Context, private var theme: Theme, private val call
                 setPadding(dp(6f), 0, dp(6f), 0)
                 isClickable = true
                 setOnClickListener { words.getOrNull(i)?.let { w -> callbacks.onSuggestionPicked(i, w) } }
+                setOnLongClickListener {
+                    if (status != null || words.getOrNull(i) == null) return@setOnLongClickListener false
+                    showMore(this, callbacks.onMoreSuggestions())
+                    true
+                }
             }
             slots.add(tv)
             val slp = LinearLayout.LayoutParams(0, LayoutParams.MATCH_PARENT, 1f)
@@ -271,8 +283,64 @@ class SuggestionBar(context: Context, private var theme: Theme, private val call
         status?.let { setStatus(it) } ?: setSuggestions(words, highlighted)
     }
 
+    private var morePopup: android.widget.PopupWindow? = null
+
+    fun hideMore() {
+        morePopup?.dismiss()
+        morePopup = null
+    }
+
+    /** Dalsi navrhy se po podrzeni ukazou svisle nad slotem; klepnuti na slovo ho vybere, klepnuti mimo zavre. */
+    private fun showMore(anchor: View, list: List<String>) {
+        hideMore()
+        if (list.isEmpty()) return
+        val col = LinearLayout(context)
+        col.orientation = LinearLayout.VERTICAL
+        for (w in list) {
+            val tv = TextView(context).apply {
+                gravity = Gravity.CENTER
+                isSingleLine = true
+                ellipsize = TextUtils.TruncateAt.MIDDLE
+                setTextSize(TypedValue.COMPLEX_UNIT_SP, 17f)
+                setPadding(dp(14f), 0, dp(14f), 0)
+                setTextColor(theme.barText)
+                text = w
+                background = pressable(theme.keyPressed, dp(10f).toFloat())
+                setOnClickListener {
+                    hideMore()
+                    callbacks.onSuggestionPicked(MORE_INDEX, w)
+                }
+            }
+            col.addView(tv, LinearLayout.LayoutParams(LayoutParams.MATCH_PARENT, dp(44f)))
+        }
+        val h = dp(44f) * list.size
+        val wPx = maxOf(anchor.width, dp(120f))
+        val pw = android.widget.PopupWindow(col, wPx, h, false)
+        pw.isOutsideTouchable = true
+        pw.elevation = dp(8f).toFloat()
+        pw.setBackgroundDrawable(android.graphics.drawable.GradientDrawable().apply {
+            cornerRadius = dp(12f).toFloat()
+            setColor(theme.background)
+            setStroke(dp(1f), theme.divider)
+        })
+        val loc = IntArray(2)
+        anchor.getLocationOnScreen(loc)
+        try {
+            pw.showAtLocation(anchor, Gravity.NO_GRAVITY, loc[0] + (anchor.width - wPx) / 2, loc[1] - h - dp(4f))
+            morePopup = pw
+        } catch (_: Throwable) {
+            // okno nejde zobrazit (napr. klavesnice se zrovna zavira)
+        }
+    }
+
+    override fun onDetachedFromWindow() {
+        hideMore()
+        super.onDetachedFromWindow()
+    }
+
     /** Stavovy text pres celou sirku mezi tlacitky + a schranka; `setSuggestions` vrati normalni stav. */
     fun setStatus(text: String) {
+        hideMore()
         status = text
         words = emptyList()
         highlighted = -1
@@ -290,6 +358,7 @@ class SuggestionBar(context: Context, private var theme: Theme, private val call
 
     /** Zobrazi az 3 navrhy; `highlight` = index zvyrazneneho (accent barva), -1 = zadny. */
     fun setSuggestions(list: List<String>, highlight: Int = -1) {
+        hideMore()
         status = null
         words = list
         highlighted = highlight
@@ -313,6 +382,9 @@ class SuggestionBar(context: Context, private var theme: Theme, private val call
             tv.contentDescription = w
         }
     }
+
+    /** Slova prave zobrazena v liste (bez stavoveho textu). */
+    val shownWords: List<String> get() = if (status == null) words else emptyList()
 
     fun setClipboardVisible(visible: Boolean) {
         clipButton.visibility = if (visible) VISIBLE else GONE

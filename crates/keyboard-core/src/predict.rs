@@ -308,6 +308,11 @@ pub fn is_known(ctx: &Context, word: &str) -> bool {
 /// Navrhy pro rozepsane slovo: nejvyse 3. Nezname napsane slovo je vzdy prvni
 /// (aby ho slo potvrdit tak, jak je), opravy a doplneni nasleduji.
 pub fn suggest_composing(ctx: &Context, typed: &str) -> Vec<String> {
+    suggest_composing_n(ctx, typed, MAX_SUGGESTIONS)
+}
+
+/// Jako `suggest_composing`, ale nejvyse `limit` navrhu (podrzeni navrhu v liste ukaze dalsi slova).
+pub fn suggest_composing_n(ctx: &Context, typed: &str, limit: usize) -> Vec<String> {
     if typed.is_empty() {
         return Vec::new();
     }
@@ -391,13 +396,13 @@ pub fn suggest_composing(ctx: &Context, typed: &str) -> Vec<String> {
         }
     }
 
-    let mut out: Vec<String> = Vec::with_capacity(MAX_SUGGESTIONS);
+    let mut out: Vec<String> = Vec::with_capacity(limit);
     if !exact_known {
         out.push(typed.to_string());
     }
-    for w in pool.top(MAX_SUGGESTIONS + 1) {
+    for w in pool.top(limit + 1) {
         let w = apply_case(w, typed);
-        if out.len() < MAX_SUGGESTIONS && !out.contains(&w) && (exact_known || w.to_lowercase() != typed_lower) {
+        if out.len() < limit && !out.contains(&w) && (exact_known || w.to_lowercase() != typed_lower) {
             out.push(w);
         }
     }
@@ -445,6 +450,11 @@ pub fn auto_accent(ctx: &Context, typed: &str) -> Option<String> {
 /// (prazdne, kdyz neni): dvojice slov ma prednost (trigramy), pak jedno slovo (bigramy),
 /// nakonec nejcastejsi slova jazyka. Osobni data maji vzdy prednost pred vestavenymi.
 pub fn predict_next(ctx: &Context, prev2: &str, prev: &str, capitalize: bool) -> Vec<String> {
+    predict_next_n(ctx, prev2, prev, capitalize, MAX_SUGGESTIONS)
+}
+
+/// Jako `predict_next`, ale nejvyse `limit` navrhu.
+pub fn predict_next_n(ctx: &Context, prev2: &str, prev: &str, capitalize: bool, limit: usize) -> Vec<String> {
     if !ctx.predictions {
         return Vec::new();
     }
@@ -498,7 +508,7 @@ pub fn predict_next(ctx: &Context, prev2: &str, prev: &str, capitalize: bool) ->
         let s = crate::learning::strength_of(*uw, ctx.now).max(PERSONAL_FLOOR * 0.5);
         pool.add(w.clone(), 0.5 + 0.4 * s);
     }
-    pool.top(MAX_SUGGESTIONS)
+    pool.top(limit)
         .into_iter()
         .map(|w| if capitalize { charmap::capitalize(&w) } else { w })
         .collect()
@@ -556,6 +566,23 @@ mod tests {
         assert_eq!(auto_accent(&c, "xyz"), None);
         assert_eq!(auto_accent(&c, "a"), None);
         assert_eq!(auto_accent(&c, "příliš"), None);
+    }
+
+    #[test]
+    fn higher_limit_extends_the_same_ranking() {
+        let d = dict();
+        let u = UserDict::new();
+        let dicts = [&d];
+        let c = ctx(&dicts, &u);
+        let three = predict_next(&c, "", "", false);
+        let five = predict_next_n(&c, "", "", false, MAX_SUGGESTIONS + 2);
+        assert_eq!(three.len(), MAX_SUGGESTIONS);
+        assert_eq!(five.len(), MAX_SUGGESTIONS + 2);
+        assert_eq!(five[..MAX_SUGGESTIONS], three[..]);
+        let t3 = suggest_composing(&c, "pr");
+        let t5 = suggest_composing_n(&c, "pr", MAX_SUGGESTIONS + 2);
+        assert_eq!(t5[..t3.len()], t3[..]);
+        assert!(t5.len() > t3.len(), "{t3:?} {t5:?}");
     }
 
     #[test]
