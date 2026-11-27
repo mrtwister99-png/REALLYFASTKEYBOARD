@@ -197,12 +197,11 @@
     <string name="typing_open">Typing</string>
     <string name="sec_bottom_row">Bottom row</string>
     <string name="sec_keys">Key editing</string>
-    <string name="emoji_key_label">Emoji button (diamond)</string>
     <string name="macro_key_label">Macro button (bolt)</string>
     <string name="key_place_left">Left</string>
     <string name="key_place_right">Right of space</string>
     <string name="key_place_hidden">Hide</string>
-    <string name="bottom_row_hint">If you hide a button, the space bar gets longer. Emoji stay available by long-pressing ?123.</string>
+    <string name="bottom_row_hint">Hold the macro button to open emoji. If you hide it, the space bar gets longer and macros live in settings; emoji stay available by long-pressing ?123.</string>
     <string name="clipboard_help">You can find the clipboard history by long-pressing the ?123 key and choosing Clipboard.</string>
     <string name="clipboard_clear_confirm">Really delete the whole clipboard history?</string>
     <string name="fix_word_hint">Fix the word</string>
@@ -370,8 +369,7 @@
     <string name="tip_key_font">Font of the characters on the keys. Each font is shown right in the list.</string>
     <string name="tip_label_weight">Weight of the letters on the keys.</string>
     <string name="tip_digit_weight">Weight of the digits.</string>
-    <string name="tip_emoji_key">Where the emoji key sits: left, right or hidden.</string>
-    <string name="tip_macro_key">Where the macro key sits: left, right or hidden.</string>
+    <string name="tip_macro_key">Where the macro key sits (hold it for emoji): left, right or hidden.</string>
     <string name="tip_hint_color">Color of the small hint. Auto derives it from the text color.</string>
     <string name="tip_colors_base">Background, key and text colors. Changing them switches the theme to custom.</string>
     <string name="tip_outline_color">Key outline color. Auto = no outline.</string>

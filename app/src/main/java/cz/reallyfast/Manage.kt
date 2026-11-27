@@ -273,7 +273,14 @@ class MacrosActivity : SubScreen() {
         container.addView(label(getString(R.string.macros_hint), 14f, dim).also { it.setPadding(dp(4f), dp(10f), dp(4f), 0) }, rowParams())
 
         val box = cardBox(container).also { (it.layoutParams as LinearLayout.LayoutParams).topMargin = dp(18f) }
-        buttonRow(box, "+  " + getString(R.string.macro_new), accent) { edit(null) }
+        // Nove makro: text probehne vlnou zleva doprava a pak se otevre editor.
+        val newMacro = WaveTextView(this, "+  " + getString(R.string.macro_new), accent, 15f)
+        newMacro.background = rounded(field, dp(12f).toFloat())
+        newMacro.setOnClickListener { newMacro.play { edit(null) } }
+        val nlp = rowParams()
+        nlp.topMargin = dp(5f)
+        nlp.bottomMargin = dp(5f)
+        box.addView(newMacro, nlp)
 
         list = LinearLayout(this)
         list.orientation = LinearLayout.VERTICAL

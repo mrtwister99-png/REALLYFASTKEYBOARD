@@ -44,6 +44,7 @@ class VoiceActivity : SubScreen() {
         row.minimumHeight = dp(52f)
         row.addView(label(getString(R.string.voice_input)), LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
         val sw = ToggleView(this)
+        sw.accent = accent
         sw.contentDescription = getString(R.string.voice_input)
         sw.setChecked(RustBridge.settings.voiceInput, false)
         sw.onChange = { checked ->

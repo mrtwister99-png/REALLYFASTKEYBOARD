@@ -191,7 +191,7 @@ fn char_row(chars: &str) -> Vec<Def> {
     chars.chars().map(|c| ch(c, "")).collect()
 }
 
-/// Kde je ve spodni rade tlacitko emoji / maker.
+/// Kde je ve spodni rade tlacitko maker (emoji se otevira jeho podrzenim).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum KeyPlace {
     Left,
@@ -213,7 +213,6 @@ impl KeyPlace {
 /// Volitelna tlacitka spodni rady.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct BottomKeys {
-    pub emoji: KeyPlace,
     pub macros: KeyPlace,
     /// Prohozene pozice klavesy ?123/ABC a Enter.
     pub swap_mode_enter: bool,
@@ -224,8 +223,7 @@ pub struct BottomKeys {
 impl Default for BottomKeys {
     fn default() -> Self {
         BottomKeys {
-            emoji: KeyPlace::Left,
-            macros: KeyPlace::Left,
+            macros: KeyPlace::Right,
             swap_mode_enter: false,
             swap_shift_delete: false,
         }
@@ -238,24 +236,17 @@ fn bottom_row(mode: u8, space_label: &str, bottom: BottomKeys) -> Vec<Def> {
     } else {
         special(1.4, CODE_LETTERS, KIND_MODE, "ABC", "Písmena")
     };
-    let emoji = || special(1.0, CODE_EMOJI, KIND_EMOJI, "☺", "Emoji");
     // Jazyk se prepina podrzenim mezerniku; na miste globusu je tlacitko maker.
     let macros = || special(1.0, CODE_MACRO, KIND_MACRO, "✦", "Makra");
-    // Skryta tlacitka uvolni misto mezerniku, rada ma porad 10 jednotek.
-    let hidden = [bottom.emoji, bottom.macros].iter().filter(|p| **p == KeyPlace::Hidden).count();
-    let space = special(3.2 + hidden as f32, CODE_SPACE, KIND_SPACE, space_label, "Mezerník");
+    // Skryte tlacitko maker uvolni misto mezerniku, rada ma porad 10 jednotek.
+    let hidden = (bottom.macros == KeyPlace::Hidden) as u8;
+    let space = special(4.2 + hidden as f32, CODE_SPACE, KIND_SPACE, space_label, "Mezerník");
     let mut row = vec![switch];
-    if bottom.emoji == KeyPlace::Left {
-        row.push(emoji());
-    }
     row.push(ch(',', "'\"-_/@"));
     if bottom.macros == KeyPlace::Left {
         row.push(macros());
     }
     row.push(space);
-    if bottom.emoji == KeyPlace::Right {
-        row.push(emoji());
-    }
     if bottom.macros == KeyPlace::Right {
         row.push(macros());
     }
@@ -735,8 +726,8 @@ mod tests {
         assert_eq!(l.key_for_code(CODE_MACRO).unwrap().kind, KIND_MACRO);
     }
 
-    fn bottom_layout(mode: u8, e: KeyPlace, m: KeyPlace) -> Layout {
-        Layout::build_with(1440.0, 1000.0, true, mode, true, "x", BottomKeys { emoji: e, macros: m, ..BottomKeys::default() })
+    fn bottom_layout(mode: u8, m: KeyPlace) -> Layout {
+        Layout::build_with(1440.0, 1000.0, true, mode, true, "x", BottomKeys { macros: m, ..BottomKeys::default() })
     }
 
     fn bottom_keys_of(l: &Layout) -> Vec<&Key> {
@@ -749,19 +740,18 @@ mod tests {
         use KeyPlace::*;
         let places = [Left, Right, Hidden];
         for mode in [MODE_LETTERS, MODE_SYMBOLS, MODE_SYMBOLS2] {
-            for e in places {
-                for m in places {
-                    let l = bottom_layout(mode, e, m);
-                    let row = bottom_keys_of(&l);
-                    let sum: f32 = row.iter().map(|k| k.vw).sum();
-                    assert!((sum - 1440.0).abs() < 0.5, "{mode} {e:?} {m:?}: {sum}");
-                    assert!(row[0].vx.abs() < 0.5);
-                    let space = row.iter().find(|k| k.code == CODE_SPACE).unwrap();
-                    let hidden = [e, m].iter().filter(|p| **p == Hidden).count() as f32;
-                    assert!((space.vw - (3.2 + hidden) * 144.0).abs() < 0.5);
-                    assert_eq!(row.iter().any(|k| k.code == CODE_EMOJI), e != Hidden);
-                    assert_eq!(row.iter().any(|k| k.code == CODE_MACRO), m != Hidden);
-                }
+            for m in places {
+                let l = bottom_layout(mode, m);
+                let row = bottom_keys_of(&l);
+                let sum: f32 = row.iter().map(|k| k.vw).sum();
+                assert!((sum - 1440.0).abs() < 0.5, "{mode} {m:?}: {sum}");
+                assert!(row[0].vx.abs() < 0.5);
+                let space = row.iter().find(|k| k.code == CODE_SPACE).unwrap();
+                let hidden = (m == Hidden) as u8 as f32;
+                assert!((space.vw - (4.2 + hidden) * 144.0).abs() < 0.5);
+                // tlacitko emoji uz ve spodni rade neni
+                assert!(!row.iter().any(|k| k.code == CODE_EMOJI));
+                assert_eq!(row.iter().any(|k| k.code == CODE_MACRO), m != Hidden);
             }
         }
     }
@@ -769,13 +759,13 @@ mod tests {
     #[test]
     fn bottom_keys_order() {
         use KeyPlace::*;
-        let order = |e, m| -> Vec<i32> { bottom_keys_of(&bottom_layout(MODE_LETTERS, e, m)).iter().map(|k| k.code).collect() };
+        let order = |m| -> Vec<i32> { bottom_keys_of(&bottom_layout(MODE_LETTERS, m)).iter().map(|k| k.code).collect() };
         let (c, d) = (',' as i32, '.' as i32);
-        assert_eq!(order(Left, Left), vec![CODE_SYMBOLS, CODE_EMOJI, c, CODE_MACRO, CODE_SPACE, d, CODE_ENTER]);
-        assert_eq!(order(Right, Left), vec![CODE_SYMBOLS, c, CODE_MACRO, CODE_SPACE, CODE_EMOJI, d, CODE_ENTER]);
-        assert_eq!(order(Right, Right), vec![CODE_SYMBOLS, c, CODE_SPACE, CODE_EMOJI, CODE_MACRO, d, CODE_ENTER]);
-        assert_eq!(order(Hidden, Right), vec![CODE_SYMBOLS, c, CODE_SPACE, CODE_MACRO, d, CODE_ENTER]);
-        assert_eq!(order(Hidden, Hidden), vec![CODE_SYMBOLS, c, CODE_SPACE, d, CODE_ENTER]);
+        assert_eq!(order(Left), vec![CODE_SYMBOLS, c, CODE_MACRO, CODE_SPACE, d, CODE_ENTER]);
+        assert_eq!(order(Right), vec![CODE_SYMBOLS, c, CODE_SPACE, CODE_MACRO, d, CODE_ENTER]);
+        assert_eq!(order(Hidden), vec![CODE_SYMBOLS, c, CODE_SPACE, d, CODE_ENTER]);
+        // vychozi: tlacitko maker vpravo vedle mezerniku
+        assert_eq!(BottomKeys::default().macros, Right);
     }
 
     fn map_of(pairs: &[(&str, &str)]) -> BTreeMap<String, String> {
@@ -972,9 +962,9 @@ mod tests {
             MODE_LETTERS,
             false,
             "x",
-            BottomKeys { emoji: KeyPlace::Hidden, macros: KeyPlace::Right, swap_mode_enter: true, swap_shift_delete: true },
+            BottomKeys { macros: KeyPlace::Right, swap_mode_enter: true, swap_shift_delete: true },
         );
-        assert_eq!(l2.keys.len(), Layout::build(1440.0, 1000.0, true, MODE_LETTERS, false, "x").keys.len() - 1);
+        assert_eq!(l2.keys.len(), Layout::build(1440.0, 1000.0, true, MODE_LETTERS, false, "x").keys.len());
         assert_no_overlap(&l2);
     }
 }

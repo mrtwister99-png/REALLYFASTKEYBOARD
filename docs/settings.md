@@ -18,8 +18,7 @@ Počet nastavení: **94**.
 | `layout` | `qwertz` | `qwertz`, `qwerty` | Rozložení písmen. | Hlavní → Jazyk |
 | `show_number_row` | `true` | zap / vyp | Řada čísel nad písmeny. | Hlavní → Jazyk |
 | `number_divider` | `true` | zap / vyp | Čára mezi řadou čísel a písmeny (jen když je řada čísel zapnutá). | Hlavní → Jazyk |
-| `emoji_key` | `left` | `left`, `right`, `hidden` | Kde je ve spodní řadě tlačítko emoji. | Hlavní → Spodní řada |
-| `macro_key` | `left` | `left`, `right`, `hidden` | Kde je ve spodní řadě tlačítko maker (maskot). | Hlavní → Spodní řada |
+| `macro_key` | `right` | `left`, `right`, `hidden` | Kde je ve spodní řadě tlačítko maker (výchozí vpravo vedle mezerníku); podržením otevře emoji. Skryté: makra jsou v nastavení, emoji podržením ?123. | Hlavní → Spodní řada |
 
 ## Psaní a tah
 

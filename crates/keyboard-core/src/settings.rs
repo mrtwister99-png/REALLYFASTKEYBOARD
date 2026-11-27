@@ -39,7 +39,7 @@ pub const STYLE_KEYS: &[&str] = &[
     "outline_passed_color", "outline_width_dp", "char_outline", "char_outline_color",
     "special_outline", "trail_color2", "glow_color2", "tap_text_color2", "outline_tap_color2",
     // Rozlozeni daneho profilu: posuny radku a poloha tlacitek emoji / maker ve spodni rade.
-    "row_offsets", "emoji_key", "macro_key",
+    "row_offsets", "macro_key",
 ];
 /// Jeden slot stylu: klic nastaveni -> hodnota (jen klice ze STYLE_KEYS).
 pub type StyleSlot = serde_json::Map<String, serde_json::Value>;
@@ -158,9 +158,7 @@ pub struct Settings {
     pub swap_shift_delete: bool,
     /// Velikost znaku na klavesach v procentech (100 = vychozi).
     pub key_text_percent: u32,
-    /// Tlacitko emoji ve spodni rade: "left" (vlevo od mezerniku), "right" (vpravo), "hidden".
-    pub emoji_key: String,
-    /// Tlacitko maker ve spodni rade: stejne hodnoty jako `emoji_key`.
+    /// Tlacitko maker ve spodni rade: "left", "right" (vychozi, vedle mezerniku) nebo "hidden"; emoji se otevira jeho podrzenim.
     pub macro_key: String,
     // --- gesta (kazde lze vypnout) ---
     pub gesture_delete_word: bool,
@@ -312,8 +310,7 @@ impl Settings {
             swap_mode_enter: false,
             swap_shift_delete: false,
             key_text_percent: 100,
-            emoji_key: "left".into(),
-            macro_key: "left".into(),
+            macro_key: "right".into(),
             gesture_delete_word: true,
             gesture_space_cursor: true,
             gesture_swipe_up_caps: true,
@@ -688,9 +685,6 @@ impl Settings {
         if !VOICE_TRIGGERS.contains(&self.voice_trigger.as_str()) {
             self.voice_trigger = d.voice_trigger.clone();
         }
-        if !KEY_PLACES.contains(&self.emoji_key.as_str()) {
-            self.emoji_key = d.emoji_key.clone();
-        }
         if !KEY_PLACES.contains(&self.macro_key.as_str()) {
             self.macro_key = d.macro_key.clone();
         }
@@ -803,7 +797,7 @@ mod tests {
 
     #[test]
     fn layout_keys_belong_to_profiles() {
-        for k in ["row_offsets", "emoji_key", "macro_key"] {
+        for k in ["row_offsets", "macro_key"] {
             assert!(STYLE_KEYS.contains(&k), "{k}");
         }
     }
@@ -1157,14 +1151,17 @@ mod tests {
     #[test]
     fn bottom_keys_validation() {
         let s = Settings::default();
-        assert_eq!((s.emoji_key.as_str(), s.macro_key.as_str()), ("left", "left"));
-        let s = Settings::from_json(r#"{"emoji_key":"right","macro_key":"hidden"}"#).unwrap();
-        assert_eq!((s.emoji_key.as_str(), s.macro_key.as_str()), ("right", "hidden"));
-        let s = Settings::from_json(r#"{"emoji_key":"middle","macro_key":""}"#).unwrap();
-        assert_eq!((s.emoji_key.as_str(), s.macro_key.as_str()), ("left", "left"));
+        assert_eq!(s.macro_key, "right");
+        let s = Settings::from_json(r#"{"macro_key":"hidden"}"#).unwrap();
+        assert_eq!(s.macro_key, "hidden");
+        let s = Settings::from_json(r#"{"macro_key":""}"#).unwrap();
+        assert_eq!(s.macro_key, "right");
+        // emoji_key uz neexistuje (emoji se otevira podrzenim tlacitka maker), stary klic se ignoruje
+        let s = Settings::from_json(r#"{"emoji_key":"right"}"#).unwrap();
+        assert!(!s.to_json().contains("emoji_key"));
         // stary soubor bez poli
         let s = Settings::from_json(r#"{"theme":"light"}"#).unwrap();
-        assert_eq!((s.emoji_key.as_str(), s.macro_key.as_str()), ("left", "left"));
+        assert_eq!(s.macro_key, "right");
     }
 
     #[test]

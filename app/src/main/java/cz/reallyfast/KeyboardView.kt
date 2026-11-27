@@ -3940,6 +3940,9 @@ class KeyboardView(context: Context) : View(context) {
             handler.postDelayed(longPress, maxOf(delay, 300L))
         } else if (k.kind == KIND_ENTER && voiceAllowed && RustBridge.settings.voiceByEnter) {
             handler.postDelayed(longPress, maxOf(delay, 350L))
+        } else if (k.kind == KIND_MACRO) {
+            // Podrzeni tlacitka maker otevre emoji.
+            handler.postDelayed(longPress, maxOf(delay, 300L))
         } else if (k.kind == KIND_SPACE) {
             // Mezernik: delsi prodleva, aby pomalejsi tap neprepnul jazyk omylem.
             handler.postDelayed(longPress, maxOf(2 * delay, 500L))
@@ -4083,6 +4086,14 @@ class KeyboardView(context: Context) : View(context) {
             previewKey = null
             listener?.onPressFeedback(k)
             invalidate()
+            return
+        }
+        if (touchMode == T_TAP && !moved && k.kind == KIND_MACRO) {
+            longPressFired = true
+            touchMode = T_CONSUMED
+            press(k, false)
+            listener?.onPressFeedback(k)
+            listener?.onKeyHold(k)
             return
         }
         if (touchMode == T_TAP && !moved && k.kind == KIND_CHAR && k.holdMacro != null) {

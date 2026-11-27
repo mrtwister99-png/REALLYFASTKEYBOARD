@@ -197,12 +197,11 @@
     <string name="typing_open">Psaní</string>
     <string name="sec_bottom_row">Spodní řada</string>
     <string name="sec_keys">Úprava kláves</string>
-    <string name="emoji_key_label">Tlačítko emoji (diamant)</string>
     <string name="macro_key_label">Tlačítko maker (blesk)</string>
     <string name="key_place_left">Vlevo</string>
     <string name="key_place_right">Vpravo od mezerníku</string>
     <string name="key_place_hidden">Skrýt</string>
-    <string name="bottom_row_hint">Když tlačítko skryješ, mezerník se prodlouží. Emoji zůstanou dostupné podržením ?123.</string>
+    <string name="bottom_row_hint">Podržením tlačítka maker se otevřou emoji. Když tlačítko skryješ, mezerník se prodlouží a makra najdeš v nastavení; emoji zůstanou dostupné podržením ?123.</string>
     <string name="clipboard_help">Historii schránky najdeš, když podržíš klávesu ?123 a zvolíš Schránka.</string>
     <string name="clipboard_clear_confirm">Opravdu smazat celou historii schránky?</string>
     <string name="fix_word_hint">Oprav slovo</string>
@@ -370,8 +369,7 @@
     <string name="tip_key_font">Písmo znaků na klávesách. Každé písmo je vidět přímo v seznamu.</string>
     <string name="tip_label_weight">Tloušťka písmen na klávesách.</string>
     <string name="tip_digit_weight">Tloušťka číslic.</string>
-    <string name="tip_emoji_key">Kde je tlačítko emoji: vlevo, vpravo, nebo skryté.</string>
-    <string name="tip_macro_key">Kde je tlačítko maker: vlevo, vpravo, nebo skryté.</string>
+    <string name="tip_macro_key">Kde je tlačítko maker (podržením otevře emoji): vlevo, vpravo, nebo skryté.</string>
     <string name="tip_hint_color">Barva malé nápovědy. Auto ji odvodí z barvy textu.</string>
     <string name="tip_colors_base">Barvy pozadí, kláves a znaků. Změna přepne motiv na vlastní.</string>
     <string name="tip_outline_color">Barva obrysu kláves. Auto = bez obrysu.</string>

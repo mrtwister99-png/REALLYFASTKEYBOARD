@@ -121,7 +121,7 @@ object Lantern {
                 j.put("outline_width_dp", 2)
                 j.put("digit_text_color", "")
                 j.put("hint_percent", 100)
-                j.put("macro_key", "left")
+                j.put("macro_key", "right")
             }
         }
 

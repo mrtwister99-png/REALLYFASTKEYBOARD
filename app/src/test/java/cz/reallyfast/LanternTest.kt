@@ -21,7 +21,7 @@ class LanternTest {
         .put("swap_shift_delete", false).put("key_map", JSONObject()).put("trail_style", "line")
         .put("swipe_glow", true).put("glow_style", "neon").put("key_glow", true).put("tap_effect", "neon")
         .put("neon_color", "#0080FF").put("outline_width_dp", 2).put("digit_text_color", "")
-        .put("hint_percent", 100).put("macro_key", "left")
+        .put("hint_percent", 100).put("macro_key", "right")
 
     private var cur = base()
 
@@ -97,7 +97,7 @@ class LanternTest {
         Lantern.Walk.restore(cur)
         assertEquals("line", cur.getString("trail_style"))
         assertEquals(100, cur.getInt("hint_percent"))
-        assertEquals("left", cur.getString("macro_key"))
+        assertEquals("right", cur.getString("macro_key"))
         assertFalse(cur.getJSONObject("key_map").has("<"))
         assertFalse(cur.getBoolean("swap_shift_delete"))
     }

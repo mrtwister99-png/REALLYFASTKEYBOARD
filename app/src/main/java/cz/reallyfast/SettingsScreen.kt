@@ -201,6 +201,7 @@ abstract class SettingsScreen : BaseScreen() {
             row.addView(hit, LinearLayout.LayoutParams(dp(44f), dp(44f)))
         }
         val sw = ToggleView(this)
+        sw.accent = accent
         sw.contentDescription = getString(labelRes)
         sw.setChecked(RustBridge.settings.json.optBoolean(key), false)
         sw.onChange = { checked ->
@@ -224,6 +225,7 @@ abstract class SettingsScreen : BaseScreen() {
         }
         applyEnabled()
         refreshers.add {
+            sw.accent = accent
             sw.setChecked(RustBridge.settings.json.optBoolean(key), false)
             applyEnabled()
         }
@@ -535,6 +537,7 @@ abstract class SettingsScreen : BaseScreen() {
             val cur = shownColor(key)
             val initial = if (cur.isEmpty() || cur == Theme.RAINBOW) autoColor(key) else Theme.parse(cur, 0xFFFFFFFF.toInt())
             showColorPicker(getString(labelRes), initial, allowAuto,
+                onRevert = { revertColor(key, cur) },
                 onCommit = { c -> if (!hex(c).equals(shownColor(key), ignoreCase = true)) writeColor(key, hex(c)) },
                 onAuto = { if (shownColor(key).isNotEmpty()) update(key, "") },
                 onRainbow = if (allowRainbow) ({ if (shownColor(key) != Theme.RAINBOW) update(key, Theme.RAINBOW) }) else null,
@@ -570,7 +573,9 @@ abstract class SettingsScreen : BaseScreen() {
             dots.add(dot)
             dot.setOnClickListener {
                 onSettingTouched(key, row)
-                showColorPicker(getString(labelRes), Theme.parse(shownColor(key), 0xFFFFFFFF.toInt()), false,
+                val before = shownColor(key)
+                showColorPicker(getString(labelRes), Theme.parse(before, 0xFFFFFFFF.toInt()), false,
+                    onRevert = { revertColor(key, before) },
                     onCommit = { c -> if (!hex(c).equals(shownColor(key), ignoreCase = true)) writeColor(key, hex(c)) },
                     onAuto = {})
             }
@@ -595,8 +600,11 @@ abstract class SettingsScreen : BaseScreen() {
      * (sytost a jas) s pruhem odstinu, hex kod a tlacitko OK. Hodnota se zapisuje (`onCommit`) po zvednuti
      * prstu nebo po zadani platneho hex kodu; "Vychozi" (jen s `allowAuto`) zavola `onAuto` a dialog zavre.
      */
-    private fun showColorPicker(titleText: String, initial: Int, allowAuto: Boolean, onCommit: (Int) -> Unit, onAuto: () -> Unit, onRainbow: (() -> Unit)? = null, key: String = "") {
+    private fun showColorPicker(titleText: String, initial: Int, allowAuto: Boolean, onCommit: (Int) -> Unit, onAuto: () -> Unit, onRainbow: (() -> Unit)? = null, key: String = "", onRevert: (() -> Unit)? = null) {
         colorDialog?.dismiss()
+        // Zavreni bez OK (zpet, klepnuti mimo) vrati barvu pred otevrenim; OK, Vychozi a Duha zmenu potvrdi.
+        var confirmed = false
+        var changed = false
         if (key.isNotEmpty()) onColorPickerState(key, true)
         val dialog = Dialog(this)
         dialog.requestWindowFeature(Window.FEATURE_NO_TITLE)
@@ -655,7 +663,10 @@ abstract class SettingsScreen : BaseScreen() {
         bottom.gravity = Gravity.CENTER_VERTICAL
         bottom.addView(hex, LinearLayout.LayoutParams(dp(130f), ViewGroup.LayoutParams.WRAP_CONTENT))
         bottom.addView(View(this), LinearLayout.LayoutParams(0, 1, 1f))
-        dialogButton(bottom, getString(R.string.color_done), accent, true) { dialog.dismiss() }
+        dialogButton(bottom, getString(R.string.color_done), accent, true) {
+            confirmed = true
+            dialog.dismiss()
+        }
         val blp = rowParams()
         blp.topMargin = dp(10f)
         root.addView(bottom, blp)
@@ -664,10 +675,12 @@ abstract class SettingsScreen : BaseScreen() {
             val extra = LinearLayout(this)
             extra.gravity = Gravity.CENTER_VERTICAL or Gravity.END
             if (onRainbow != null) dialogButton(extra, getString(R.string.color_rainbow), Theme.RAINBOW_COLORS[1], false) {
+                confirmed = true
                 dialog.dismiss()
                 onRainbow()
             }
             if (allowAuto) dialogButton(extra, getString(R.string.color_default), dim, false) {
+                confirmed = true
                 dialog.dismiss()
                 onAuto()
             }
@@ -686,17 +699,20 @@ abstract class SettingsScreen : BaseScreen() {
                 val v = t.toIntOrNull(16) ?: return
                 val c = 0xFF000000.toInt() or v
                 plane.setColor(c)
+                changed = true
                 onCommit(c)
             }
         })
         plane.onPicking = { c -> showHex(c) }
         plane.onCommit = { c ->
             showHex(c)
+            changed = true
             onCommit(c)
         }
 
         dialog.setContentView(root)
         dialog.setOnDismissListener {
+            if (!confirmed && changed) onRevert?.invoke()
             if (colorDialog === dialog) colorDialog = null
             if (key.isNotEmpty()) onColorPickerState(key, false)
         }
@@ -712,6 +728,12 @@ abstract class SettingsScreen : BaseScreen() {
         }
         colorDialog = dialog
         dialog.show()
+    }
+
+    /** Vrati barvu nastaveni `key` na puvodni hodnotu (prazdna = automaticka, duha, nebo hex). */
+    private fun revertColor(key: String, original: String) {
+        if (original.equals(shownColor(key), ignoreCase = true)) return
+        if (original.isEmpty() || original == Theme.RAINBOW) update(key, original) else writeColor(key, original)
     }
 
     /** Vodorovny pruh hotovych stylu s miniaturami. */

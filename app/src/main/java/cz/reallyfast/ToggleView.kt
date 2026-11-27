@@ -10,8 +10,9 @@ import android.view.accessibility.AccessibilityNodeInfo
 import android.view.animation.DecelerateInterpolator
 
 /**
- * Vlastni prepinac (nahrazuje android.widget.Switch), kapsle 52 x 30 dp. Vypnuty: tmave seda kapsle
- * a svetle sedy palec; zapnuty: svetle seda kapsle a modry palec (pevna modra, ne accent barva).
+ * Vlastni prepinac (nahrazuje android.widget.Switch), kapsle 52 x 30 dp: obrys kapsle a kulicka s odleskem.
+ * Kulicka ma barvu akcentu: vypnuta je vybledla, zapnuta plna. Pri jizde dvakrat bliknutim (glitch) zmeni
+ * kulicku na obrys ctverecku.
  * Klidovy palec je o tretinu vetsi nez driv (vypnuty 93 %, zapnuty 140 % zakladniho polomeru 10 dp).
  * Prepnuti (520 ms): palec se nejdriv sploste na 5 % vysky, v tomto stavu dojede do 95 % cesty,
  * pak se nafoukne na 125 % klidove velikosti a nakonec se usadi. Stred palce je vzdy omezen tak,
@@ -25,9 +26,20 @@ class ToggleView(context: Context) : View(context) {
     var isChecked = false
         private set
 
+    /** Barva akcentu (kulicka); vybledla verze se pocita pri zmene. */
+    var accent: Int = ON_THUMB
+        set(value) {
+            field = value
+            faded = Theme.blend(value, FADE_TO, 0.62f)
+            invalidate()
+        }
+    private var faded = Theme.blend(ON_THUMB, FADE_TO, 0.62f)
+    private var glitch = 0
+
     private val d = resources.displayMetrics.density
     private val paint = Paint(Paint.ANTI_ALIAS_FLAG)
     private val rect = RectF()
+    private val hl = RectF()
     private val decel = DecelerateInterpolator(1.4f)
     private val animator = ValueAnimator.ofFloat(0f, 1f).apply {
         duration = DURATION
@@ -69,6 +81,7 @@ class ToggleView(context: Context) : View(context) {
             pos = posTo
             size = sizeTo
             squash = 1f
+            glitch = 0
             invalidate()
         }
     }
@@ -84,12 +97,20 @@ class ToggleView(context: Context) : View(context) {
                 size = sizeFrom
             }
             t < PHASE_B -> {
-                val k = decel.getInterpolation((t - PHASE_A) / (PHASE_B - PHASE_A))
+                val raw = (t - PHASE_A) / (PHASE_B - PHASE_A)
+                // Dvakrat cestou: kulicka na chvili zmeni obrys na ctverecek (a poposkoci do strany).
+                glitch = when {
+                    raw in 0.22f..0.36f -> 1
+                    raw in 0.58f..0.72f -> 2
+                    else -> 0
+                }
+                val k = decel.getInterpolation(raw)
                 squash = SQUASH_MIN
                 pos = posFrom + travel * 0.95f * k
                 size = sizeFrom + (sizeTo - sizeFrom) * k
             }
             t < PHASE_C -> {
+                glitch = 0
                 val k = (t - PHASE_B) / (PHASE_C - PHASE_B)
                 pos = posFrom + travel * (0.95f + 0.05f * k)
                 squash = SQUASH_MIN + (1f - SQUASH_MIN) * k
@@ -117,19 +138,50 @@ class ToggleView(context: Context) : View(context) {
         val left = (w - trackW) / 2f
         val top = (h - trackH) / 2f
         val t = pos.coerceIn(0f, 1f)
-        paint.color = Theme.blend(OFF_TRACK, ON_TRACK, t)
-        rect.set(left, top, left + trackW, top + trackH)
+        val sw = 2f * d
+        // Kapsle: slaba vypln a obrys, ktery se pri zapnuti zbarvi do akcentu.
+        paint.style = Paint.Style.FILL
+        paint.color = Theme.blend(OFF_FILL, ON_FILL, t)
+        rect.set(left + sw / 2f, top + sw / 2f, left + trackW - sw / 2f, top + trackH - sw / 2f)
+        canvas.drawRoundRect(rect, trackH / 2f, trackH / 2f, paint)
+        paint.style = Paint.Style.STROKE
+        paint.strokeWidth = sw
+        paint.color = Theme.blend(OFF_STROKE, accent, t)
         canvas.drawRoundRect(rect, trackH / 2f, trackH / 2f, paint)
         val rw = 10f * d * size
         val rh = rw * squash
-        // Stred palce: od vnitrniho okraje vlevo po vnitrni okraj vpravo.
+        // Stred kulicky: od vnitrniho okraje vlevo po vnitrni okraj vpravo.
         val inset = INSET * d
         val minX = left + inset + rw
         val maxX = left + trackW - inset - rw
-        val cx = if (maxX > minX) (minX + (maxX - minX) * pos).coerceIn(minX, maxX) else (minX + maxX) / 2f
-        paint.color = Theme.blend(OFF_THUMB, ON_THUMB, t)
+        var cx = if (maxX > minX) (minX + (maxX - minX) * pos).coerceIn(minX, maxX) else (minX + maxX) / 2f
+        val color = Theme.blend(faded, accent, t)
+        if (glitch != 0) {
+            // Glitch: obrys ctverecku, lehce posunuty ve smeru jizdy.
+            cx += (if (glitch == 1) 2.5f else -2.5f) * d
+            paint.color = accent
+            paint.strokeWidth = sw
+            rect.set(cx - rw * 0.9f, h / 2f - rh * 0.9f, cx + rw * 0.9f, h / 2f + rh * 0.9f)
+            canvas.drawRoundRect(rect, 2f * d, 2f * d, paint)
+            return
+        }
+        paint.style = Paint.Style.FILL
+        paint.color = color
         rect.set(cx - rw, h / 2f - rh, cx + rw, h / 2f + rh)
         canvas.drawOval(rect, paint)
+        if (squash > 0.6f) {
+            // Odlesk: kratky oblouk vlevo nahore a tecka.
+            paint.style = Paint.Style.STROKE
+            paint.strokeCap = Paint.Cap.ROUND
+            paint.strokeWidth = 1.6f * d
+            paint.color = 0xB3FFFFFF.toInt()
+            val q = rw * 0.62f
+            hl.set(cx - q, h / 2f - q, cx + q, h / 2f + q)
+            canvas.drawArc(hl, 195f, 55f, false, paint)
+            paint.style = Paint.Style.FILL
+            canvas.drawCircle(cx - q * 0.1f, h / 2f - q, 1.3f * d, paint)
+            paint.strokeCap = Paint.Cap.BUTT
+        }
     }
 
     override fun onInitializeAccessibilityNodeInfo(info: AccessibilityNodeInfo) {
@@ -156,9 +208,10 @@ class ToggleView(context: Context) : View(context) {
         const val TRACK_W = 52f
         const val TRACK_H = 30f
         const val INSET = 2f
-        const val OFF_TRACK = 0xFF3A3A40.toInt()
-        const val ON_TRACK = 0xFFD4D4D8.toInt()
-        const val OFF_THUMB = 0xFFB4B4BC.toInt()
+        const val OFF_FILL = 0xFF1E1E22.toInt()
+        const val ON_FILL = 0xFF2A2A30.toInt()
+        const val OFF_STROKE = 0xFF6A6A72.toInt()
+        const val FADE_TO = 0xFF5A5A62.toInt()
         const val ON_THUMB = 0xFF0080FF.toInt()
     }
 }

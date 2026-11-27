@@ -75,6 +75,9 @@ class SettingsActivity : SettingsScreen() {
     /** Tlacitko, jehoz obrys prave bliká (krok nastaveni, ktery zbyva), a jeho animace. */
     private var blinkTarget: View? = null
     private var blinkAnim: ObjectAnimator? = null
+    private var enableMark: StepMark? = null
+    private var selectMark: StepMark? = null
+    private var markReady = false
     private var logoTop: ImageView? = null
     private var logoAlt: ImageView? = null
     private var logoSlide: ValueAnimator? = null
@@ -176,6 +179,22 @@ class SettingsActivity : SettingsScreen() {
         val hlp = LinearLayout.LayoutParams(logoW, logoH)
         hlp.bottomMargin = dp(4f)
         container.addView(frame, hlp)
+        // Dve ozubena kola vpravo nahore (velke a male), tocici se pomalu a stejnou rychlosti; lezi nad ostatnimi prvky.
+        val gears = FrameLayout(this)
+        gears.clipChildren = false
+        gears.translationZ = dp(2f).toFloat()
+        container.clipChildren = false
+        val bigGear = GearView(this, R.drawable.ic_gear_big, dim, 30, 98)
+        val blp = FrameLayout.LayoutParams(dp(110f), dp(104f), Gravity.TOP or Gravity.END)
+        blp.topMargin = dp(86f) - logoH - dp(4f)
+        blp.rightMargin = dp(19f)
+        gears.addView(bigGear, blp)
+        val smallGear = GearView(this, R.drawable.ic_gear_small, dim, 284, 440)
+        val slp = FrameLayout.LayoutParams(dp(55f), dp(54f), Gravity.TOP or Gravity.END)
+        slp.topMargin = dp(15f) - logoH - dp(4f)
+        slp.rightMargin = -dp(10f)
+        gears.addView(smallGear, slp)
+        container.addView(gears, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0))
         if (animateTitle) {
             // logo1 a logo2 vyjedou zprava za okrajem obrazovky a dolete nad zaklad; pak se stridaji (jen pri vytvoreni obrazovky).
             animateTitle = false
@@ -233,10 +252,27 @@ class SettingsActivity : SettingsScreen() {
         statusCard = card
         statusBadge = badge
         statusView = st
-        enableButton = buttonRow(box, getString(R.string.setup_enable), accent) {
+        // Kazdy krok ma vlevo znacku: obrys je videt vzdy, po splneni kroku pribude zelena vyplnena a znacka se zvetsi.
+        fun stepButton(label: String, mark: (StepMark) -> Unit, onClick: () -> Unit): TextView {
+            val b = buttonView(label, accent, onClick)
+            val holder = FrameLayout(this)
+            holder.clipChildren = false
+            holder.addView(b, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+            val m = StepMark(this, dim)
+            mark(m)
+            val mlp = FrameLayout.LayoutParams(dp(26f), dp(26f), Gravity.START or Gravity.CENTER_VERTICAL)
+            mlp.leftMargin = dp(14f)
+            holder.addView(m, mlp)
+            val lp = rowParams()
+            lp.topMargin = dp(5f)
+            lp.bottomMargin = dp(5f)
+            box.addView(holder, lp)
+            return b
+        }
+        enableButton = stepButton(getString(R.string.setup_enable), { enableMark = it }) {
             startActivity(Intent(SystemSettings.ACTION_INPUT_METHOD_SETTINGS))
         }
-        selectButton = buttonRow(box, getString(R.string.setup_select), accent) {
+        selectButton = stepButton(getString(R.string.setup_select), { selectMark = it }) {
             (getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager).showInputMethodPicker()
         }
         val test = EditText(this)
@@ -470,6 +506,9 @@ class SettingsActivity : SettingsScreen() {
             setColor((tone and 0x00FFFFFF) or 0x26000000)
             setStroke(dp(2f), tone)
         }
+        enableMark?.setDone(enabled || active, markReady)
+        selectMark?.setDone(active, markReady)
+        markReady = true
         // Zbyvajici krok nastaveni bliká obrysem: 1. povolit klavesnici v systemu, 2. vybrat ji; kdyz je vse hotove, zhasne.
         blinkOutline(if (active) (if (typedOnce) null else testField) else if (enabled) selectButton else enableButton)
     }

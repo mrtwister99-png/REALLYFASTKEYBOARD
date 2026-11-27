@@ -298,58 +298,163 @@ class ChevronView(
     }
 }
 
-/** Ikona obnovy: nedokonceny kruh, na jehoz konci je sipka (kresleni bez alokaci, tvary se pocitaji pri zmene velikosti). */
-class RestoreIconView(context: Context, color: Int) : View(context) {
+/** Ikona obnovy (obrazek kruhove sipky): barvi se podle motivu, `spin` ji pomalu protoci o 360 stupnu. */
+class RestoreIconView(context: Context, color: Int) : android.widget.ImageView(context) {
+    init {
+        setImageResource(R.drawable.ic_restore)
+        scaleType = ScaleType.FIT_CENTER
+        val p = (9f * resources.displayMetrics.density).toInt()
+        setPadding(p, p, p, p)
+        setColorFilter(color, android.graphics.PorterDuff.Mode.SRC_IN)
+    }
+
+    var color: Int = color
+        set(value) {
+            field = value
+            setColorFilter(value, android.graphics.PorterDuff.Mode.SRC_IN)
+        }
+
+    /** Pomale otoceni o 360 stupnu (po potvrzeni obnovy). */
+    fun spin() {
+        animate().cancel()
+        rotation = 0f
+        animate().rotation(-360f).setDuration(1400L).setInterpolator(android.view.animation.AccelerateDecelerateInterpolator())
+            .withEndAction { rotation = 0f }.start()
+    }
+}
+
+/**
+ * Vlna kolem tlacitka: tri oblouky po 20 % obvodu se rozbehnou od okraje tlacitka ven, mizi a meni barvu ze zlute do zelene.
+ * Pohled lezi pres cele tlacitko (MATCH_PARENT) a rodice nesmeji orezavat potomky (clipChildren = false). onDraw nealokuje.
+ */
+class RingWaveView(context: Context) : View(context) {
     private val d = resources.displayMetrics.density
     private val paint = Paint(Paint.ANTI_ALIAS_FLAG)
     private val oval = android.graphics.RectF()
-    private val head = Path()
+    private var t = -1f
+    private var reach = 28f * d
+    private val animator = android.animation.ValueAnimator.ofFloat(0f, 1f).apply {
+        addUpdateListener {
+            t = it.animatedValue as Float
+            invalidate()
+        }
+        addListener(object : android.animation.AnimatorListenerAdapter() {
+            override fun onAnimationEnd(animation: android.animation.Animator) {
+                t = -1f
+                invalidate()
+            }
+        })
+    }
 
     init {
         paint.style = Paint.Style.STROKE
         paint.strokeCap = Paint.Cap.ROUND
-        paint.strokeJoin = Paint.Join.ROUND
-        paint.strokeWidth = 2f * d
-        paint.color = color
+        isClickable = false
     }
 
-    var color: Int
-        get() = paint.color
-        set(value) {
-            paint.color = value
-            invalidate()
-        }
-
-    override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
-        val r = min(w, h) * 0.28f
-        val cx = w / 2f
-        val cy = h / 2f
-        oval.set(cx - r, cy - r, cx + r, cy + r)
-        // Kruh zacina vpravo nahore a konci tesne pred zacatkem (mezera), sipka na konci miri po smeru kresleni.
-        val end = Math.toRadians((START + SWEEP).toDouble())
-        val ex = cx + r * cos(end).toFloat()
-        val ey = cy + r * sin(end).toFloat()
-        val tx = -sin(end).toFloat()
-        val ty = cos(end).toFloat()
-        val len = r * 0.7f
-        head.reset()
-        for (side in intArrayOf(-1, 1)) {
-            val a = Math.toRadians(150.0 * side)
-            val dx = tx * cos(a).toFloat() - ty * sin(a).toFloat()
-            val dy = tx * sin(a).toFloat() + ty * cos(a).toFloat()
-            head.moveTo(ex, ey)
-            head.lineTo(ex + dx * len, ey + dy * len)
-        }
+    fun fire(reachDp: Float, ms: Long) {
+        reach = reachDp * d
+        animator.cancel()
+        animator.duration = ms
+        animator.start()
     }
 
     override fun onDraw(canvas: Canvas) {
-        canvas.drawArc(oval, START, SWEEP, false, paint)
-        canvas.drawPath(head, paint)
+        if (t < 0f) return
+        val grow = reach * t
+        oval.set(-grow, -grow, width + grow, height + grow)
+        paint.color = Theme.blend(ChevronView.YELLOW, ChevronView.GREEN, t)
+        paint.alpha = ((1f - t) * 255f).toInt().coerceIn(0, 255)
+        paint.strokeWidth = (4f - 2f * t) * d
+        val base = 60f * t
+        for (i in 0 until 3) canvas.drawArc(oval, base + i * 120f, 72f, false, paint)
+    }
+
+    override fun onDetachedFromWindow() {
+        animator.cancel()
+        super.onDetachedFromWindow()
+    }
+}
+
+/**
+ * Znacka kroku nastaveni: obrys zatrzitka je videt vzdy, po splneni kroku se pres nej objevi zelena vyplnena a cela znacka
+ * se zvetsi. Dva obrazky (stejne platno), obrys se barvi podle motivu.
+ */
+class StepMark(context: Context, lineColor: Int) : android.widget.FrameLayout(context) {
+    private val line = android.widget.ImageView(context)
+    private val fill = android.widget.ImageView(context)
+    private var done = false
+
+    init {
+        clipChildren = false
+        line.setImageResource(R.drawable.ic_check_line)
+        line.setColorFilter(lineColor, android.graphics.PorterDuff.Mode.SRC_IN)
+        fill.setImageResource(R.drawable.ic_check_fill)
+        fill.alpha = 0f
+        fill.scaleX = 0.4f
+        fill.scaleY = 0.4f
+        val lp = LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT)
+        addView(line, lp)
+        addView(fill, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT))
+        importantForAccessibility = IMPORTANT_FOR_ACCESSIBILITY_NO
+    }
+
+    /** Nastavi stav; zmena z "nehotovo" na "hotovo" se animuje (vyplneni pribyde a znacka se zvetsi). */
+    fun setDone(value: Boolean, animate: Boolean) {
+        if (value == done) return
+        done = value
+        val target = if (value) 1f else 0f
+        val zoom = if (value) 1.35f else 1f
+        if (!animate) {
+            fill.alpha = target
+            fill.scaleX = if (value) 1f else 0.4f
+            fill.scaleY = fill.scaleX
+            scaleX = zoom
+            scaleY = zoom
+            return
+        }
+        fill.animate().cancel()
+        fill.animate().alpha(target).scaleX(if (value) 1f else 0.4f).scaleY(if (value) 1f else 0.4f).setDuration(420L)
+            .setInterpolator(android.view.animation.OvershootInterpolator(1.6f)).start()
+        animate().cancel()
+        animate().scaleX(zoom).scaleY(zoom).setDuration(420L).start()
+    }
+}
+
+/**
+ * Ozubene kolo, ktere se po vteri po sobe (jednou za 10 s) pootoci o nahodny uhel z rozsahu `minDeg`..`maxDeg`.
+ * Vsechna kola se toci stejnou rychlosti (stupnu za sekundu), proto delsi otoceni trva dele. Bez animaci jen stoji.
+ */
+class GearView(context: Context, res: Int, tint: Int, private val minDeg: Int, private val maxDeg: Int) : android.widget.ImageView(context) {
+    private val tick = object : Runnable {
+        override fun run() {
+            val deg = minDeg + kotlin.random.Random.nextInt(maxDeg - minDeg + 1)
+            animate().rotationBy(deg.toFloat()).setDuration((deg * 1000L / SPEED_DEG_PER_S)).setInterpolator(android.view.animation.LinearInterpolator()).start()
+            postDelayed(this, PERIOD_MS)
+        }
+    }
+
+    init {
+        setImageResource(res)
+        scaleType = ScaleType.FIT_CENTER
+        setColorFilter(tint, android.graphics.PorterDuff.Mode.SRC_IN)
+        importantForAccessibility = IMPORTANT_FOR_ACCESSIBILITY_NO
+    }
+
+    override fun onAttachedToWindow() {
+        super.onAttachedToWindow()
+        if (RustBridge.settings.animations) postDelayed(tick, 1500L)
+    }
+
+    override fun onDetachedFromWindow() {
+        removeCallbacks(tick)
+        animate().cancel()
+        super.onDetachedFromWindow()
     }
 
     private companion object {
-        const val START = -40f
-        const val SWEEP = 280f
+        const val PERIOD_MS = 10000L
+        const val SPEED_DEG_PER_S = 45L
     }
 }
 

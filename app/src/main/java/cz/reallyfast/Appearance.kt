@@ -334,9 +334,23 @@ class AppearanceActivity : SettingsScreen() {
         s.gravity = Gravity.CENTER
         s.typeface = Typeface.DEFAULT_BOLD
         s.setPadding(dp(24f), 0, dp(24f), 0)
-        s.setOnClickListener { saveSlot() }
         saveBtn = s
-        top.addView(s, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, dp(42f)))
+        // Tlacitko Ulozit v obalu: po ulozeni se zvetsi na 1,3x a kolem vystreli zlutozelena vlna (3 oblouky po 20 % obvodu).
+        val saveHolder = FrameLayout(this)
+        saveHolder.clipChildren = false
+        saveHolder.addView(s, FrameLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, dp(42f)))
+        val saveWave = RingWaveView(this)
+        saveHolder.addView(saveWave, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
+        s.setOnClickListener {
+            if (saveSlot()) {
+                saveWave.fire(30f, 900L)
+                s.animate().cancel()
+                s.animate().scaleX(1.3f).scaleY(1.3f).setDuration(180L).withEndAction {
+                    s.animate().scaleX(1f).scaleY(1f).setDuration(260L).start()
+                }.start()
+            }
+        }
+        top.addView(saveHolder, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, dp(42f)))
         header.addView(top, rowParams())
 
         val bar = LinearLayout(this)
@@ -437,7 +451,7 @@ class AppearanceActivity : SettingsScreen() {
     override fun onSettingWillUpdate(key: String, value: Any) {
         // Zmizi-li kvuli zmene klavesy (rada cislic, tlacitko), zablikne jejich misto jeste pred zapisem.
         val removed = (key == "show_number_row" && value == false) ||
-            ((key == "emoji_key" || key == "macro_key") && value == "hidden")
+            (key == "macro_key" && value == "hidden")
         if (removed) {
             spotFor(key)
             spotDone = key
@@ -1052,7 +1066,6 @@ class AppearanceActivity : SettingsScreen() {
         val s = section(box, getString(R.string.sec_bottom_row))
         val places = listOf("left", "right", "hidden")
         val placeLabels = listOf(getString(R.string.key_place_left), getString(R.string.key_place_right), getString(R.string.key_place_hidden))
-        choiceRow(s, R.string.emoji_key_label, "emoji_key", places, placeLabels)
         choiceRow(s, R.string.macro_key_label, "macro_key", places, placeLabels)
         hintText(s, getString(R.string.bottom_row_hint))
         // Uprava vysky radku: klavesnice se ztmavi a u kazde rady je sipka, kterou jde rada posunout nahoru / dolu.
@@ -1384,7 +1397,6 @@ class AppearanceActivity : SettingsScreen() {
             "show_number_row", "digit_text_color", "digit_key_color", "digit_weight" -> kv.spotKeys { it.isDigit }
             "layout" -> kv.spotKeys { it.isLetter && (it.code == 'y'.code || it.code == 'z'.code) }
             "language" -> kv.spotKeys { it.kind == KeyboardView.KIND_SPACE }
-            "emoji_key" -> kv.spotKeys { it.kind == KeyboardView.KIND_EMOJI }
             "macro_key" -> kv.spotKeys { it.kind == KeyboardView.KIND_MACRO }
             "special_outline" -> kv.spotKeys(mode = KeyboardView.SPOT_OUTLINE) { it.kind == KeyboardView.KIND_SHIFT || it.kind == KeyboardView.KIND_MODE || it.kind == KeyboardView.KIND_BACKSPACE || it.kind == KeyboardView.KIND_EMOJI || it.kind == KeyboardView.KIND_MACRO }
             "accent_color" -> kv.spotKeys { it.kind == KeyboardView.KIND_ENTER || it.kind == KeyboardView.KIND_SHIFT }
@@ -1494,18 +1506,21 @@ class AppearanceActivity : SettingsScreen() {
             loadSlot(i)
             paintSlots()
             updateActions()
+            restoreIcon.spin()
         }
     }
 
-    private fun saveSlot() {
+    /** Ulozi aktualni vzhled do vybraneho profilu; vraci true, kdyz se ulozilo. */
+    private fun saveSlot(): Boolean {
         val i = chosenSlot
         if (i !in 0 until STYLE_SLOTS) {
             Toast.makeText(this, R.string.style_pick_first, Toast.LENGTH_SHORT).show()
-            return
+            return false
         }
         RustBridge.saveStyle(i)
         paintSlots()
         Toast.makeText(this, getString(R.string.style_saved, i + 1), Toast.LENGTH_SHORT).show()
+        return true
     }
 
     private fun paintPills() {
@@ -1969,7 +1984,6 @@ class AppearanceActivity : SettingsScreen() {
             "key_font" to R.string.tip_key_font,
             "label_weight" to R.string.tip_label_weight,
             "digit_weight" to R.string.tip_digit_weight,
-            "emoji_key" to R.string.tip_emoji_key,
             "macro_key" to R.string.tip_macro_key,
             "hint_color" to R.string.tip_hint_color,
             "custom_background" to R.string.tip_colors_base,

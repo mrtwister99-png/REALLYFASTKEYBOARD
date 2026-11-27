@@ -260,7 +260,6 @@ impl Engine {
             self.settings.show_number_row,
             self.settings.language_label(),
             layout::BottomKeys {
-                emoji: layout::KeyPlace::parse(&self.settings.emoji_key),
                 macros: layout::KeyPlace::parse(&self.settings.macro_key),
                 swap_mode_enter: self.settings.swap_mode_enter,
                 swap_shift_delete: self.settings.swap_shift_delete,

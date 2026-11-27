@@ -497,6 +497,10 @@ class KeyboardService : InputMethodService(), KeyboardView.Listener,
 
     override fun onKeyHold(key: KeyboardView.Key) {
         if (dictating) cancelDictation()
+        if (key.kind == KeyboardView.KIND_MACRO) {
+            showEmoji()
+            return
+        }
         val macro = key.holdMacro
         if (macro != null && !searchMode) insertMacro(macro)
     }
