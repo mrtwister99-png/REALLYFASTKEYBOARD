@@ -273,6 +273,7 @@ class KeyboardService : InputMethodService(), KeyboardView.Listener,
         val visible = s.showSuggestions || s.clipboardEnabled || searchMode
         bar?.visibility = if (visible) View.VISIBLE else View.GONE
         bar?.setClipboardVisible(s.clipboardEnabled)
+        bar?.setMicVisible(s.voiceInput && !passwordField)
         keyboard?.overflowTop = if (visible) barHeight else 0
     }
 
@@ -390,6 +391,10 @@ class KeyboardService : InputMethodService(), KeyboardView.Listener,
             composing.setLength(0)
             reattached = null
             currentInputConnection?.finishComposingText()
+        }
+        // Klepnuti (nebo posun kurzoru) na konec slova: slovo se znovu stane rozepsanym, aby se k nemu ukazaly podobna slova.
+        if (composing.isEmpty() && !dictating && !searchMode && candidatesStart == -1 && newSelStart == newSelEnd && newSelStart != oldSelStart) {
+            currentInputConnection?.let { reattachWord(it) }
         }
         if (composing.isEmpty() && SystemClock.uptimeMillis() - lastShiftTap > 600) updateShift()
         scheduleSuggestions()
@@ -539,6 +544,7 @@ class KeyboardService : InputMethodService(), KeyboardView.Listener,
         } else {
             val punctuation = out.length == 1 && out[0] in ".,!?:;"
             ic.beginBatchEdit()
+            fixAccents(ic)
             commitComposing(ic)
             // Po automaticke mezere (swipe / navrh) patri interpunkce tesne za slovo.
             if (punctuation && autoSpace && ic.endsWithBefore(" ")) {
@@ -563,6 +569,20 @@ class KeyboardService : InputMethodService(), KeyboardView.Listener,
         Log.w("fAZT", "rozepsane slovo v poli chybi, zahazuji: ${composing.length} znaku")
         composing.setLength(0)
         reattached = null
+    }
+
+    /**
+     * Mezernik / interpunkce: neznamemu rozepsanemu slovu bez diakritiky se diakritika doplni
+     * (kdyz -> když), je-li to zapnute. Znama slova a osobni slova se nemeni.
+     */
+    private fun fixAccents(ic: InputConnection) {
+        if (composing.isEmpty() || !settings.autoDiacritics) return
+        val typed = composing.toString()
+        val fixed = RustBridge.autoAccent(typed)
+        if (fixed.isEmpty() || fixed == typed) return
+        composing.setLength(0)
+        composing.append(fixed)
+        ic.setComposingText(composing, 1)
     }
 
     /** Potvrdi rozepsane slovo (a nauci se ho). */
@@ -608,6 +628,7 @@ class KeyboardService : InputMethodService(), KeyboardView.Listener,
         }
         ic.beginBatchEdit()
         if (composing.isNotEmpty()) {
+            fixAccents(ic)
             commitComposing(ic)
             ic.commitText(" ", 1)
         } else if (autoSpace) {
@@ -867,9 +888,31 @@ class KeyboardService : InputMethodService(), KeyboardView.Listener,
         if (composing.isNotEmpty()) {
             bar.setSuggestions(RustBridge.suggest(composing.toString(), "", false))
         } else {
-            val before = currentInputConnection?.getTextBeforeCursor(48, 0)?.toString() ?: ""
+            val ic = currentInputConnection
+            tapWord = ic?.let { midWordAt(it) }
+            val tw = tapWord
+            if (tw != null) {
+                // Kurzor uprostred slova (klepnuti do textu): navrhy jsou podobna slova k cemu slovu, ne dalsi slovo.
+                bar.setSuggestions(RustBridge.suggest(tw.word, "", false))
+                return
+            }
+            val before = ic?.getTextBeforeCursor(48, 0)?.toString() ?: ""
             bar.setSuggestions(RustBridge.suggest("", before, shift != KeyboardView.SHIFT_OFF))
         }
+    }
+
+    /** Slovo, v jehoz strede stoji kurzor (bez rozepsaneho slova): kolik znaku je pred a za kurzorem. */
+    private class TapWord(val before: Int, val after: Int, val word: String)
+
+    private var tapWord: TapWord? = null
+
+    private fun midWordAt(ic: InputConnection): TapWord? {
+        val b = ic.getTextBeforeCursor(REATTACH_MAX + 1, 0)?.toString() ?: return null
+        val a = ic.getTextAfterCursor(REATTACH_MAX + 1, 0)?.toString() ?: return null
+        val wb = b.takeLastWhile { it.isLetter() || it == '\'' }
+        val wa = a.takeWhile { it.isLetter() || it == '\'' }
+        if (wb.isEmpty() || wa.isEmpty() || wb.length + wa.length > REATTACH_MAX) return null
+        return TapWord(wb.length, wa.length, wb + wa)
     }
 
     override fun onSuggestionPicked(index: Int, word: String) {
@@ -909,10 +952,14 @@ class KeyboardService : InputMethodService(), KeyboardView.Listener,
         }
         ic.beginBatchEdit()
         val before: String
+        var midWordPicked = false
         if (composing.isNotEmpty()) {
-            before = ic.getTextBeforeCursor(64, 0)?.toString()?.removeSuffix(composing.toString()) ?: ""
+            val typed = composing.toString()
+            before = ic.getTextBeforeCursor(64, 0)?.toString()?.removeSuffix(typed) ?: ""
             composing.setLength(0)
             ic.commitText("$word ", 1) // nahradi rozepsane slovo
+            // Opravu (vybrane slovo neni jen doplneni napsaneho) si klavesnice pamatuje: priste ji nabidne drive.
+            if (!noLearning && !word.startsWith(typed, ignoreCase = true)) RustBridge.correction(typed, word)
             if (word == reattached) {
                 reattached = null
                 ic.endBatchEdit()
@@ -925,10 +972,18 @@ class KeyboardService : InputMethodService(), KeyboardView.Listener,
             reattached = null
         } else {
             val raw = ic.textBefore(64)
+            val tw = tapWord?.takeIf { ic.endsWithBefore(it.word.substring(0, it.before)) }
             // Editor (typicky po zalomeni radku) muze rozepsane slovo uz "ztratit": kurzor je stale tesne za
             // jeho zacatkem. Navrh pak nahradi tento zacatek, aby se slovo nezdvojilo.
             val tail = raw.takeLastWhile { it.isLetter() || it == '\'' }
-            if (tail.isNotEmpty() && tail.length <= REATTACH_MAX && word.startsWith(tail, ignoreCase = true)) {
+            if (tw != null) {
+                // Klepnuti doprostred slova: navrh nahradi cele slovo (kus pred i za kurzorem), mezera se nepridava.
+                before = raw.dropLast(tw.before)
+                ic.deleteSurroundingText(tw.before, tw.after)
+                ic.commitText(word, 1)
+                midWordPicked = true
+                if (!noLearning && !word.equals(tw.word, ignoreCase = true)) RustBridge.correction(tw.word, word)
+            } else if (tail.isNotEmpty() && tail.length <= REATTACH_MAX && word.startsWith(tail, ignoreCase = true)) {
                 Log.w("fAZT", "navrh nahradil ztracene slovo: tail=$tail word=$word")
                 before = raw.dropLast(tail.length)
                 ic.deleteSurroundingText(tail.length, 0)
@@ -940,7 +995,8 @@ class KeyboardService : InputMethodService(), KeyboardView.Listener,
         }
         ic.endBatchEdit()
         learn(word, before)
-        autoSpace = true
+        autoSpace = !midWordPicked
+        tapWord = null
         if (shift == KeyboardView.SHIFT_ONCE) setShift(KeyboardView.SHIFT_OFF)
         updateShift()
         scheduleSuggestions()
@@ -1539,6 +1595,11 @@ class KeyboardService : InputMethodService(), KeyboardView.Listener,
         clipPanel?.visibility = View.GONE
         panel.visibility = View.VISIBLE
         panel.reveal()
+    }
+
+    /** Mikrofon v liste: klepnutim se spusti diktovani stejne jako podrzenim Enteru. */
+    override fun onVoiceClicked() {
+        onVoiceStart()
     }
 
     override fun onClipboardClicked() {

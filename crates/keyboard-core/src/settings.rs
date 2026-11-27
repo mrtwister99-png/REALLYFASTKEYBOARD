@@ -61,6 +61,8 @@ pub struct Settings {
     pub swipe_enabled: bool,
     pub swipe_sensitivity: f32,
     pub autocorrect: bool,
+    /// Mezernik za neznamym slovem doplni diakritiku (kdyz -> když).
+    pub auto_diacritics: bool,
     pub predictions: bool,
     pub learn_from_typing: bool,
     pub vibration_ms: u32,
@@ -250,6 +252,7 @@ impl Settings {
             swipe_enabled: true,
             swipe_sensitivity: 1.0,
             autocorrect: true,
+            auto_diacritics: true,
             predictions: true,
             learn_from_typing: true,
             vibration_ms: 10,
@@ -772,11 +775,19 @@ mod tests {
     use super::*;
 
     #[test]
+    fn auto_diacritics_defaults_on_and_round_trips() {
+        assert!(Settings::default().auto_diacritics);
+        let s = Settings::from_json(r#"{"auto_diacritics":false}"#).unwrap();
+        assert!(!s.auto_diacritics);
+        assert!(!Settings::from_json(&s.to_json()).unwrap().auto_diacritics);
+    }
+
+    #[test]
     fn defaults_match_spec() {
         let s = Settings::default();
         assert_eq!(s.language, "cs+en");
         assert_eq!(s.layout, "qwertz");
-        assert!(s.swipe_enabled && s.autocorrect && s.predictions && s.learn_from_typing);
+        assert!(s.swipe_enabled && s.autocorrect && s.auto_diacritics && s.predictions && s.learn_from_typing);
         assert_eq!(s.swipe_sensitivity, 1.0);
         assert_eq!(s.vibration_ms, 10);
         assert!(!s.sound_enabled);

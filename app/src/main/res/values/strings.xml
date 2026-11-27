@@ -42,6 +42,7 @@
     <string name="back">Zpět</string>
     <string name="menu_emoji">Emoji</string>
     <string name="menu_settings">Nastavení klávesnice</string>
+    <string name="voice_start">Diktování</string>
     <string name="clipboard">Schránka</string>
     <string name="clipboard_empty">Schránka je prázdná. Zkopírovaný text se tu objeví automaticky; hesla se neukládají.</string>
     <string name="clear_all">Smazat vše</string>
@@ -80,6 +81,8 @@
 
     <string name="sec_typing">Psaní</string>
     <string name="autocorrect">Nabízet opravy překlepů</string>
+    <string name="auto_diacritics">Doplňovat diakritiku mezerníkem</string>
+    <string name="auto_diacritics_hint">Po mezerníku se neznámé slovo bez diakritiky opraví (např. kdyz → když). Známá slova se nemění.</string>
     <string name="predictions">Předpovídat další slovo</string>
     <string name="show_suggestions">Zobrazit lištu návrhů</string>
     <string name="auto_capitalize">Automaticky velká písmena</string>

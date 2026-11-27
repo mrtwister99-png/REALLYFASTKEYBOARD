@@ -383,6 +383,14 @@ pub fn suggest_composing(ctx: &Context, typed: &str) -> Vec<String> {
         }
     }
 
+    // Slova, kterymi uzivatel toto slovo uz drive nahrazoval (vybral je z listy): nabizeji se
+    // hned za napsanym slovem a s kazdym dalsim vyberem vys.
+    for key in [typed_lower.as_str(), typed] {
+        for (good, count) in ctx.user.corrections_from(key) {
+            pool.add(good.to_string(), CHOSEN_BASE + CHOSEN_STEP * count.min(CHOSEN_MAX_COUNT) as f32);
+        }
+    }
+
     let mut out: Vec<String> = Vec::with_capacity(MAX_SUGGESTIONS);
     if !exact_known {
         out.push(typed.to_string());
@@ -402,6 +410,36 @@ const USER_FREQ: u8 = 110;
 const PERSONAL_FLOOR: f32 = 0.4;
 /// Priplatek k skore slova, ktere je v osobnim slovniku.
 const PERSONAL_BONUS: f32 = 0.12;
+/// Skore slova, ktere uzivatel uz drive vybral misto napsaneho (zaklad + krok za kazdy vyber, nejvyse CHOSEN_MAX_COUNT).
+const CHOSEN_BASE: f32 = 0.8;
+const CHOSEN_STEP: f32 = 0.06;
+const CHOSEN_MAX_COUNT: u32 = 5;
+
+/// Automaticke doplneni diakritiky pri mezere: jen kdyz napsane slovo samo neni znamym slovem
+/// a existuje varianta lisici se jen diakritikou (kdyz -> když); vybere se ta nejcastejsi.
+pub fn auto_accent(ctx: &Context, typed: &str) -> Option<String> {
+    if typed.chars().count() < 2 {
+        return None;
+    }
+    let enc = charmap::encode_word(typed)?;
+    if ctx.user.iter_enc().any(|(_, _, wenc)| wenc == enc.as_slice()) {
+        return None; // osobni slovo se nemeni
+    }
+    let mut best: Option<(String, f32)> = None;
+    for dict in ctx.dicts {
+        for f in accent_variants(dict, &enc) {
+            if f.dist == 0 {
+                return None; // napsane slovo je znama podoba, nechat
+            }
+            let word = render(&f.enc, f.entry);
+            let q = quality(f.entry.freq, ctx.user.strength(&word, ctx.now));
+            if best.as_ref().is_none_or(|b| q > b.1) {
+                best = Some((word, q));
+            }
+        }
+    }
+    best.map(|(w, _)| apply_case(w, typed))
+}
 
 /// Predikce dalsiho slova po `prev` (prazdne `prev` = zacatek vety). `prev2` je slovo pred nim
 /// (prazdne, kdyz neni): dvojice slov ma prednost (trigramy), pak jedno slovo (bigramy),
@@ -502,6 +540,48 @@ mod tests {
         assert_eq!(v[0].dist, 3);
         let both: Vec<String> = accent_variants(&d, &enc("byt")).iter().map(|f| charmap::decode_word(&f.enc)).collect();
         assert!(both.contains(&"byt".to_string()) && both.contains(&"být".to_string()));
+    }
+
+    #[test]
+    fn auto_accent_fixes_only_unknown_words() {
+        let d = dict();
+        let u = UserDict::new();
+        let dicts = [&d];
+        let c = ctx(&dicts, &u);
+        assert_eq!(auto_accent(&c, "prilis").as_deref(), Some("příliš"));
+        assert_eq!(auto_accent(&c, "Prilis").as_deref(), Some("Příliš"));
+        assert_eq!(auto_accent(&c, "dobry").as_deref(), Some("dobrý"));
+        assert_eq!(auto_accent(&c, "byt"), None); // "byt" je samo znamy tvar
+        assert_eq!(auto_accent(&c, "den"), None);
+        assert_eq!(auto_accent(&c, "xyz"), None);
+        assert_eq!(auto_accent(&c, "a"), None);
+        assert_eq!(auto_accent(&c, "příliš"), None);
+    }
+
+    #[test]
+    fn auto_accent_leaves_personal_words() {
+        let d = dict();
+        let mut u = UserDict::new();
+        u.insert_word("prilis", 3, NOW);
+        let dicts = [&d];
+        assert_eq!(auto_accent(&ctx(&dicts, &u), "prilis"), None);
+    }
+
+    #[test]
+    fn chosen_replacement_is_offered_next_time() {
+        let d = dict();
+        let mut u = UserDict::new();
+        let dicts = [&d];
+        let before = suggest_composing(&ctx(&dicts, &u), "pesk");
+        u.note_correction("pesk", "klávesa");
+        let after = suggest_composing(&ctx(&dicts, &u), "pesk");
+        assert_eq!(after[0], "pesk");
+        assert_eq!(after[1], "klávesa", "{before:?} -> {after:?}");
+        // vic vyberu = vyssi skore, ale nikdy nad napsane slovo
+        for _ in 0..4 {
+            u.note_correction("pesk", "klávesa");
+        }
+        assert_eq!(suggest_composing(&ctx(&dicts, &u), "pesk")[..2], ["pesk", "klávesa"]);
     }
 
     #[test]

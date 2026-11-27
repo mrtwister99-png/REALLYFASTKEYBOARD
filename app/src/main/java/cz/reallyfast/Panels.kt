@@ -61,6 +61,7 @@ class IconView(context: Context, private val icon: Int) : View(context) {
         const val PIN = 4
         const val BACKSPACE = 5
         const val PLUS = 6
+        const val MIC = 7
     }
 
     var color: Int = 0xFFFFFFFF.toInt()
@@ -131,6 +132,15 @@ class IconView(context: Context, private val icon: Int) : View(context) {
                 canvas.drawPath(path, paint)
                 canvas.drawLine(cx, cy + s * 0.35f, cx, cy + s * 1.15f, paint)
             }
+            MIC -> {
+                // Mikrofon: kapsle, oblouk pod ni a nozicka.
+                rect.set(cx - s * 0.5f, cy - s * 1.15f, cx + s * 0.5f, cy + s * 0.35f)
+                canvas.drawRoundRect(rect, s * 0.5f, s * 0.5f, paint)
+                rect.set(cx - s * 0.95f, cy - s * 0.55f, cx + s * 0.95f, cy + s * 0.85f)
+                canvas.drawArc(rect, 0f, 180f, false, paint)
+                canvas.drawLine(cx, cy + s * 0.85f, cx, cy + s * 1.2f, paint)
+                canvas.drawLine(cx - s * 0.45f, cy + s * 1.2f, cx + s * 0.45f, cy + s * 1.2f, paint)
+            }
             BACKSPACE -> {
                 path.moveTo(cx - s * 1.3f, cy)
                 path.lineTo(cx - s * 0.5f, cy - s * 0.8f)
@@ -156,6 +166,7 @@ class SuggestionBar(context: Context, private var theme: Theme, private val call
     interface Callbacks {
         fun onSuggestionPicked(index: Int, word: String)
         fun onClipboardClicked()
+        fun onVoiceClicked()
         fun onAddWordClicked()
         fun onSearchResultPicked(emoji: String)
         fun onSearchClosed()
@@ -166,6 +177,7 @@ class SuggestionBar(context: Context, private var theme: Theme, private val call
     private val slots = ArrayList<TextView>(3)
     private val dividers = ArrayList<View>(2)
     private val clipButton = IconView(context, IconView.CLIPBOARD)
+    private val micButton = IconView(context, IconView.MIC)
     private val addButton = IconView(context, IconView.PLUS)
     private val queryView = TextView(context)
     private val resultsRow = LinearLayout(context)
@@ -216,6 +228,9 @@ class SuggestionBar(context: Context, private var theme: Theme, private val call
         clipButton.contentDescription = context.getString(R.string.clipboard)
         clipButton.setOnClickListener { callbacks.onClipboardClicked() }
         normalRow.addView(clipButton, LinearLayout.LayoutParams(dp(48f), LayoutParams.MATCH_PARENT))
+        micButton.contentDescription = context.getString(R.string.voice_start)
+        micButton.setOnClickListener { callbacks.onVoiceClicked() }
+        normalRow.addView(micButton, LinearLayout.LayoutParams(dp(40f), LayoutParams.MATCH_PARENT))
 
         searchRow.orientation = LinearLayout.HORIZONTAL
         searchRow.gravity = Gravity.CENTER_VERTICAL
@@ -245,9 +260,11 @@ class SuggestionBar(context: Context, private var theme: Theme, private val call
         for (d in dividers) d.setBackgroundColor(t.divider)
         for (tv in slots) tv.background = pressable(t.keyPressed, dp(10f).toFloat())
         clipButton.background = pressable(t.keyPressed, dp(10f).toFloat())
+        micButton.background = pressable(t.keyPressed, dp(10f).toFloat())
         addButton.background = pressable(t.keyPressed, dp(10f).toFloat())
         closeButton.background = pressable(t.keyPressed, dp(10f).toFloat())
         clipButton.color = t.barDim
+        micButton.color = t.barDim
         addButton.color = t.barDim
         closeButton.color = t.barDim
         queryView.setTextColor(t.barText)
@@ -299,6 +316,10 @@ class SuggestionBar(context: Context, private var theme: Theme, private val call
 
     fun setClipboardVisible(visible: Boolean) {
         clipButton.visibility = if (visible) VISIBLE else GONE
+    }
+
+    fun setMicVisible(visible: Boolean) {
+        micButton.visibility = if (visible) VISIBLE else GONE
     }
 
     fun showSearch(query: String, results: List<String>, hint: String = context.getString(R.string.emoji_search_hint)) {

@@ -394,8 +394,10 @@ abstract class SettingsScreen : BaseScreen() {
             val p = label(labels[i], 15f)
             p.setPadding(dp(14f), dp(11f), dp(14f), dp(11f))
             p.setOnClickListener {
-                onPick(values[i])
-                open(false)
+                keepInPlace(head) {
+                    onPick(values[i])
+                    open(false)
+                }
                 if (touchKey.isNotEmpty()) onSettingTouched(touchKey, col)
             }
             items.add(p)
@@ -405,12 +407,40 @@ abstract class SettingsScreen : BaseScreen() {
         }
         col.addView(list, rowParams())
         head.setOnClickListener {
-            open(list.visibility != View.VISIBLE)
+            keepInPlace(head) { open(list.visibility != View.VISIBLE) }
             if (touchKey.isNotEmpty()) onSettingTouched(touchKey, col)
         }
         box.addView(col, rowParams())
         paint()
         refreshers.add { paint() }
+    }
+
+    /**
+     * Rozbaleni a sbaleni vyberu meni vysku obsahu; radek `anchor` nesmi pri tom ujet po obrazovce
+     * (jinak by se po vyberu polozky obsah posunul o tolik, o kolik se seznam zkratil).
+     */
+    protected fun keepInPlace(anchor: View, change: () -> Unit) {
+        var p = anchor.parent
+        while (p != null && p !is android.widget.ScrollView) p = p.parent
+        val sv = p as? android.widget.ScrollView
+        if (sv == null) {
+            change()
+            return
+        }
+        val loc = IntArray(2)
+        anchor.getLocationInWindow(loc)
+        val before = loc[1]
+        change()
+        anchor.viewTreeObserver.addOnPreDrawListener(object : android.view.ViewTreeObserver.OnPreDrawListener {
+            override fun onPreDraw(): Boolean {
+                anchor.viewTreeObserver.removeOnPreDrawListener(this)
+                anchor.getLocationInWindow(loc)
+                val d = loc[1] - before
+                if (d == 0) return true
+                sv.scrollBy(0, d)
+                return false
+            }
+        })
     }
 
     private fun hex(c: Int): String = String.format("#%06X", c and 0xFFFFFF)

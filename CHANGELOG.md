@@ -2,6 +2,9 @@
 
 Jedna věta za verzi, nejnovější nahoře. Čísla verzí odpovídají commitům (`vX.Y: …`).
 
+## 1.39 – 2026-11-27
+Mikrofon v liště vedle schránky, lišta variant zůstává vidět při výběru své barvy, výběr písma, animace a efektu už po zavření neposune obsah, mezerník doplní diakritiku neznámému slovu (kdyz → když, nový přepínač v Psaní), klepnutí na slovo nabídne podobná slova (i uprostřed slova) a vybraná oprava se příště nabídne dřív, test výchozího rozložení kláves.
+
 ## 1.38 – 2026-11-27
 Po odeslání zprávy se rozepsané slovo už nevrací do prázdného pole (Messenger), bublina zůstává vidět při výběru její barvy, ukázka tahu běží dokola po řadě od a do l i s barvami průchodu, druhá barva písmen po tahu se střídá po písmenech, odstraněna druhá barva obrysu čísel a nadbytečné druhé barvy ze Swipe II a Animace po kliknutí III, Animace po kliknutí II má druhou barvu klávesy a znaku, barva nápovědy je jen v Barvách II.
 

@@ -46,6 +46,7 @@
     <string name="back">Back</string>
     <string name="menu_emoji">Emoji</string>
     <string name="menu_settings">Keyboard settings</string>
+    <string name="voice_start">Dictation</string>
     <string name="clipboard">Clipboard</string>
     <string name="clipboard_empty">Clipboard is empty. Copied text shows up here automatically; passwords are never stored.</string>
     <string name="clear_all">Clear all</string>
@@ -84,6 +85,8 @@
 
     <string name="sec_typing">Typing</string>
     <string name="autocorrect">Suggest typo corrections</string>
+    <string name="auto_diacritics">Add accents on space</string>
+    <string name="auto_diacritics_hint">After a space, an unknown word without accents is fixed (e.g. kdyz → když). Known words stay as typed.</string>
     <string name="predictions">Predict the next word</string>
     <string name="show_suggestions">Show suggestion bar</string>
     <string name="auto_capitalize">Auto-capitalization</string>

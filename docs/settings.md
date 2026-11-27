@@ -29,7 +29,8 @@ Počet nastavení: **94**.
 | `swipe_sensitivity` | `1.0` | 0,5 – 1,5 | Citlivost psaní tahem. | Psaní |
 | `swipe_adapt` | `true` | zap / vyp | Přizpůsobení tahů tvému stylu: posouvá středy kláves podle potvrzených tahů. | Psaní |
 | `swipe_log` | `false` | zap / vyp | Záznam tahů pro ladění vah (jen v zařízení, drží se posledních 1000 tahů). | Hlavní obrazovka → Záloha a ladění |
-| `autocorrect` | `true` | zap / vyp | Automatická oprava překlepů. | Psaní |
+| `autocorrect` | `true` | zap / vyp | Nabízení oprav překlepů v liště (nic se samo nepřepisuje). | Psaní |
+| `auto_diacritics` | `true` | zap / vyp | Mezerník (nebo interpunkce) za neznámým slovem bez diakritiky ho opraví na jedinou podobu s diakritikou (kdyz → když). Známá a osobní slova se nemění. | Psaní |
 | `predictions` | `true` | zap / vyp | Predikce dalšího slova. | Psaní |
 | `learn_from_typing` | `true` | zap / vyp | Učení nových slov z psaní. | Psaní |
 | `show_suggestions` | `true` | zap / vyp | Lišta s návrhy nad klávesnicí. | Psaní |

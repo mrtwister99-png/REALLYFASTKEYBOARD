@@ -554,6 +554,69 @@ mod tests {
         }
     }
 
+    /// Znaky klaves (KIND_CHAR) jednoho radku zleva doprava.
+    fn row_chars(l: &Layout, row: usize) -> String {
+        let mut keys: Vec<&Key> = l.keys.iter().filter(|k| (k.y / l.row_h).round() as usize == row && k.kind == KIND_CHAR).collect();
+        keys.sort_by(|a, b| a.vx.total_cmp(&b.vx));
+        keys.iter().map(|k| char::from_u32(k.code as u32).unwrap()).collect()
+    }
+
+    #[test]
+    fn default_layouts_have_exact_keys_in_every_mode() {
+        for (qwertz, top, bottom) in [(true, "qwertzuiop", "yxcvbnm"), (false, "qwertyuiop", "zxcvbnm")] {
+            for number_row in [true, false] {
+                let l = Layout::build(1440.0, 1000.0, qwertz, MODE_LETTERS, number_row, "x");
+                let off = if number_row { 1 } else { 0 };
+                if number_row {
+                    assert_eq!(row_chars(&l, 0), "1234567890");
+                }
+                // Dolni rada pismen je mezi Shift a Backspace, spodni rada ma carku a tecku.
+                assert_eq!(row_chars(&l, off), top);
+                assert_eq!(row_chars(&l, off + 1), "asdfghjkl");
+                assert_eq!(row_chars(&l, off + 2), bottom);
+                assert_eq!(row_chars(&l, off + 3), ",.");
+            }
+        }
+        let s1 = Layout::build(1440.0, 1000.0, true, MODE_SYMBOLS, true, "x");
+        assert_eq!(row_chars(&s1, 0), "1234567890");
+        assert_eq!(row_chars(&s1, 1), "@#&_-+()/*");
+        assert_eq!(row_chars(&s1, 2), "\"':;!?€");
+        let s2 = Layout::build(1440.0, 1000.0, true, MODE_SYMBOLS2, true, "x");
+        assert_eq!(row_chars(&s2, 0), "~`|•√π÷×§∆");
+        assert_eq!(row_chars(&s2, 1), "£$€¥^°={}\\");
+        assert_eq!(row_chars(&s2, 2), "%[]<>≠≈");
+    }
+
+    #[test]
+    fn every_default_key_types_what_it_shows() {
+        for qwertz in [true, false] {
+            for mode in [MODE_LETTERS, MODE_SYMBOLS, MODE_SYMBOLS2] {
+                for number_row in [true, false] {
+                    let l = Layout::build(1440.0, 1000.0, qwertz, mode, number_row, "x");
+                    let mut seen = std::collections::BTreeSet::new();
+                    for k in l.keys.iter().filter(|k| k.kind == KIND_CHAR) {
+                        let c = char::from_u32(k.code as u32).unwrap();
+                        assert_eq!(k.label, c.to_string(), "popisek a znak klavesy se lisi (mode {mode})");
+                        assert_eq!(k.src, k.code);
+                        assert!(seen.insert(k.code) || c == ',' || c == '.', "klavesa {c} je v rezimu {mode} dvakrat");
+                        // Varianty dlouheho stisku: bez opakovani a bez vlastniho znaku klavesy.
+                        let mut alts = std::collections::BTreeSet::new();
+                        for a in k.alts.chars() {
+                            assert!(alts.insert(a), "varianta {a} u {c} je dvakrat");
+                            assert_ne!(a, c, "varianta {a} je stejny znak jako klavesa");
+                        }
+                        // Pismena mimo cislicovou radu maji varianty jen s diakritikou (a cislici na horni rade).
+                        if mode == MODE_LETTERS && c.is_ascii_lowercase() {
+                            for a in k.alts.chars().filter(|a| !a.is_ascii_digit()) {
+                                assert!(letter_alts(c).contains(a), "{c}: neocekavana varianta {a}");
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     #[test]
     fn symbols_layout_has_digits_and_back_switch() {
         let l = Layout::build(1440.0, 1000.0, true, MODE_SYMBOLS, true, "x");

@@ -26,6 +26,7 @@ class Settings(val json: JSONObject) {
     val showSuggestions: Boolean get() = json.optBoolean("show_suggestions", true)
     val autoCapitalize: Boolean get() = json.optBoolean("auto_capitalize", true)
     val doubleSpaceToPeriod: Boolean get() = json.optBoolean("double_space_to_period", true)
+    val autoDiacritics: Boolean get() = json.optBoolean("auto_diacritics", true)
     val longPressDelayMs: Int get() = json.optInt("long_press_delay_ms", 250)
     val customBackground: String get() = json.optString("custom_background", "#111113")
     val customKey: String get() = json.optString("custom_key", "#26262B")

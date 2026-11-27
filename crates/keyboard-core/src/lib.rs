@@ -82,6 +82,7 @@ pub const OP_VOICE_DELETE: i32 = 47;
 pub const OP_VOICE_SPLIT: i32 = 48;
 pub const OP_STYLE_SAVE: i32 = 49;
 pub const OP_STYLE_LOAD: i32 = 50;
+pub const OP_AUTO_ACCENT: i32 = 51;
 
 /// Priznaky pro swipe / suggest.
 pub const FLAG_CAPITALIZE: i64 = 1;
@@ -284,6 +285,22 @@ impl Engine {
             }
             out
         }
+    }
+
+    /// Automaticke doplneni diakritiky pro slovo napsane pred mezerou; prazdny retezec = nechat jak je.
+    pub fn auto_accent(&self, typed: &str, now: i64) -> String {
+        if !self.settings.auto_diacritics {
+            return String::new();
+        }
+        let dicts = active(&self.dicts, &self.settings);
+        let ctx = predict::Context {
+            dicts: &dicts,
+            user: &self.user,
+            now,
+            autocorrect: self.settings.autocorrect,
+            predictions: self.settings.predictions,
+        };
+        predict::auto_accent(&ctx, typed).unwrap_or_default()
     }
 
     /// Sjednoti velikost pismen: zname slovo podle slovniku, nezname na zacatku vety malymi.
@@ -765,6 +782,7 @@ pub fn dispatch(op: i32, a: &[u8], b: &[u8], num: i64) -> Vec<u8> {
         }
         OP_VOICE_SPLIT => e.voice_split(&sa).into_bytes(),
         OP_SHORTCUT => e.expand_shortcut(&sa).as_bytes().to_vec(),
+        OP_AUTO_ACCENT => e.auto_accent(&sa, now).into_bytes(),
         OP_CORRECTION => {
             e.note_correction(&sa, &sb);
             Vec::new()

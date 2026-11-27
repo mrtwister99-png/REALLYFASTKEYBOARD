@@ -67,6 +67,7 @@ object RustBridge {
     private const val OP_VOICE_SPLIT = 48
     private const val OP_STYLE_SAVE = 49
     private const val OP_STYLE_LOAD = 50
+    private const val OP_AUTO_ACCENT = 51
 
     const val FLAG_CAPITALIZE = 1
     const val FLAG_PREVIEW = 2
@@ -355,6 +356,9 @@ object RustBridge {
 
     /** Text makra pro napsanou zkratku; prazdny retezec, kdyz zadna nesedi. */
     fun expandShortcut(token: String): String = call(OP_SHORTCUT, token)
+
+    /** Slovo s doplnenou diakritikou (kdyz -> když), nebo prazdny retezec, kdyz se nema menit. */
+    fun autoAccent(word: String): String = call(OP_AUTO_ACCENT, word)
 
     // ------------------------------------------------------------------ hlasove povely
 

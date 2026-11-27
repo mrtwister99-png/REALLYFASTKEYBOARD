@@ -3146,7 +3146,15 @@ class KeyboardView(context: Context) : View(context) {
         val k = demoLetter('a')?.takeIf { it.alts.isNotEmpty() } ?: keys.firstOrNull { it.kind == KIND_CHAR && it.alts.isNotEmpty() } ?: return
         handler.removeCallbacksAndMessages(demoToken)
         showAltsDemo(k, k.alts)
-        handler.postAtTime({ hideAltsDemo() }, demoToken, SystemClock.uptimeMillis() + DEMO_ALTS_MS)
+        if (!altsHeld) handler.postAtTime({ hideAltsDemo() }, demoToken, SystemClock.uptimeMillis() + DEMO_ALTS_MS)
+    }
+
+    /** Lista variant zustane videt, dokud je `on` (vyber barvy listy v nastaveni); po vypnuti zmizi. */
+    private var altsHeld = false
+
+    fun holdAlts(on: Boolean) {
+        altsHeld = on
+        if (on) demoAlts() else hideAltsDemo()
     }
 
     /**

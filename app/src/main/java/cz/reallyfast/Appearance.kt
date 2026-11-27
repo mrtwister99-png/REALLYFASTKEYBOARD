@@ -417,7 +417,10 @@ class AppearanceActivity : SettingsScreen() {
 
     override fun onColorPickerState(key: String, open: Boolean) {
         if (open) pickerKey = key else if (pickerKey == key) pickerKey = ""
-        if (key == "popup_color" && ::previewHost.isInitialized && !explicitTest() && !adjusting && previewOpen) preview.holdPopup(open)
+        if (::previewHost.isInitialized && !explicitTest() && !adjusting && previewOpen) {
+            if (key == "popup_color") preview.holdPopup(open)
+            if (key == "alts_color") preview.holdAlts(open)
+        }
     }
 
     override fun onSettingTouched(key: String, anchor: View) {
@@ -1214,9 +1217,11 @@ class AppearanceActivity : SettingsScreen() {
                 item.addView(sample, rowParams())
                 item.addView(name, rowParams())
                 item.setOnClickListener {
-                    update(key, f)
-                    list.visibility = View.GONE
-                    arrow.text = "\u203A"
+                    keepInPlace(head) {
+                        update(key, f)
+                        list.visibility = View.GONE
+                        arrow.text = "›"
+                    }
                     onSettingTouched(key, col)
                 }
                 val lp = rowParams()
@@ -1230,9 +1235,11 @@ class AppearanceActivity : SettingsScreen() {
         }
         head.setOnClickListener {
             val open = list.visibility != View.VISIBLE
-            if (open && items.isEmpty()) fill()
-            list.visibility = if (open) View.VISIBLE else View.GONE
-            arrow.text = if (open) "\u2304" else "\u203A"
+            keepInPlace(head) {
+                if (open && items.isEmpty()) fill()
+                list.visibility = if (open) View.VISIBLE else View.GONE
+                arrow.text = if (open) "⌄" else "›"
+            }
             onSettingTouched(key, col)
         }
         box.addView(col, rowParams())
@@ -1281,6 +1288,10 @@ class AppearanceActivity : SettingsScreen() {
         // Pri vyberu barvy bubliny bublina zustava videt (po zmene se jen obnovi).
         if (pickerKey == "popup_color" && demoKind(key) == DEMO_POPUP) {
             preview.holdPopup(true)
+            return
+        }
+        if (pickerKey == "alts_color" && demoKind(key) == DEMO_ALTS) {
+            preview.holdAlts(true)
             return
         }
         // V kategoriich animaci bezi opakovana ukazka: po zmene se jen rozbehne hned.

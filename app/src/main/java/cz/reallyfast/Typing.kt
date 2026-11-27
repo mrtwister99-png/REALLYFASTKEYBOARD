@@ -22,6 +22,7 @@ class TypingActivity : SettingsScreen() {
         // Psani
         var box = section(container, getString(R.string.sec_typing))
         switchRow(box, R.string.autocorrect, "autocorrect")
+        switchRow(box, R.string.auto_diacritics, "auto_diacritics", hintRes = R.string.auto_diacritics_hint)
         switchRow(box, R.string.predictions, "predictions")
         switchRow(box, R.string.show_suggestions, "show_suggestions")
         switchRow(box, R.string.auto_capitalize, "auto_capitalize")
