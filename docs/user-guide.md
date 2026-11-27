@@ -116,7 +116,7 @@ Klepnutím na `?123`/Enter a na Shift/⌫ prohodíš jejich pozice (vždy se zep
 Hlavní obrazovka → **Záloha a ladění**:
 
 - **Zálohovat do souboru** uloží jeden soubor s nastavením a styly, osobním slovníkem, opravami, makry, hlasovými povely a přizpůsobením tahů. Historie schránky v něm není.
-- **Obnovit ze souboru** se nejdřív zeptá. Nastavení přepíše; slovník, opravy a makra sloučí. Starší záloha bez uložených stylů tvoje styly nezmění.
+- **Obnovit ze souboru** se nejdřív zeptá. Nastavení přepíše; slovník, opravy a makra sloučí. Uložené styly 1–5 se také sloučí: tvoje zůstanou, styl ze zálohy se uloží na své číslo (je-li volné), jinak na první volný slot. Když je všech 5 obsazených, aplikace se zeptá, který slot smazat a nahradit stylem ze zálohy (nebo styl přeskočit). Starší záloha bez uložených stylů tvoje styly nezmění.
 
 ## 11. Problémy a rady
 

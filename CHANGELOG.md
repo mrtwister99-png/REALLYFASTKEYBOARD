@@ -2,6 +2,9 @@
 
 Jedna věta za verzi, nejnovější nahoře. Čísla verzí odpovídají commitům (`vX.Y: …`).
 
+## 1.40 – 2026-11-27
+Obnova ze zálohy sloučí uložené styly: tvoje zůstanou, styl ze zálohy se uloží na své číslo (je-li volné) nebo na první volný slot, a když je všech 5 obsazených, zeptá se, který slot nahradit; testovací skript ukládá log spolehlivě po Ctrl+C.
+
 ## 1.39 – 2026-11-27
 Mikrofon v liště vedle schránky, lišta variant zůstává vidět při výběru své barvy, výběr písma, animace a efektu už po zavření neposune obsah, mezerník doplní diakritiku neznámému slovu (kdyz → když, nový přepínač v Psaní), klepnutí na slovo nabídne podobná slova (i uprostřed slova) a vybraná oprava se příště nabídne dřív, test výchozího rozložení kláves.
 

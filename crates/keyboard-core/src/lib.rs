@@ -83,6 +83,9 @@ pub const OP_VOICE_SPLIT: i32 = 48;
 pub const OP_STYLE_SAVE: i32 = 49;
 pub const OP_STYLE_LOAD: i32 = 50;
 pub const OP_AUTO_ACCENT: i32 = 51;
+pub const OP_PENDING_STYLES: i32 = 52;
+pub const OP_PLACE_STYLE: i32 = 53;
+pub const OP_DISCARD_STYLES: i32 = 54;
 
 /// Priznaky pro swipe / suggest.
 pub const FLAG_CAPITALIZE: i64 = 1;
@@ -114,6 +117,8 @@ pub struct Engine {
     voice: Vec<voice::VoiceCommand>,
     calibration: swipe::Calibration,
     swipe_pending: Option<PendingSwipe>,
+    /// Styly ze zalohy, pro ktere nebylo misto (vsech 5 slotu obsazeno): ceka se na volbu uzivatele.
+    pending_styles: Vec<serde_json::Value>,
 }
 
 fn active<'a>(dicts: &'a [Dictionary], s: &Settings) -> Vec<&'a Dictionary> {
@@ -147,6 +152,7 @@ impl Engine {
             decoder: SwipeDecoder::new(),
             geom: None,
             swipe_pending: None,
+            pending_styles: Vec::new(),
         }
     }
 
@@ -202,6 +208,30 @@ impl Engine {
             *t = snap;
             self.set_settings(s);
         }
+    }
+
+    /// Styly ze zalohy, pro ktere nebylo misto (cekaji na volbu, ktery slot prepsat).
+    pub fn pending_styles(&self) -> &[serde_json::Value] {
+        &self.pending_styles
+    }
+
+    /// Prvni cekajici styl ulozi do slotu `slot` (puvodni obsah se prepise) a odebere ho z fronty.
+    pub fn place_pending_style(&mut self, slot: i64) {
+        let Some(i) = style_index(slot) else { return };
+        if self.pending_styles.is_empty() {
+            return;
+        }
+        let style = self.pending_styles.remove(0);
+        let mut s = self.settings.clone();
+        if let Some(t) = s.style_slots.as_array_mut().and_then(|a| a.get_mut(i)) {
+            *t = style;
+            self.set_settings(s);
+        }
+    }
+
+    /// Zahodi vsechny cekajici styly.
+    pub fn discard_pending_styles(&mut self) {
+        self.pending_styles.clear();
     }
 
     /// Nacte vzhled ze slotu stylu; ostatni nastaveni zustane. Jiny index nic nemeni.
@@ -561,9 +591,16 @@ impl Engine {
         }
         if let Some(v) = data.settings.as_ref().filter(|v| v.is_object()) {
             if let Some(mut s) = Settings::from_json(&v.to_string()) {
-                // Starsi zaloha bez slotu stylu: sloty v telefonu zustanou (u nove instalace vychozi).
+                // Sloty stylu se slucuji: co mam v telefonu, zustane; styl ze zalohy se ulozi na svoje misto,
+                // je-li volne, jinak na jiny volny slot. Na co nezbylo misto, ceka na volbu uzivatele.
+                // Starsi zaloha bez slotu stylu nic nepridava.
+                self.pending_styles.clear();
                 if v.get("style_slots").is_none() {
                     s.style_slots = self.settings.style_slots.clone();
+                } else {
+                    let (merged, left) = merge_style_slots(&self.settings.style_slots, &s.style_slots);
+                    s.style_slots = merged;
+                    self.pending_styles = left;
                 }
                 self.set_settings(s);
             }
@@ -672,6 +709,44 @@ static ENGINE: Mutex<Option<Engine>> = Mutex::new(None);
 fn engine() -> MutexGuard<'static, Option<Engine>> {
     // Otraveny zamek (panika v jinem vlakne) nesmi klavesnici vyradit.
     ENGINE.lock().unwrap_or_else(|e| e.into_inner())
+}
+
+/// Slouci sloty stylu z prave obnovene zalohy (`imported`) s tema v telefonu (`current`).
+/// Slot je volny, kdyz se rovna vychozimu. Styl ze zalohy se ulozi na svoje cislo, je-li tam volno
+/// (nebo uz stejny styl je), jinak na prvni volny slot; styl, pro ktery uz neni misto, se vrati v druhem poli.
+fn merge_style_slots(current: &serde_json::Value, imported: &serde_json::Value) -> (serde_json::Value, Vec<serde_json::Value>) {
+    let defaults = Settings::default().style_slots;
+    let (Some(def), Some(cur), Some(imp)) = (defaults.as_array(), current.as_array(), imported.as_array()) else {
+        return (current.clone(), Vec::new());
+    };
+    let mut out: Vec<serde_json::Value> = cur.clone();
+    let free = |out: &[serde_json::Value], k: usize| out.get(k) == def.get(k);
+    let mut waiting: Vec<usize> = Vec::new();
+    // 1. pruchod: kazdy styl na svoje misto (nebo uz tam stejny je).
+    for j in 0..imp.len().min(settings::STYLE_SLOTS) {
+        let slot = &imp[j];
+        if Some(slot) == def.get(j) || out.contains(slot) {
+            continue;
+        }
+        if free(&out, j) {
+            out[j] = slot.clone();
+        } else {
+            waiting.push(j);
+        }
+    }
+    // 2. pruchod: kolidujici styly na prvni volny slot, jinak do fronty.
+    let mut left = Vec::new();
+    for j in waiting {
+        let slot = &imp[j];
+        if out.contains(slot) {
+            continue;
+        }
+        match (0..out.len()).find(|&k| free(&out, k)) {
+            Some(k) => out[k] = slot.clone(),
+            None => left.push(slot.clone()),
+        }
+    }
+    (serde_json::Value::Array(out), left)
 }
 
 /// Index slotu stylu z JNI cisla; mimo rozsah None.
@@ -851,6 +926,15 @@ pub fn dispatch(op: i32, a: &[u8], b: &[u8], num: i64) -> Vec<u8> {
             e.save_style(num);
             e.settings().to_json().into_bytes()
         }
+        OP_PENDING_STYLES => serde_json::to_vec(e.pending_styles()).unwrap_or_default(),
+        OP_PLACE_STYLE => {
+            e.place_pending_style(num);
+            e.settings().to_json().into_bytes()
+        }
+        OP_DISCARD_STYLES => {
+            e.discard_pending_styles();
+            Vec::new()
+        }
         OP_STYLE_LOAD => {
             e.load_style(num);
             e.settings().to_json().into_bytes()
@@ -897,6 +981,77 @@ mod tests {
         let mut b = Engine::with_storage(Storage::in_memory(), NOW);
         assert!(b.import_backup(&json) >= 0);
         assert_eq!(b.settings().style_slots, e.settings().style_slots);
+    }
+
+    /// Engine s ulozenym vzhledem (polomer `radius`) ve slotu `slot`.
+    fn engine_with_style(slot: i64, radius: u32) -> Engine {
+        let mut e = Engine::with_storage(Storage::in_memory(), NOW);
+        let mut s = e.settings().clone();
+        s.key_radius_dp = radius;
+        e.set_settings(s);
+        e.save_style(slot);
+        e
+    }
+
+    #[test]
+    fn import_keeps_existing_style_and_adds_other_slot() {
+        // v telefonu je styl na slotu 1, zaloha ma styl na slotu 3
+        let mut phone = engine_with_style(0, 12);
+        let mine = phone.settings().style_slots[0].clone();
+        let backup = engine_with_style(2, 18).export_backup(NOW);
+        assert!(phone.import_backup(&backup) >= 0);
+        let slots = phone.settings().style_slots.clone();
+        assert_eq!(slots[0], mine);
+        assert_eq!(slots[2]["key_radius_dp"], 18);
+        assert!(phone.pending_styles().is_empty());
+    }
+
+    #[test]
+    fn import_to_taken_slot_goes_to_first_free_slot() {
+        let mut phone = engine_with_style(2, 12);
+        let mine = phone.settings().style_slots[2].clone();
+        let backup = engine_with_style(2, 18).export_backup(NOW);
+        assert!(phone.import_backup(&backup) >= 0);
+        let slots = phone.settings().style_slots.clone();
+        assert_eq!(slots[2], mine, "puvodni styl zustane");
+        // prvni volny slot je 1 (index 0), ten se rovna vychozimu
+        assert_eq!(slots[0]["key_radius_dp"], 18);
+        assert!(phone.pending_styles().is_empty());
+    }
+
+    #[test]
+    fn import_of_identical_style_is_not_duplicated() {
+        let mut phone = engine_with_style(1, 15);
+        let before = phone.settings().style_slots.clone();
+        let backup = engine_with_style(1, 15).export_backup(NOW);
+        assert!(phone.import_backup(&backup) >= 0);
+        assert_eq!(phone.settings().style_slots, before);
+        assert!(phone.pending_styles().is_empty());
+    }
+
+    #[test]
+    fn import_with_all_slots_taken_waits_for_choice() {
+        let mut phone = Engine::with_storage(Storage::in_memory(), NOW);
+        for i in 0..settings::STYLE_SLOTS {
+            let mut s = phone.settings().clone();
+            s.key_radius_dp = 11 + i as u32;
+            phone.set_settings(s);
+            phone.save_style(i as i64);
+        }
+        let full = phone.settings().style_slots.clone();
+        let backup = engine_with_style(0, 21).export_backup(NOW);
+        assert!(phone.import_backup(&backup) >= 0);
+        assert_eq!(phone.settings().style_slots, full, "nic se neprepsalo");
+        assert_eq!(phone.pending_styles().len(), 1);
+        // volba: nahradit slot 4 (index 3)
+        phone.place_pending_style(3);
+        assert_eq!(phone.settings().style_slots[3]["key_radius_dp"], 21);
+        assert_eq!(phone.settings().style_slots[0], full[0]);
+        assert!(phone.pending_styles().is_empty());
+        // preskoceni: fronta se zahodi
+        assert!(phone.import_backup(&backup) >= 0);
+        phone.discard_pending_styles();
+        assert!(phone.pending_styles().is_empty());
     }
 
     #[test]

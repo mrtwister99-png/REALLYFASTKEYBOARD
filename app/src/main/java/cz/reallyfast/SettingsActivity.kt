@@ -378,12 +378,41 @@ class SettingsActivity : SettingsScreen() {
                 val n = RustBridge.importBackup(json)
                 if (n >= 0) {
                     Toast.makeText(this, getString(R.string.backup_restored, n), Toast.LENGTH_SHORT).show()
-                    recreate()
+                    askPendingStyles()
                 } else {
                     Toast.makeText(this, R.string.backup_restore_failed, Toast.LENGTH_SHORT).show()
                 }
             }
             .setNegativeButton(R.string.cancel, null)
+            .show()
+    }
+
+    /**
+     * Styly ze zalohy, pro ktere nezbylo misto (vsech 5 slotu je obsazeno): zepta se, ktery slot smazat a nahradit.
+     * Kazdy cekajici styl se vyridi zvlast; po poslednim se obrazovka postavi znovu.
+     */
+    private fun askPendingStyles() {
+        if (RustBridge.pendingStyleCount() == 0) {
+            recreate()
+            return
+        }
+        var picked = 0
+        val names = Array(5) { getString(R.string.style_slot_n, it + 1) }
+        AlertDialog.Builder(this)
+            .setMessage(R.string.style_import_full)
+            .setSingleChoiceItems(names, 0) { _, which -> picked = which }
+            .setPositiveButton(R.string.style_import_replace) { _, _ ->
+                RustBridge.placePendingStyle(picked)
+                askPendingStyles()
+            }
+            .setNegativeButton(R.string.style_import_skip) { _, _ ->
+                RustBridge.discardPendingStyles()
+                recreate()
+            }
+            .setOnCancelListener {
+                RustBridge.discardPendingStyles()
+                recreate()
+            }
             .show()
     }
 

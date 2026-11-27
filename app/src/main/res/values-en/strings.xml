@@ -146,7 +146,7 @@
     <string name="backup_hint">The backup contains settings, personal dictionary, corrections, macros, swipe adaptation and the swipe log. Clipboard history is not included. The backup is not encrypted, keep it somewhere safe.</string>
     <string name="backup_exported">Backup saved</string>
     <string name="backup_export_failed">Could not save the backup</string>
-    <string name="backup_restore_confirm">Restore from backup? Settings will be overwritten, dictionary and macros will be merged with what you already have.</string>
+    <string name="backup_restore_confirm">Restore from backup? Settings will be overwritten (saved styles 1–5 are merged with yours), dictionary and macros will be merged with what you already have.</string>
     <string name="backup_restore">Restore</string>
     <string name="backup_restored">Restored, accepted words: %1$d</string>
     <string name="backup_restore_failed">The file is not a valid fAZT! backup</string>
@@ -225,6 +225,9 @@
     <string name="color_default">Default</string>
     <string name="color_rainbow">Rainbow</string>
     <string name="style_slot_n">Style %1$d</string>
+    <string name="style_import_full">All 5 styles are taken. Do you want to delete one and replace it with the style from the backup\?</string>
+    <string name="style_import_replace">Replace</string>
+    <string name="style_import_skip">Skip</string>
     <string name="style_saved">Look saved to style %1$d</string>
     <string name="style_loaded">Style %1$d loaded</string>
     <string name="style_pick_first">First select style 1–5 above</string>

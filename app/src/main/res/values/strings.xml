@@ -142,7 +142,7 @@
     <string name="backup_hint">Záloha obsahuje nastavení, osobní slovník, opravy, makra, přizpůsobení swipe a záznam tahů. Historie schránky v ní není. Záloha není šifrovaná, ukládej ji na bezpečné místo.</string>
     <string name="backup_exported">Záloha uložena</string>
     <string name="backup_export_failed">Zálohu se nepodařilo uložit</string>
-    <string name="backup_restore_confirm">Obnovit ze zálohy? Nastavení se přepíše, slovník a makra se sloučí s tím, co už máš.</string>
+    <string name="backup_restore_confirm">Obnovit ze zálohy? Nastavení se přepíše (uložené styly 1–5 se sloučí s těmi, co už máš), slovník a makra se sloučí s tím, co už máš.</string>
     <string name="backup_restore">Obnovit</string>
     <string name="backup_restored">Obnoveno, přijatých slov: %1$d</string>
     <string name="backup_restore_failed">Soubor není platná záloha fAZT!</string>
@@ -225,6 +225,9 @@
     <string name="color_default">Výchozí</string>
     <string name="color_rainbow">Duha</string>
     <string name="style_slot_n">Styl %1$d</string>
+    <string name="style_import_full">Všech 5 stylů je obsazených. Chceš některý smazat a nahradit ho stylem ze zálohy?</string>
+    <string name="style_import_replace">Nahradit</string>
+    <string name="style_import_skip">Přeskočit</string>
     <string name="style_saved">Vzhled uložen do stylu %1$d</string>
     <string name="style_loaded">Načten styl %1$d</string>
     <string name="style_pick_first">Nejdřív nahoře vyberte styl 1–5</string>

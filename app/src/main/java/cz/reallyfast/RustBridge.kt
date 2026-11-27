@@ -68,6 +68,9 @@ object RustBridge {
     private const val OP_STYLE_SAVE = 49
     private const val OP_STYLE_LOAD = 50
     private const val OP_AUTO_ACCENT = 51
+    private const val OP_PENDING_STYLES = 52
+    private const val OP_PLACE_STYLE = 53
+    private const val OP_DISCARD_STYLES = 54
 
     const val FLAG_CAPITALIZE = 1
     const val FLAG_PREVIEW = 2
@@ -464,6 +467,21 @@ object RustBridge {
         val n = call(OP_BACKUP_IMPORT, json).toIntOrNull() ?: -1
         if (n >= 0) settingsChanged(call(OP_GET_SETTINGS))
         return n
+    }
+
+    /** Kolik stylu ze zalohy ceka na misto (vsech 5 slotu bylo obsazeno). */
+    fun pendingStyleCount(): Int = try {
+        org.json.JSONArray(call(OP_PENDING_STYLES)).length()
+    } catch (_: Throwable) {
+        0
+    }
+
+    /** Prvni cekajici styl ulozi do slotu 0..4 (puvodni obsah se prepise). */
+    fun placePendingStyle(slot: Int) = settingsChanged(call(OP_PLACE_STYLE, null, null, slot.toLong()))
+
+    /** Zahodi cekajici styly ze zalohy. */
+    fun discardPendingStyles() {
+        call(OP_DISCARD_STYLES)
     }
 
     /** Zaznamenane tahy (jen kdyz je zapnuty swipe_log) jako JSON pro nastroj tune. */
