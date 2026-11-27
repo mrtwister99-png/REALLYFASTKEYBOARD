@@ -18,6 +18,7 @@ import android.view.View
 import android.view.ViewConfiguration
 import android.view.ViewGroup
 import android.widget.FrameLayout
+import android.widget.Toast
 import android.widget.HorizontalScrollView
 import android.widget.LinearLayout
 import android.widget.ScrollView
@@ -168,7 +169,11 @@ class SuggestionBar(context: Context, private var theme: Theme, private val call
         /** Podrzeni navrhu ve slotu `slot` (0-2): jeho dvojice dalsich slov (nejvyse 2), ktera se ukazou nad nim. */
         fun onMoreSuggestions(slot: Int): List<String>
         fun onClipboardClicked()
+        /** Klepnuti na vlozeni polozky z podrzene schranky. */
+        fun onClipPaste(text: String)
         fun onVoiceClicked()
+        /** Podrzeni mikrofonu: rekni povel a vyber, co udela. */
+        fun onVoiceLearn()
         fun onAddWordClicked()
         fun onSearchResultPicked(emoji: String)
         fun onSearchClosed()
@@ -239,9 +244,17 @@ class SuggestionBar(context: Context, private var theme: Theme, private val call
         }
         clipButton.contentDescription = context.getString(R.string.clipboard)
         clipButton.setOnClickListener { callbacks.onClipboardClicked() }
+        clipButton.setOnLongClickListener {
+            showPinned()
+            true
+        }
         normalRow.addView(clipButton, LinearLayout.LayoutParams(dp(48f), LayoutParams.MATCH_PARENT))
         micButton.contentDescription = context.getString(R.string.voice_start)
         micButton.setOnClickListener { callbacks.onVoiceClicked() }
+        micButton.setOnLongClickListener {
+            callbacks.onVoiceLearn()
+            true
+        }
         normalRow.addView(micButton, LinearLayout.LayoutParams(dp(40f), LayoutParams.MATCH_PARENT))
 
         searchRow.orientation = LinearLayout.HORIZONTAL
@@ -291,31 +304,53 @@ class SuggestionBar(context: Context, private var theme: Theme, private val call
     }
 
     /** Dalsi navrhy se po podrzeni ukazou svisle nad slotem; klepnuti na slovo ho vybere, klepnuti mimo zavre. */
-    private fun showMore(anchor: View, list: List<String>) {
+    private fun showMore(anchor: View, list: List<String>) =
+        showList(anchor, list, 2, 17f, false) { callbacks.onSuggestionPicked(MORE_INDEX, it) }
+
+    /** Po podrzeni schranky: pripnute polozky (az 100) v rolovaci nabidce nad listou; klepnuti vlozi text. */
+    private fun showPinned() {
+        val pinned = RustBridge.clipList().filter { it.pinned }.map { it.text }
+        if (pinned.isEmpty()) {
+            Toast.makeText(context, R.string.clip_pinned_empty, Toast.LENGTH_SHORT).show()
+            return
+        }
+        showList(clipButton, pinned, 6, 15f, true) { callbacks.onClipPaste(it) }
+    }
+
+    /**
+     * Svisla nabidka nad `anchor`: `maxRows` radku, vic polozek se rolu je. `wide` = pres celou sirku listy.
+     * Pozicovano vuci kotvici (ne vuci obrazovce), protoze okno klavesnice nezacina na vrcholu obrazovky.
+     */
+    private fun showList(anchor: View, list: List<String>, maxRows: Int, textSp: Float, wide: Boolean, onPick: (String) -> Unit) {
         hideMore()
         if (list.isEmpty()) return
         val col = LinearLayout(context)
         col.orientation = LinearLayout.VERTICAL
         for (w in list) {
             val tv = TextView(context).apply {
-                gravity = Gravity.CENTER
+                gravity = if (wide) Gravity.CENTER_VERTICAL else Gravity.CENTER
                 isSingleLine = true
-                ellipsize = TextUtils.TruncateAt.MIDDLE
-                setTextSize(TypedValue.COMPLEX_UNIT_SP, 17f)
+                ellipsize = if (wide) TextUtils.TruncateAt.END else TextUtils.TruncateAt.MIDDLE
+                setTextSize(TypedValue.COMPLEX_UNIT_SP, textSp)
                 setPadding(dp(14f), 0, dp(14f), 0)
                 setTextColor(theme.barText)
                 text = w
                 background = pressable(theme.keyPressed, dp(10f).toFloat())
                 setOnClickListener {
                     hideMore()
-                    callbacks.onSuggestionPicked(MORE_INDEX, w)
+                    onPick(w)
                 }
             }
             col.addView(tv, LinearLayout.LayoutParams(LayoutParams.MATCH_PARENT, dp(44f)))
         }
-        val h = dp(44f) * list.size
-        val wPx = maxOf(anchor.width, dp(120f))
-        val pw = android.widget.PopupWindow(col, wPx, h, false)
+        val rows = minOf(list.size, maxRows)
+        val h = dp(44f) * rows
+        val barW = this.width
+        val wPx = if (wide) barW - dp(16f) else maxOf(anchor.width, dp(120f))
+        val content: View = if (list.size > maxRows) {
+            ScrollView(context).also { it.addView(col, ViewGroup.LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT)) }
+        } else col
+        val pw = android.widget.PopupWindow(content, wPx, h, false)
         pw.isOutsideTouchable = true
         pw.elevation = dp(8f).toFloat()
         pw.setBackgroundDrawable(android.graphics.drawable.GradientDrawable().apply {
@@ -324,9 +359,16 @@ class SuggestionBar(context: Context, private var theme: Theme, private val call
             setStroke(dp(1f), theme.divider)
         })
         try {
-            // Vuci kotvici (ne vuci obrazovce): okno klavesnice nezacina na vrcholu obrazovky, a souradnice by pak lezely nize.
-            // Dolni okraj okna lezi 4 dp nad hornim okrajem slotu, tedy primo nad nabizenym slovem.
-            pw.showAsDropDown(anchor, (anchor.width - wPx) / 2, -(anchor.height + h + dp(4f)))
+            // Dolni okraj okna lezi 4 dp nad hornim okrajem kotvy, tedy primo nad ni.
+            val x = if (wide) {
+                // zarovnat na levy okraj listy (+ 8 dp), kotva (tlacitko schranky) je vpravo
+                val loc = IntArray(2)
+                val barLoc = IntArray(2)
+                anchor.getLocationInWindow(loc)
+                this.getLocationInWindow(barLoc)
+                dp(8f) - (loc[0] - barLoc[0])
+            } else (anchor.width - wPx) / 2
+            pw.showAsDropDown(anchor, x, -(anchor.height + h + dp(4f)))
             morePopup = pw
         } catch (_: Throwable) {
             // okno nejde zobrazit (napr. klavesnice se zrovna zavira)
@@ -651,7 +693,9 @@ class ClipboardPanel(context: Context, private val theme: Theme, private val cal
                 filled = item.pinned
                 contentDescription = context.getString(if (item.pinned) R.string.unpin else R.string.pin)
                 setOnClickListener {
-                    RustBridge.clipPin(item.id, !item.pinned)
+                    if (!RustBridge.clipPin(item.id, !item.pinned)) {
+                        Toast.makeText(context, R.string.clip_pin_full, Toast.LENGTH_SHORT).show()
+                    }
                     refresh()
                 }
             }
@@ -669,5 +713,102 @@ class ClipboardPanel(context: Context, private val theme: Theme, private val cal
             lp.topMargin = dp(6f)
             list.addView(row, lp)
         }
+    }
+}
+
+/**
+ * Novy hlasovy povel z klavesnice: to, co uzivatel rekl (`phrase`), je spoustec; tady si vybere, co povel udela:
+ * vlozi makro, nebo vlozi polozku ze schranky. Ulozi se jako povel s akci "text".
+ */
+class CommandPanel(context: Context, private val theme: Theme, private val phrase: String, private val callbacks: Callbacks) : LinearLayout(context) {
+    interface Callbacks {
+        fun onPanelBack()
+        fun onCommandSaved(ok: Boolean)
+    }
+
+    private val body = LinearLayout(context)
+
+    init {
+        orientation = VERTICAL
+        setBackgroundColor(theme.background)
+        val header = LinearLayout(context)
+        header.orientation = HORIZONTAL
+        header.gravity = Gravity.CENTER_VERTICAL
+        val back = TextView(context).apply {
+            text = "ABC"
+            gravity = Gravity.CENTER
+            setTextColor(theme.text)
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 14f)
+            contentDescription = context.getString(R.string.back_to_keyboard)
+            setOnClickListener { callbacks.onPanelBack() }
+        }
+        header.addView(back, LayoutParams(dp(52f), LayoutParams.MATCH_PARENT))
+        val title = TextView(context).apply {
+            text = context.getString(R.string.voice_learn_title, phrase)
+            setTextColor(theme.textDim)
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 14f)
+            gravity = Gravity.CENTER_VERTICAL
+            isSingleLine = true
+            ellipsize = TextUtils.TruncateAt.END
+        }
+        header.addView(title, LayoutParams(0, LayoutParams.MATCH_PARENT, 1f))
+        addView(header, LayoutParams(LayoutParams.MATCH_PARENT, dp(44f)))
+        body.orientation = VERTICAL
+        body.setPadding(dp(8f), 0, dp(8f), dp(8f))
+        val scroll = ScrollView(context)
+        scroll.addView(body, ViewGroup.LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT))
+        addView(scroll, LayoutParams(LayoutParams.MATCH_PARENT, 0, 1f))
+        showChoices()
+    }
+
+    private fun row(text: String, onClick: () -> Unit) {
+        val tv = TextView(context).apply {
+            this.text = text
+            maxLines = 2
+            ellipsize = TextUtils.TruncateAt.END
+            setTextColor(theme.text)
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 15f)
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(dp(14f), dp(10f), dp(14f), dp(10f))
+            background = rounded(theme.key, dp(14f).toFloat())
+            setOnClickListener { onClick() }
+        }
+        val lp = LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT)
+        lp.topMargin = dp(6f)
+        body.addView(tv, lp)
+    }
+
+    private fun note(text: String) {
+        val tv = TextView(context).apply {
+            this.text = text
+            setTextColor(theme.textDim)
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 14f)
+            setPadding(dp(14f), dp(14f), dp(14f), dp(14f))
+        }
+        body.addView(tv, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT))
+    }
+
+    private fun save(text: String) {
+        callbacks.onCommandSaved(RustBridge.saveVoiceCommand(0, phrase, "text", text))
+    }
+
+    private fun showChoices() {
+        body.removeAllViews()
+        row(context.getString(R.string.voice_learn_macro)) { showMacros() }
+        row(context.getString(R.string.voice_learn_clip)) { showClips() }
+    }
+
+    private fun showMacros() {
+        body.removeAllViews()
+        val macros = RustBridge.macros()
+        if (macros.isEmpty()) note(context.getString(R.string.voice_learn_macro_empty))
+        for (m in macros) row(m.name + "  \u00b7  " + m.text.replace('\n', ' ')) { save(m.text) }
+    }
+
+    private fun showClips() {
+        body.removeAllViews()
+        val items = RustBridge.clipList()
+        if (items.isEmpty()) note(context.getString(R.string.voice_learn_clip_empty))
+        for (c in items) row(c.text) { save(c.text) }
     }
 }

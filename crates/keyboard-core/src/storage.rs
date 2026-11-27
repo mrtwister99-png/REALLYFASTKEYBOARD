@@ -282,10 +282,10 @@ impl Storage {
                 params![text, now],
             )
             .is_ok();
-        // Limit 30 polozek: nejstarsi nepripnute pryc.
+        // Limit 30 nepripnutych polozek: nejstarsi nepripnute pryc (pripnute se nepocitaji).
         let _ = conn.execute(
             "DELETE FROM clipboard WHERE pinned = 0 AND id NOT IN (
-                 SELECT id FROM clipboard ORDER BY pinned DESC, created DESC, id DESC LIMIT ?1)",
+                 SELECT id FROM clipboard WHERE pinned = 0 ORDER BY created DESC, id DESC LIMIT ?1)",
             params![clipboard::MAX_ITEMS as i64],
         );
         ok
@@ -307,7 +307,7 @@ impl Storage {
         ) else {
             return Vec::new();
         };
-        let rows = st.query_map(params![clipboard::MAX_ITEMS as i64], |r| {
+        let rows = st.query_map(params![(clipboard::MAX_ITEMS + clipboard::MAX_PINNED) as i64], |r| {
             Ok(ClipItem { id: r.get(0)?, text: r.get(1)?, created: r.get(2)?, pinned: r.get::<_, i64>(3)? != 0 })
         });
         let out = match rows {
@@ -317,9 +317,55 @@ impl Storage {
         out
     }
 
-    pub fn clip_pin(&self, id: i64, pinned: bool) {
-        if let Some(conn) = &self.conn {
-            let _ = conn.execute("UPDATE clipboard SET pinned = ?2 WHERE id = ?1", params![id, pinned as i64]);
+    /// Pripne / odepne polozku; pripnout jde nejvyse MAX_PINNED polozek (vraci false, kdyz je limit plny).
+    pub fn clip_pin(&self, id: i64, pinned: bool) -> bool {
+        let Some(conn) = &self.conn else { return false };
+        if pinned {
+            let count: i64 = conn
+                .query_row("SELECT COUNT(*) FROM clipboard WHERE pinned = 1 AND id != ?1", params![id], |r| r.get(0))
+                .unwrap_or(0);
+            if count >= clipboard::MAX_PINNED as i64 {
+                return false;
+            }
+        }
+        conn.execute("UPDATE clipboard SET pinned = ?2 WHERE id = ?1", params![id, pinned as i64]).is_ok()
+    }
+
+    /// Texty vsech pripnutych polozek (pro zalohu), od nejnovejsich.
+    pub fn clip_pinned_texts(&self) -> Vec<String> {
+        let Some(conn) = &self.conn else { return Vec::new() };
+        let Ok(mut st) = conn.prepare("SELECT text FROM clipboard WHERE pinned = 1 ORDER BY created DESC, id DESC") else {
+            return Vec::new();
+        };
+        let rows = st.query_map([], |r| r.get::<_, String>(0));
+        match rows {
+            Ok(rows) => rows.flatten().collect(),
+            Err(_) => Vec::new(),
+        }
+    }
+
+    /// Prida text rovnou jako pripnuty (import zalohy). Vraci true, kdyz je po volani pripnuty.
+    pub fn clip_add_pinned(&self, text: &str, now: i64) -> bool {
+        if !clipboard::is_storable(text) {
+            return false;
+        }
+        let Some(conn) = &self.conn else { return false };
+        let pinned: i64 = conn.query_row("SELECT COUNT(*) FROM clipboard WHERE pinned = 1", [], |r| r.get(0)).unwrap_or(0);
+        let existing: Option<i64> = conn
+            .query_row("SELECT id FROM clipboard WHERE text = ?1", params![text], |r| r.get(0))
+            .ok();
+        match existing {
+            Some(id) => self.clip_pin(id, true),
+            None => {
+                if pinned >= clipboard::MAX_PINNED as i64 {
+                    return false;
+                }
+                conn.execute(
+                    "INSERT INTO clipboard (text, created, pinned) VALUES (?1, ?2, 1)",
+                    params![text, now],
+                )
+                .is_ok()
+            }
         }
     }
 
@@ -672,6 +718,35 @@ mod tests {
         assert_eq!(texts, vec!["stará připnutá", "nová"]);
         st.clip_clear();
         assert!(st.clip_list().is_empty());
+    }
+
+    #[test]
+    fn clipboard_pinned_limit_100_and_survives_new_items() {
+        let st = Storage::in_memory();
+        for i in 0..105 {
+            assert!(st.clip_add(&format!("pripnuta polozka {i}"), NOW + i));
+        }
+        let ids: Vec<i64> = st.clip_list().iter().map(|c| c.id).collect();
+        let mut pinned = 0;
+        for id in &ids {
+            if st.clip_pin(*id, true) {
+                pinned += 1;
+            }
+        }
+        // Nepripnutych je po pridani max. 30, takze ids ma nejvyse 30 + drive pripnute; pripnout jde 100 celkem.
+        assert!(pinned <= 30);
+        // Dalsi polozky nesmi smazat pripnute.
+        for i in 0..40 {
+            assert!(st.clip_add(&format!("nova polozka {i}"), NOW + 1000 + i));
+        }
+        let list = st.clip_list();
+        assert_eq!(list.iter().filter(|c| c.pinned).count(), pinned);
+        assert_eq!(list.iter().filter(|c| !c.pinned).count(), 30);
+        // Import zalohy: stovka pripnutych se nepretaci.
+        for i in 0..150 {
+            st.clip_add_pinned(&format!("zalozni polozka {i}"), NOW + 5000 + i);
+        }
+        assert_eq!(st.clip_pinned_texts().len(), 100);
     }
 
     #[test]

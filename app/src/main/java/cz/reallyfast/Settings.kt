@@ -17,6 +17,7 @@ class Settings(val json: JSONObject) {
     val vibrationMs: Int get() = json.optInt("vibration_ms", 10)
     val soundEnabled: Boolean get() = json.optBoolean("sound_enabled", false)
     val keyHeightDp: Int get() = json.optInt("key_height_dp", 56)
+    val barHeightDp: Int get() = json.optInt("bar_height_dp", 44).coerceIn(36, 64)
     val keyWidthDp: Int get() = json.optInt("key_width_dp", 0).let { if (it == 0) 0 else it.coerceIn(24, 48) }
     val keyFont: String get() = json.optString("key_font", "system")
     val trailWidthDp: Int get() = json.optInt("trail_width_dp", 4).coerceIn(1, 12)

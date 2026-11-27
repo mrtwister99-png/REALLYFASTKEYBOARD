@@ -24,7 +24,7 @@ pub const STYLE_SLOTS: usize = 5;
 /// mapy klaves, makra, gesta, spodni rada ani chovani psani sem nepatri.
 pub const STYLE_KEYS: &[&str] = &[
     "theme", "accent_color", "custom_background", "custom_key", "custom_text",
-    "key_height_dp", "key_width_dp", "key_radius_dp", "key_text_percent", "key_gap_dp", "row_gap_dp", "key_font", "trail_width_dp",
+    "key_height_dp", "bar_height_dp", "key_width_dp", "key_radius_dp", "key_text_percent", "key_gap_dp", "row_gap_dp", "key_font", "trail_width_dp",
     "key_label_x", "key_label_y", "key_hint_x", "key_hint_y", "key_hint_pos",
     "key_popup", "key_hints", "key_shadow", "animations", "swipe_trail", "swipe_glow", "key_glow",
     "hint_color", "hint_percent", "tap_effect", "neon_color", "glow_color", "glow_style",
@@ -70,6 +70,7 @@ pub struct Settings {
     pub vibration_ms: u32,
     pub sound_enabled: bool,
     pub key_height_dp: u32,
+    pub bar_height_dp: u32,
     pub key_width_dp: u32,
     pub keyboard_height_percent: u32,
     pub theme: String,
@@ -263,6 +264,7 @@ impl Settings {
             vibration_ms: 10,
             sound_enabled: false,
             key_height_dp: 56,
+            bar_height_dp: 44,
             key_width_dp: 0,
             keyboard_height_percent: 38,
             theme: "dark".into(),
@@ -606,6 +608,7 @@ impl Settings {
         self.swipe_sensitivity = self.swipe_sensitivity.clamp(0.5, 1.5);
         self.vibration_ms = self.vibration_ms.min(50);
         self.key_height_dp = self.key_height_dp.clamp(48, 72);
+        self.bar_height_dp = self.bar_height_dp.clamp(36, 64);
         self.keyboard_height_percent = self.keyboard_height_percent.clamp(30, 50);
         self.long_press_delay_ms = self.long_press_delay_ms.clamp(150, 500);
         self.clipboard_ttl_minutes = self.clipboard_ttl_minutes.clamp(1, 1440);
@@ -834,6 +837,7 @@ mod tests {
         assert_eq!(s.vibration_ms, 10);
         assert!(!s.sound_enabled);
         assert_eq!(s.key_height_dp, 56);
+        assert_eq!(s.bar_height_dp, 44);
         assert_eq!(s.keyboard_height_percent, 38);
         assert_eq!(s.theme, "dark");
         assert_eq!(s.accent_color, "#0080FF");

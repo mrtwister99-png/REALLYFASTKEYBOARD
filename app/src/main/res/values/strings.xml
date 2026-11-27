@@ -101,6 +101,15 @@
     <string name="custom_text">Barva textu</string>
     <string name="preview">Náhled</string>
     <string name="key_height">Výška kláves</string>
+    <string name="bar_height">Výška lišty návrhů</string>
+    <string name="clip_pin_full">Připnout jde nejvýše 100 položek</string>
+    <string name="clip_pinned_empty">Zatím nemáš žádné připnuté položky schránky</string>
+    <string name="voice_learn_title">Nový povel: „%1$s“</string>
+    <string name="voice_learn_macro">Použít makro</string>
+    <string name="voice_learn_clip">Poslat ze schránky</string>
+    <string name="voice_learn_macro_empty">Zatím nemáš žádná makra.</string>
+    <string name="voice_learn_clip_empty">Schránka je prázdná.</string>
+    <string name="voice_learn_saved">Povel uložen</string>
     <string name="styles">Připravené styly</string>
     <string name="key_radius">Zaoblení kláves</string>
     <string name="key_shadow">Jemný stín pod klávesami</string>
@@ -139,7 +148,7 @@
 
     <string name="sec_backup">Ladění</string>
     <string name="backup_open">Záloha a obnovení</string>
-    <string name="backup_how">Jak to funguje: „Uložit“ zapíše nastavení klávesnice, osobní slovník, opravy, makra, přizpůsobení swipe a záznam tahů do jednoho souboru. „Obnovit“ ho načte zpět: nastavení se přepíše (uložené styly 1–5 se sloučí s těmi, co už máš), slovník a makra se sloučí s tím, co už máš. Historie schránky v záloze není.</string>
+    <string name="backup_how">Jak to funguje: „Uložit“ zapíše nastavení klávesnice, osobní slovník, opravy, makra, přizpůsobení swipe a záznam tahů do jednoho souboru. „Obnovit“ ho načte zpět: nastavení se přepíše (uložené styly 1–5 se sloučí s těmi, co už máš), slovník a makra se sloučí s tím, co už máš. Z historie schránky jsou v záloze jen připnuté položky (až 100).</string>
     <string name="backup_privacy">Žádná data nikam neodcházejí: klávesnice nemá přístup k internetu a soubor ukládáš a načítáš sám, kam chceš. Vše zůstává jen u tebe. Záloha není šifrovaná, ukládej ji na bezpečné místo.</string>
     <string name="backup_export">Uložit nastavení klávesnice (export)</string>
     <string name="backup_import">Obnovit nastavení klávesnice (import)</string>

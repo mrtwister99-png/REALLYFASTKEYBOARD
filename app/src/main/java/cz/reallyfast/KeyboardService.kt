@@ -45,7 +45,7 @@ import kotlin.math.min
  * Zadne pozadi: zadny polling, zadne wake locky, zadne vlastni sluzby ani sit.
  */
 class KeyboardService : InputMethodService(), KeyboardView.Listener,
-    SuggestionBar.Callbacks, EmojiPanel.Callbacks, ClipboardPanel.Callbacks {
+    SuggestionBar.Callbacks, EmojiPanel.Callbacks, ClipboardPanel.Callbacks, CommandPanel.Callbacks {
 
     private companion object {
         const val BACKEND_ON_DEVICE = 0
@@ -72,6 +72,9 @@ class KeyboardService : InputMethodService(), KeyboardView.Listener,
     private var keyboard: KeyboardView? = null
     private var emojiPanel: EmojiPanel? = null
     private var clipPanel: ClipboardPanel? = null
+    private var cmdPanel: CommandPanel? = null
+    /** Dikuje se spoustec noveho hlasoveho povelu (podrzeni mikrofonu): vysledek se nevklada do textu. */
+    private var learningPhrase = false
     private var theme: Theme = Theme.from(RustBridge.settings)
 
     private val composing = StringBuilder()
@@ -137,7 +140,7 @@ class KeyboardService : InputMethodService(), KeyboardView.Listener,
         super.onDestroy()
     }
 
-    private val barHeight: Int get() = (44f * resources.displayMetrics.density + 0.5f).toInt()
+    private val barHeight: Int get() = (settings.barHeightDp * resources.displayMetrics.density + 0.5f).toInt()
 
     /** Vyska plochy klaves: radky * key_height_dp, nejvyse 50 % obrazovky. */
     private fun keysHeight(): Int = keyboardKeysHeight(resources, settings, barHeight)
@@ -254,6 +257,12 @@ class KeyboardService : InputMethodService(), KeyboardView.Listener,
         theme = Theme.from(settings)
         root?.setBackgroundColor(theme.backgroundBottom)
         bar?.applyTheme(theme)
+        bar?.layoutParams?.let { lp ->
+            if (lp.height != barHeight) {
+                lp.height = barHeight
+                bar?.layoutParams = lp
+            }
+        }
         keyboard?.let {
             it.theme = theme
             it.desiredHeight = keysHeight()
@@ -1265,6 +1274,51 @@ class KeyboardService : InputMethodService(), KeyboardView.Listener,
         }
     }
 
+    /** Podrzeni mikrofonu: jednorazove nadiktovani spoustece noveho povelu, pak vyber, co udela. */
+    override fun onVoiceLearn() {
+        if (dictating || searchMode || passwordField || !settings.voiceInput) return
+        learningPhrase = true
+        onVoiceStart()
+        if (!dictating) {
+            learningPhrase = false
+            return
+        }
+        voiceSession = false // jedna promluva, zadne Play / pauza
+    }
+
+    /** Spoustec povelu je nadiktovany: ukonci poslech a otevre panel s vyberem akce. */
+    private fun finishLearn(raw: String) {
+        learningPhrase = false
+        voiceSession = false
+        try {
+            recognizer?.cancel()
+        } catch (_: Throwable) {
+            // ignorovat
+        }
+        endDictation(false)
+        voiceStatus = false
+        val phrase = raw.trim()
+        if (phrase.isEmpty()) {
+            showVoiceStatus(getString(R.string.voice_nothing), 1500)
+            return
+        }
+        val content = content ?: return
+        cmdPanel?.let { content.removeView(it) }
+        val panel = CommandPanel(this, theme, phrase, this)
+        cmdPanel = panel
+        content.addView(panel, panelParams())
+        keyboard?.visibility = View.GONE
+        emojiPanel?.visibility = View.GONE
+        clipPanel?.visibility = View.GONE
+        panel.visibility = View.VISIBLE
+        scheduleSuggestions()
+    }
+
+    override fun onCommandSaved(ok: Boolean) {
+        showKeyboard()
+        showVoiceStatus(getString(if (ok) R.string.voice_learn_saved else R.string.voice_command_save_failed), 1800)
+    }
+
     override fun onVoiceStop() {
         voiceSession = false
         if (!dictating) return
@@ -1448,6 +1502,7 @@ class KeyboardService : InputMethodService(), KeyboardView.Listener,
 
     /** Okamzite ukonceni bez vysledku (psani, schovani klavesnice). Rozepsany prepis zustane v textu. */
     private fun cancelDictation() {
+        learningPhrase = false
         if (!dictating) return
         voiceSession = false
         try {
@@ -1490,6 +1545,10 @@ class KeyboardService : InputMethodService(), KeyboardView.Listener,
             val text = partialResults?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)?.firstOrNull() ?: return
             if (text.isBlank()) return
             dictationText = text
+            if (learningPhrase) {
+                showVoiceStatus(text) // spoustec povelu se do textu nevklada
+                return
+            }
             currentInputConnection?.setComposingText(dictated(text), 1)
         }
 
@@ -1499,6 +1558,10 @@ class KeyboardService : InputMethodService(), KeyboardView.Listener,
                 ?.takeIf { it.isNotBlank() } ?: dictationText
             val ic = currentInputConnection
             busyRetried = false
+            if (learningPhrase) {
+                finishLearn(text)
+                return
+            }
             if (text.isBlank() || ic == null) {
                 ic?.finishComposingText()
                 if (voiceSession && ic != null) {
@@ -1524,6 +1587,13 @@ class KeyboardService : InputMethodService(), KeyboardView.Listener,
 
         override fun onError(error: Int) {
             if (!dictating || voicePaused) return
+            if (learningPhrase) {
+                if (dictationText.isNotBlank()) {
+                    finishLearn(dictationText)
+                    return
+                }
+                learningPhrase = false
+            }
             val ic = currentInputConnection
             if (dictationText.isNotBlank() && ic != null) {
                 // Castecny prepis nezahazovat.
@@ -1601,6 +1671,7 @@ class KeyboardService : InputMethodService(), KeyboardView.Listener,
         if (wasHidden) keyboard?.reveal()
         emojiPanel?.visibility = View.GONE
         clipPanel?.visibility = View.GONE
+        cmdPanel?.visibility = View.GONE
     }
 
     private fun panelParams() = FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, keysHeight())

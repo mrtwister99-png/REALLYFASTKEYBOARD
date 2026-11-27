@@ -589,6 +589,7 @@ impl Engine {
             voice: self.voice.clone(),
             calibration,
             swipe_log: self.storage.swipe_log_list(),
+            pinned_clips: self.storage.clip_pinned_texts(),
         };
         serde_json::to_string_pretty(&data).unwrap_or_else(|_| "{}".to_string())
     }
@@ -670,6 +671,10 @@ impl Engine {
             self.calibration = cal;
             self.storage.clear_calibration();
             self.storage.save_calibration(&self.calibration);
+        }
+        // Pripnute polozky schranky: pridaji se ty, ktere tam jeste nejsou (nejstarsi prvni, aby poradi zustalo).
+        for (i, t) in data.pinned_clips.iter().enumerate().rev() {
+            self.storage.clip_add_pinned(t, data.created + (data.pinned_clips.len() - i) as i64);
         }
         n as i64
     }
@@ -905,8 +910,7 @@ pub fn dispatch(op: i32, a: &[u8], b: &[u8], num: i64) -> Vec<u8> {
         OP_CLIP_ADD => bool_bytes(e.clip_add(&sa, now)),
         OP_CLIP_LIST => serde_json::to_vec(&e.clip_list(now)).unwrap_or_default(),
         OP_CLIP_PIN => {
-            e.storage.clip_pin(num, sa.trim() == "1");
-            Vec::new()
+            bool_bytes(e.storage.clip_pin(num, sa.trim() == "1"))
         }
         OP_CLIP_DELETE => {
             e.storage.clip_delete(num);

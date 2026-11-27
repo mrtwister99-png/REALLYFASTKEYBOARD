@@ -2,7 +2,10 @@
 
 use serde::Serialize;
 
+/// Nepripnutych polozek historie.
 pub const MAX_ITEMS: usize = 30;
+/// Pripnutych polozek (zustavaji, dokud je uzivatel neodepne; jdou do zalohy).
+pub const MAX_PINNED: usize = 100;
 pub const MAX_TEXT_CHARS: usize = 4000;
 
 #[derive(Debug, Clone, PartialEq, Serialize)]

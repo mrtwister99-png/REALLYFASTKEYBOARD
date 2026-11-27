@@ -104,6 +104,15 @@
     <string name="custom_key">Key color</string>
     <string name="custom_text">Text color</string>
     <string name="preview">Preview</string>
+    <string name="bar_height">Suggestion bar height</string>
+    <string name="clip_pin_full">You can pin up to 100 items</string>
+    <string name="clip_pinned_empty">No pinned clipboard items yet</string>
+    <string name="voice_learn_title">New command: “%1$s”</string>
+    <string name="voice_learn_macro">Use a macro</string>
+    <string name="voice_learn_clip">Send from clipboard</string>
+    <string name="voice_learn_macro_empty">You have no macros yet.</string>
+    <string name="voice_learn_clip_empty">The clipboard is empty.</string>
+    <string name="voice_learn_saved">Command saved</string>
     <string name="key_height">Key height</string>
     <string name="styles">Ready-made styles</string>
     <string name="key_radius">Key corner radius</string>
@@ -143,7 +152,7 @@
 
     <string name="sec_backup">Tuning</string>
     <string name="backup_open">Backup and restore</string>
-    <string name="backup_how">How it works: “Save” writes the keyboard settings, personal dictionary, corrections, macros, swipe adaptation and the swipe log into one file. “Restore” loads it back: settings are overwritten (saved styles 1–5 are merged with yours), dictionary and macros are merged with what you already have. Clipboard history is not included.</string>
+    <string name="backup_how">How it works: “Save” writes the keyboard settings, personal dictionary, corrections, macros, swipe adaptation and the swipe log into one file. “Restore” loads it back: settings are overwritten (saved styles 1–5 are merged with yours), dictionary and macros are merged with what you already have. Of the clipboard history only pinned items (up to 100) are included.</string>
     <string name="backup_privacy">No data goes anywhere: the keyboard has no internet access and you save and load the file yourself, wherever you like. Everything stays with you. The backup is not encrypted, keep it somewhere safe.</string>
     <string name="backup_export">Save keyboard settings (export)</string>
     <string name="backup_import">Restore keyboard settings (import)</string>

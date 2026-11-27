@@ -432,7 +432,7 @@ class AppearanceActivity : SettingsScreen() {
         testView.setTextColor(theme.barText)
         captionView.setTextColor(theme.barDim)
         // Nejvyse 45 % obrazovky, aby zbylo misto na nastaveni.
-        val real = keyboardKeysHeight(resources, s, dp(44f))
+        val real = keyboardKeysHeight(resources, s, dp(s.barHeightDp.toFloat()))
         preview.desiredHeight = minOf(real, (resources.displayMetrics.heightPixels * 0.45f).toInt())
         preview.reloadLayout()
         previewBox.setBackgroundColor(theme.background)
@@ -849,6 +849,8 @@ class AppearanceActivity : SettingsScreen() {
         hintAdjustButton?.text = getString(R.string.hint_adjust)
         labelAdjustButton?.text = getString(R.string.label_adjust)
         applyPickMode()
+        // Po uprave se v kategoriich 0-4 nahled vraci do zkusebniho rezimu (jde zase psat).
+        autoTestIfNeeded()
         paintPills()
     }
 
@@ -1076,6 +1078,8 @@ class AppearanceActivity : SettingsScreen() {
         hintText(s, getString(R.string.bottom_row_hint))
         // Uprava vysky radku: klavesnice se ztmavi a u kazde rady je sipka, kterou jde rada posunout nahoru / dolu.
         rowEditButton = buttonRow(s, getString(R.string.row_edit), accent) { if (adjusting) finishAdjust() else startRowEdit() }
+        // Vyska listy navrhu nad klavesami (dolaďovani vysky klavesnice).
+        sliderRow(s, R.string.bar_height, "bar_height_dp", 36, 64, 1) { getString(R.string.unit_dp, it) }
     }
 
     /** 2. I. Zakladni barvy. */
@@ -1966,7 +1970,7 @@ class AppearanceActivity : SettingsScreen() {
 
         /** Plynule meneny rozmer: pri tazeni posuvniku klavesy neblikaji (zmena je videt sama). */
         val NO_SPOT: Set<String> = setOf(
-            "key_height_dp", "key_width_dp", "key_text_percent", "hint_percent",
+            "key_height_dp", "bar_height_dp", "key_width_dp", "key_text_percent", "hint_percent",
             "key_radius_dp", "key_gap_dp", "row_gap_dp",
         )
 

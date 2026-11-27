@@ -58,6 +58,7 @@ Počet nastavení: **94**.
 | Klíč | Výchozí | Rozsah / hodnoty | Co dělá | Kde v aplikaci |
 |---|---|---|---|---|
 | `key_height_dp` | `56` | 48 – 72 | Výška kláves (dp). | Hlavní → Rozměry („Výška klávesnice") |
+| `bar_height_dp` | `44` | 36 – 64 | Výška lišty návrhů nad klávesami (dp). | Rozložení a písmo → III. Spodní řada |
 | `keyboard_height_percent` | `38` | 30 – 50 | Celková výška klávesnice v % výšky obrazovky; mění se gestem pinch. | gesto pinch |
 | `key_radius_dp` | `10` | 2 – 22 | Zaoblení kláves (dp). | Hlavní → Rozměry |
 | `key_text_percent` | `100` | 70 – 150 | Velikost znaků na klávesách (%). | Hlavní → Rozměry |

@@ -46,4 +46,6 @@ pub struct Backup {
     pub calibration: Vec<BackupKey>,
     /// Zaznam tahu (radky jako v `SwipeLogFile`).
     pub swipe_log: Vec<SwipeTrace>,
+    /// Pripnute polozky schranky (texty); nepripnuta historie se nezalohuje.
+    pub pinned_clips: Vec<String>,
 }

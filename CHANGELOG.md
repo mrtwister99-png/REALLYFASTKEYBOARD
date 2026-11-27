@@ -2,6 +2,9 @@
 
 Jedna věta za verzi, nejnovější nahoře. Čísla verzí odpovídají commitům (`vX.Y: …`).
 
+## 1.49 – 2026-11-27
+Po úpravě polohy / výšky řádků se náhled vrací do zkušebního režimu; nový posuvník Výška lišty návrhů (`bar_height_dp`); podržení ikony schránky otevře nabídku připnutých položek (až 100, ukládají se jen v telefonu a jdou do zálohy); podržení mikrofonu nadiktuje spouštěč nového hlasového povelu a nabídne „Použít makro“ nebo „Poslat ze schránky“.
+
 ## 1.48 – 2026-11-27
 Nová obrazovka Záloha a obnovení (export a import s vysvětlením, že data nikam neodcházejí); jiskry u „Nový povel“ v Hlasu vybuchují přesně na plusu; podržený návrh otevírá své dvě další slova přímo nad sebou, každý slot má vlastní dvojici (šest slov celkem, Rust vrací o 6 slov víc), výběr z nich lehce zabrní.
 

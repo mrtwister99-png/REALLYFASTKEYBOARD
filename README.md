@@ -80,7 +80,7 @@ takže nic odeslat nemůže.
 | Schránka | historie 30 položek, automatické mazání (výchozí 60 min), připnutí, smazání všeho, hesla a kódy se neukládají |
 | Emoji | nedávné, smajlíci, zvířata, jídlo, aktivity, symboly + hledání podle názvu (česky i anglicky) |
 | Úprava kláves | v nastavení lze na libovolnou klávesu dát jiný znak, nabídku znaků pro dlouhý stisk nebo makro a prohodit ?123/Enter a Shift/⌫ (vždy s potvrzením Ano/Ne) |
-| Záloha a obnova | jeden JSON s nastavením, osobním slovníkem, opravami, makry, hlasovými povely a přizpůsobením swipe |
+| Záloha a obnova | jeden JSON s nastavením, osobním slovníkem, opravami, makry, hlasovými povely, přizpůsobením swipe a připnutými položkami schránky |
 | Záznam tahů | volitelný, ve výchozím stavu vypnutý; ukládá dráhy tahů s potvrzenými slovy pro ladění vah (nástroj `tune`) |
 | Přístupnost | TalkBack (popis každé klávesy), S Pen (hover nic nestiskne), landscape, split screen |
 

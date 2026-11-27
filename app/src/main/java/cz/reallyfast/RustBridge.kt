@@ -517,9 +517,8 @@ object RustBridge {
         emptyList()
     }
 
-    fun clipPin(id: Long, pinned: Boolean) {
-        call(OP_CLIP_PIN, if (pinned) "1" else "0", null, id)
-    }
+    /** Pripne / odepne polozku; false, kdyz je uz pripnutych 100. */
+    fun clipPin(id: Long, pinned: Boolean): Boolean = call(OP_CLIP_PIN, if (pinned) "1" else "0", null, id) == "1"
 
     fun clipDelete(id: Long) {
         call(OP_CLIP_DELETE, null, null, id)
