@@ -2,6 +2,9 @@
 
 Jedna věta za verzi, nejnovější nahoře. Čísla verzí odpovídají commitům (`vX.Y: …`).
 
+## 1.47 – 2026-11-27
+Osobní slovník má kompaktní horní pole a po přidání slova vystřelí kolem tlačítka žlutozelená vlna a jiskry, velké ozubené kolo je schované za panelem aktivace a malé je posunuté, Obnovit a Uložit jsou zpět vpravo v hlavičce, kulička přepínače má tenký obrys, čtvercové tlačítko posuvníku se při tažení občas glitchne do žlutooranžové hvězdičky s tyrkysovou a červenou kopií obrysu.
+
 ## 1.46 – 2026-11-27
 Tlačítko emoji je pryč: emoji se otevírají podržením tlačítka maker, které je výchozně vpravo vedle mezerníku (a jde přesunout nebo skrýt), nové makro má vlnu textu, výběr barvy bez OK vrací původní barvu, obnova profilu má nový obrázek a po potvrzení se otočí o 360°, přepínače mají nový vzhled (obrys kapsle, kulička v barvě akcentu, dvojí glitch na čtvereček), úvodní stránka má u kroků aktivace zaškrtávátka a dvě pomalu se otáčející ozubená kola, Uložit se zvětší a vystřelí zlutozelenou vlnu.
 

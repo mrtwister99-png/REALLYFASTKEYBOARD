@@ -84,7 +84,7 @@ class DictionaryActivity : SubScreen() {
     }
 
     /** Tlacitko Pridat se zvetsi na 200 %, zezelena, vybouchne (jiskry) a vrati se do zakladu. */
-    private fun playAddedAnimation(add: android.widget.TextView, burst: BurstView) {
+    private fun playAddedAnimation(add: android.widget.TextView, burst: BurstView, wave: RingWaveView) {
         val base = accent
         val green = 0xFF22C55E.toInt()
         add.animate().cancel()
@@ -95,7 +95,8 @@ class DictionaryActivity : SubScreen() {
         }
         grow.start()
         add.animate().scaleX(2f).scaleY(2f).setDuration(380L).withEndAction {
-            burst.burst(green, 12, 62f, 520L)
+            burst.burst(green, 14, 80f, 600L)
+            wave.fire(70f, 800L)
             add.animate().scaleX(3.2f).scaleY(3.2f).alpha(0f).setDuration(200L).withEndAction {
                 add.scaleX = 1f
                 add.scaleY = 1f
@@ -120,6 +121,7 @@ class DictionaryActivity : SubScreen() {
         val add = label(getString(R.string.dictionary_add), 15f, accent)
         add.setPadding(dp(16f), dp(12f), dp(4f), dp(12f))
         val addBurst = BurstView(this)
+        val addWave = RingWaveView(this)
         val doAdd = {
             val w = word.text.toString().trim()
             if (w.isNotEmpty()) {
@@ -127,7 +129,7 @@ class DictionaryActivity : SubScreen() {
                     word.setText("")
                     refresh()
                     vibrateSaved()
-                    playAddedAnimation(add, addBurst)
+                    playAddedAnimation(add, addBurst, addWave)
                 } else {
                     Toast.makeText(this, R.string.dictionary_add_failed, Toast.LENGTH_SHORT).show()
                 }
@@ -144,7 +146,9 @@ class DictionaryActivity : SubScreen() {
         val addHolder = FrameLayout(this)
         addHolder.clipChildren = false
         addHolder.addView(add, FrameLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.CENTER))
-        addHolder.addView(addBurst, FrameLayout.LayoutParams(dp(150f), dp(150f), Gravity.CENTER))
+        // Jiskry a vlna lezi pres cele tlacitko (MATCH_PARENT, bez orezu), aby nezvetsovaly radek.
+        addHolder.addView(addBurst, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
+        addHolder.addView(addWave, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
         addRow.clipChildren = false
         box.clipChildren = false
         addRow.addView(addHolder)

@@ -182,7 +182,6 @@ class SettingsActivity : SettingsScreen() {
         // Dve ozubena kola vpravo nahore (velke a male), tocici se pomalu a stejnou rychlosti; lezi nad ostatnimi prvky.
         val gears = FrameLayout(this)
         gears.clipChildren = false
-        gears.translationZ = dp(2f).toFloat()
         container.clipChildren = false
         val bigGear = GearView(this, R.drawable.ic_gear_big, dim, 30, 98)
         val blp = FrameLayout.LayoutParams(dp(110f), dp(104f), Gravity.TOP or Gravity.END)
@@ -191,8 +190,8 @@ class SettingsActivity : SettingsScreen() {
         gears.addView(bigGear, blp)
         val smallGear = GearView(this, R.drawable.ic_gear_small, dim, 284, 440)
         val slp = FrameLayout.LayoutParams(dp(55f), dp(54f), Gravity.TOP or Gravity.END)
-        slp.topMargin = dp(15f) - logoH - dp(4f)
-        slp.rightMargin = -dp(10f)
+        slp.topMargin = dp(33f) - logoH - dp(4f)
+        slp.rightMargin = dp(3f)
         gears.addView(smallGear, slp)
         container.addView(gears, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0))
         if (animateTitle) {

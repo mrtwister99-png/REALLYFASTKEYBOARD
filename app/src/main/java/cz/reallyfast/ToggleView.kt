@@ -169,6 +169,11 @@ class ToggleView(context: Context) : View(context) {
         paint.color = color
         rect.set(cx - rw, h / 2f - rh, cx + rw, h / 2f + rh)
         canvas.drawOval(rect, paint)
+        // Tenky obrys kulicky (0,75 dp): cerny na svetle, bily na tmave kulicce.
+        paint.style = Paint.Style.STROKE
+        paint.strokeWidth = 0.75f * d
+        paint.color = if (Theme.luminance(color) > 0.5f) 0xFF000000.toInt() else 0xFFFFFFFF.toInt()
+        canvas.drawOval(rect, paint)
         if (squash > 0.6f) {
             // Odlesk: kratky oblouk vlevo nahore a tecka.
             paint.style = Paint.Style.STROKE

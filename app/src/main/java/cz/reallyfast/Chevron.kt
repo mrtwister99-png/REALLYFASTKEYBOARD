@@ -458,6 +458,81 @@ class GearView(context: Context, res: Int, tint: Int, private val minDeg: Int, p
     }
 }
 
+/**
+ * Posuvne tlacitko posuvniku: ctverecek v barve akcentu. Pri tazeni jednou za cas "glitchne" do zlutooranzove hvezdicky
+ * (dvakrat vetsi) se dvema kopiemi obrysu, tyrkysovou a cervenou, a po chvili se vrati. Kresleni nealokuje.
+ */
+class GlitchThumb(private val sizePx: Int, private val color: Int, private val host: View) : android.graphics.drawable.Drawable() {
+    private val d = host.resources.displayMetrics.density
+    private val fillPaint = Paint(Paint.ANTI_ALIAS_FLAG)
+    private val linePaint = Paint(Paint.ANTI_ALIAS_FLAG)
+    private val rect = android.graphics.RectF()
+    private val star = Path()
+    private var glitching = false
+    private val reset = Runnable {
+        glitching = false
+        invalidateSelf()
+        host.invalidate()
+    }
+
+    init {
+        // Hvezdicka v jednotkovych souradnicich (polomer 0,5 kolem stredu).
+        for (i in 0 until 10) {
+            val r = if (i % 2 == 0) 0.5f else 0.21f
+            val a = -PI / 2 + i * PI / 5
+            val x = r * cos(a).toFloat()
+            val y = r * sin(a).toFloat()
+            if (i == 0) star.moveTo(x, y) else star.lineTo(x, y)
+        }
+        star.close()
+        linePaint.style = Paint.Style.STROKE
+        linePaint.strokeJoin = Paint.Join.ROUND
+    }
+
+    /** Na `ms` zmeni tvar na hvezdicku. */
+    fun glitch(ms: Long) {
+        glitching = true
+        host.removeCallbacks(reset)
+        host.postDelayed(reset, ms)
+        invalidateSelf()
+        host.invalidate()
+    }
+
+    override fun draw(canvas: Canvas) {
+        val b = bounds
+        val cx = b.exactCenterX()
+        val cy = b.exactCenterY()
+        if (!glitching) {
+            fillPaint.color = color
+            rect.set(cx - sizePx / 2f, cy - sizePx / 2f, cx + sizePx / 2f, cy + sizePx / 2f)
+            canvas.drawRoundRect(rect, 3f * d, 3f * d, fillPaint)
+            return
+        }
+        val big = sizePx * 2f
+        linePaint.strokeWidth = 1.8f * d / big
+        for (k in 0 until 3) {
+            canvas.save()
+            canvas.translate(cx + (if (k == 0) 3f * d else if (k == 1) -3f * d else 0f), cy + (if (k == 0) -2f * d else if (k == 1) 2f * d else 0f))
+            canvas.scale(big, big)
+            if (k < 2) {
+                linePaint.color = if (k == 0) 0xFF22D3EE.toInt() else 0xFFEF4444.toInt()
+                canvas.drawPath(star, linePaint)
+            } else {
+                fillPaint.color = 0xFFFFA800.toInt()
+                canvas.drawPath(star, fillPaint)
+            }
+            canvas.restore()
+        }
+    }
+
+    override fun getIntrinsicWidth() = sizePx
+    override fun getIntrinsicHeight() = sizePx
+    override fun setAlpha(alpha: Int) {}
+    override fun setColorFilter(colorFilter: android.graphics.ColorFilter?) {}
+    @Deprecated("Deprecated in Java")
+    override fun getOpacity() = android.graphics.PixelFormat.TRANSLUCENT
+}
+
 /** Rozprsknuti castic (kratke cary) od stredu pohledu; pohled by mel lezet nad tlacitkem a nesmi orezavat okoli (clipChildren = false). */
 class BurstView(context: Context) : View(context) {
     private val d = resources.displayMetrics.density

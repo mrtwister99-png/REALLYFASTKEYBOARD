@@ -293,8 +293,10 @@ class AppearanceActivity : SettingsScreen() {
         header.orientation = LinearLayout.VERTICAL
         header.setBackgroundColor(bg)
         header.setPadding(dp(14f), dp(10f), dp(14f), dp(6f))
-        val top = LinearLayout(this)
-        top.gravity = Gravity.CENTER_VERTICAL
+        // Zpet vlevo, Test / Obnovit / Ulozit vpravo (pevne ke krajum, ne pres pruznou mezeru).
+        val top = FrameLayout(this)
+        val right = LinearLayout(this)
+        right.gravity = Gravity.CENTER_VERTICAL
         // Zpetna sipka: tlacitko zustane stat, sipka z nej po klepnuti vystreli doleva.
         val back = FrameLayout(this)
         back.clipChildren = false
@@ -307,8 +309,7 @@ class AppearanceActivity : SettingsScreen() {
         backArrow = arrow
         top.clipChildren = false
         header.clipChildren = false
-        top.addView(back, LinearLayout.LayoutParams(dp(48f), dp(42f)))
-        top.addView(View(this), LinearLayout.LayoutParams(0, 1, 1f))
+        top.addView(back, FrameLayout.LayoutParams(dp(48f), dp(42f), Gravity.START or Gravity.CENTER_VERTICAL))
         val test = label(getString(R.string.preview_test), 13f)
         test.typeface = Typeface.DEFAULT_BOLD
         test.letterSpacing = 0.08f
@@ -318,7 +319,7 @@ class AppearanceActivity : SettingsScreen() {
         testButton = test
         val tlp = LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, dp(42f))
         tlp.rightMargin = dp(8f)
-        top.addView(test, tlp)
+        right.addView(test, tlp)
         // Obnova profilu: nedokonceny kruh se sipkou na konci; po zeptani vrati ulozenou podobu vybraneho profilu.
         val restore = FrameLayout(this)
         val ricon = RestoreIconView(this, text)
@@ -329,7 +330,7 @@ class AppearanceActivity : SettingsScreen() {
         restoreIcon = ricon
         val rlp0 = LinearLayout.LayoutParams(dp(42f), dp(42f))
         rlp0.rightMargin = dp(8f)
-        top.addView(restore, rlp0)
+        right.addView(restore, rlp0)
         val s = label(getString(R.string.save), 15f)
         s.gravity = Gravity.CENTER
         s.typeface = Typeface.DEFAULT_BOLD
@@ -350,7 +351,8 @@ class AppearanceActivity : SettingsScreen() {
                 }.start()
             }
         }
-        top.addView(saveHolder, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, dp(42f)))
+        right.addView(saveHolder, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, dp(42f)))
+        top.addView(right, FrameLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, dp(42f), Gravity.END or Gravity.CENTER_VERTICAL))
         header.addView(top, rowParams())
 
         val bar = LinearLayout(this)

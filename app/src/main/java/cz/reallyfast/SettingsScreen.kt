@@ -251,12 +251,12 @@ abstract class SettingsScreen : BaseScreen() {
         seekRow.addView(minus, LinearLayout.LayoutParams(dp(26f), dp(26f)))
         val seek = SeekBar(this)
         // Posuvne tlacitko je ctverecek v barve akcentu (misto kulate vychozi podoby).
-        seek.thumb = android.graphics.drawable.GradientDrawable().apply {
-            shape = android.graphics.drawable.GradientDrawable.RECTANGLE
-            cornerRadius = dp(3f).toFloat()
-            setColor(accent)
-            setSize(dp(18f), dp(18f))
-        }
+        val thumb = GlitchThumb(dp(18f), accent, seek)
+        seek.thumb = thumb
+        col.clipChildren = false
+        seekRow.clipChildren = false
+        box.clipChildren = false
+        var lastGlitch = 0L
         seek.max = (max - min) / step
         fun current(): Int {
             val j = RustBridge.settings.json
@@ -274,6 +274,12 @@ abstract class SettingsScreen : BaseScreen() {
                 val v = progress * step + min
                 value.text = format(v)
                 if (fromUser) {
+                    // Jednou za cas se pri tahu tvar glitchne do hvezdicky.
+                    val t = SystemClock.uptimeMillis()
+                    if (t - lastGlitch > 900L && kotlin.random.Random.nextInt(100) < 9) {
+                        lastGlitch = t
+                        thumb.glitch(230L)
+                    }
                     // Pri tahu se zapisuje nejvyse jednou za 100 ms, posledni hodnota az po pusteni.
                     val now = SystemClock.uptimeMillis()
                     if (now - lastWrite >= 100L) {
