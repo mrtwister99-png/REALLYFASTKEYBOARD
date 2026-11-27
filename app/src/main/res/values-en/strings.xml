@@ -9,6 +9,7 @@
     <string name="unit_percent">%1$d %%</string>
     <string name="unit_minutes">%1$d min</string>
 
+    <string name="voice_button">Dictation by the button next to clipboard</string>
     <string name="voice_input">Dictation by holding Enter</string>
     <string name="voice_listening">● Listening… ✕ to stop</string>
     <string name="voice_processing">Transcribing…</string>
@@ -231,10 +232,6 @@
     <string name="style_restore_confirm">Do you really want to restore this profile\? Unsaved changes will be lost.</string>
     <string name="row_edit">Edit row positions</string>
     <string name="row_edit_hint">Drag the arrows up and down. Every row has its own limits, the top row can only go up a little.</string>
-    <string name="voice_trigger_label">How to start dictation</string>
-    <string name="voice_trigger_enter">Hold Enter</string>
-    <string name="voice_trigger_button">Button next to clipboard</string>
-    <string name="voice_trigger_both">Both</string>
     <string name="style_saved">Look saved to style %1$d</string>
     <string name="style_loaded">Style %1$d loaded</string>
     <string name="style_pick_first">First select style 1–5 above</string>

@@ -59,41 +59,26 @@ class VoiceActivity : SubScreen() {
         row.setOnClickListener { sw.toggle() }
         box.addView(row, rowParams())
 
-        // Jak se diktovani spousti: podrzenim Enteru, tlacitkem v liste vedle schranky, nebo obojim.
-        box.addView(label(getString(R.string.voice_trigger_label), 14f, dim).also { it.setPadding(0, dp(6f), 0, dp(6f)) }, rowParams())
-        val triggerValues = listOf("enter", "button", "both")
-        val triggerLabels = listOf(R.string.voice_trigger_enter, R.string.voice_trigger_button, R.string.voice_trigger_both)
-        val triggerPills = ArrayList<TextView>()
-        val triggerRow = LinearLayout(this)
-        fun paintTrigger() {
-            val cur = RustBridge.settings.voiceTrigger
-            val a = accent
-            val onA = if (Theme.luminance(a) > 0.55f) 0xFF111113.toInt() else 0xFFFFFFFF.toInt()
-            for ((i, p) in triggerPills.withIndex()) {
-                val on = triggerValues[i] == cur
-                p.background = rounded(if (on) a else field, dp(12f).toFloat())
-                p.setTextColor(if (on) onA else text)
-            }
-        }
-        for ((i, v) in triggerValues.withIndex()) {
-            val p = label(getString(triggerLabels[i]), 13f)
-            p.gravity = Gravity.CENTER
-            p.setPadding(dp(6f), dp(10f), dp(6f), dp(10f))
-            p.setOnClickListener {
+        // Druhy prepinac: diktovani tlacitkem s mikrofonem v liste vedle schranky.
+        val row2 = LinearLayout(this)
+        row2.gravity = Gravity.CENTER_VERTICAL
+        row2.minimumHeight = dp(52f)
+        row2.addView(label(getString(R.string.voice_button)), LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+        val sw2 = ToggleView(this)
+        sw2.accent = accent
+        sw2.contentDescription = getString(R.string.voice_button)
+        sw2.setChecked(RustBridge.settings.voiceByButton, false)
+        sw2.onChange = { checked ->
+            if (RustBridge.settings.voiceByButton != checked) {
                 val j = RustBridge.settings.edit()
-                j.put("voice_trigger", v)
+                j.put("voice_button", checked)
                 RustBridge.setSettings(j)
-                paintTrigger()
+                if (checked) ensureMicrophone()
             }
-            triggerPills.add(p)
-            val lp = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
-            if (i > 0) lp.leftMargin = dp(6f)
-            triggerRow.addView(p, lp)
         }
-        paintTrigger()
-        val tlp = rowParams()
-        tlp.bottomMargin = dp(8f)
-        box.addView(triggerRow, tlp)
+        row2.addView(sw2)
+        row2.setOnClickListener { sw2.toggle() }
+        box.addView(row2, rowParams())
         hintText(box, getString(R.string.voice_hint))
 
         // Hlasove povely

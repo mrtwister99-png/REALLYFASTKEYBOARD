@@ -41,10 +41,9 @@ class Settings(val json: JSONObject) {
     val clipboardEnabled: Boolean get() = json.optBoolean("clipboard_enabled", true)
 
     val voiceInput: Boolean get() = json.optBoolean("voice_input", true)
-    /** Spusteni diktovani: "enter" (podrzeni Enteru), "button" (tlacitko v liste) nebo "both". */
-    val voiceTrigger: String get() = json.optString("voice_trigger", "both")
-    val voiceByEnter: Boolean get() = voiceInput && voiceTrigger != "button"
-    val voiceByButton: Boolean get() = voiceInput && voiceTrigger != "enter"
+    /** Diktovani podrzenim Enteru ridi voice_input, tlacitkem v liste vedle schranky voice_button. */
+    val voiceByEnter: Boolean get() = voiceInput
+    val voiceByButton: Boolean get() = json.optBoolean("voice_button", true)
 
     // Vzhled
     val keyPopup: Boolean get() = json.optBoolean("key_popup", true)

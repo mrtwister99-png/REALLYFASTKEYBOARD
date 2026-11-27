@@ -295,6 +295,8 @@ class AppearanceActivity : SettingsScreen() {
         header.setPadding(dp(14f), dp(10f), dp(14f), dp(6f))
         // Zpet vlevo, Test / Obnovit / Ulozit vpravo (pevne ke krajum, ne pres pruznou mezeru).
         val top = FrameLayout(this)
+        // Hlavicka ma vzdy plnou sirku obrazovky (bez pevne sirky se radek smrstil a tlacitka lezela pres sebe).
+        top.minimumWidth = resources.displayMetrics.widthPixels - dp(28f)
         val right = LinearLayout(this)
         right.gravity = Gravity.CENTER_VERTICAL
         // Zpetna sipka: tlacitko zustane stat, sipka z nej po klepnuti vystreli doleva.

@@ -2,6 +2,9 @@
 
 Jedna věta za verzi, nejnovější nahoře. Čísla verzí odpovídají commitům (`vX.Y: …`).
 
+## 1.47.1 – 2026-11-27
+Hlavička Vzhledu má pevnou šířku, takže Obnovit a Uložit leží vpravo a ne přes sebe; Hlas má dva samostatné přepínače: diktování podržením Enteru a diktování tlačítkem vedle schránky (volba „Jak spouštět“ zmizela).
+
 ## 1.47 – 2026-11-27
 Osobní slovník má kompaktní horní pole a po přidání slova vystřelí kolem tlačítka žlutozelená vlna a jiskry, velké ozubené kolo je schované za panelem aktivace a malé je posunuté, Obnovit a Uložit jsou zpět vpravo v hlavičce, kulička přepínače má tenký obrys, čtvercové tlačítko posuvníku se při tažení občas glitchne do žlutooranžové hvězdičky s tyrkysovou a červenou kopií obrysu.
 

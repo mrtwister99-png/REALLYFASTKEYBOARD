@@ -7,7 +7,6 @@ use std::sync::OnceLock;
 
 pub const LANGUAGES: [&str; 3] = ["cs", "en", "cs+en"];
 pub const LAYOUTS: [&str; 2] = ["qwertz", "qwerty"];
-const VOICE_TRIGGERS: &[&str] = &["both", "enter", "button"];
 pub const KEY_PLACES: [&str; 3] = ["left", "right", "hidden"];
 pub const THEMES: [&str; 4] = ["dark", "light", "oled_black", "custom"];
 pub const GLOW_STYLES: [&str; 4] = ["neon", "paint", "ghost", "flip"];
@@ -86,8 +85,8 @@ pub struct Settings {
     pub custom_text: String,
     /// Diktovani: podrzeni Enteru prepise rec na text (systemove rozpoznavani reci).
     pub voice_input: bool,
-    /// Jak se diktovani spousti: `enter` = podrzeni Enteru, `button` = tlacitko v liste vedle schranky, `both` = obojim.
-    pub voice_trigger: String,
+    /// Diktovani tlacitkem s mikrofonem v liste vedle schranky (nezavisle na podrzeni Enteru).
+    pub voice_button: bool,
     // --- vzhled (Faze 2) ---
     /// Bublina s pismenem nad stisknutou klavesou.
     pub key_popup: bool,
@@ -277,7 +276,7 @@ impl Settings {
             custom_key: "#26262B".into(),
             custom_text: "#F4F4F5".into(),
             voice_input: true,
-            voice_trigger: "both".into(),
+            voice_button: true,
             key_popup: true,
             key_hints: true,
             key_shadow: true,
@@ -682,9 +681,6 @@ impl Settings {
             self.key_hint_x = x;
             self.key_hint_y = y;
         }
-        if !VOICE_TRIGGERS.contains(&self.voice_trigger.as_str()) {
-            self.voice_trigger = d.voice_trigger.clone();
-        }
         if !KEY_PLACES.contains(&self.macro_key.as_str()) {
             self.macro_key = d.macro_key.clone();
         }
@@ -786,13 +782,11 @@ mod tests {
     use super::*;
 
     #[test]
-    fn voice_trigger_is_validated() {
-        assert_eq!(Settings::default().voice_trigger, "both");
-        for v in ["enter", "button", "both"] {
-            let s = Settings::from_json(&format!(r#"{{"voice_trigger":"{v}"}}"#)).unwrap();
-            assert_eq!(s.voice_trigger, v);
-        }
-        assert_eq!(Settings::from_json(r#"{"voice_trigger":"nejak"}"#).unwrap().voice_trigger, "both");
+    fn voice_button_defaults_on_and_roundtrips() {
+        assert!(Settings::default().voice_button);
+        assert!(!Settings::from_json(r#"{"voice_button":false}"#).unwrap().voice_button);
+        // stary klic voice_trigger se ignoruje
+        assert!(!Settings::from_json(r#"{"voice_trigger":"enter"}"#).unwrap().to_json().contains("voice_trigger"));
     }
 
     #[test]

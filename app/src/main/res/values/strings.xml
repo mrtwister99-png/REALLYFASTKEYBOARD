@@ -5,6 +5,7 @@
     <string name="subtype_cs">Čeština (QWERTZ)</string>
     <string name="subtype_en">English (QWERTY)</string>
 
+    <string name="voice_button">Diktování tlačítkem vedle schránky</string>
     <string name="voice_input">Diktování podržením Enteru</string>
     <string name="voice_listening">● Poslouchám… ✕ ukončí</string>
     <string name="voice_processing">Přepisuji…</string>
@@ -231,10 +232,6 @@
     <string name="style_restore_confirm">Opravdu chceš tento profil obnovit? Neuložené změny se ztratí.</string>
     <string name="row_edit">Upravit výšku řádků</string>
     <string name="row_edit_hint">Táhni šipky nahoru a dolů. Každá řada má své meze, nejvyšší jde jen kousek nahoru.</string>
-    <string name="voice_trigger_label">Jak spouštět diktování</string>
-    <string name="voice_trigger_enter">Podržením Enteru</string>
-    <string name="voice_trigger_button">Tlačítkem vedle schránky</string>
-    <string name="voice_trigger_both">Obojím</string>
     <string name="style_saved">Vzhled uložen do stylu %1$d</string>
     <string name="style_loaded">Načten styl %1$d</string>
     <string name="style_pick_first">Nejdřív nahoře vyberte styl 1–5</string>

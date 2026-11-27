@@ -39,7 +39,7 @@ Počet nastavení: **94**.
 | `vibration_ms` | `10` | 0 – 50 | Délka vibrace při stisku (ms), 0 = bez vibrace. | Psaní |
 | `sound_enabled` | `false` | zap / vyp | Zvuk kláves. | Psaní |
 | `voice_input` | `true` | zap / vyp | Diktování podržením Enteru. | Hlas |
-| `voice_trigger` | `both` | `enter`, `button`, `both` | Jak se spouští diktování: podržením Enteru, tlačítkem s mikrofonem v liště vedle schránky, nebo obojím. | Hlas |
+| `voice_button` | `true` | zapnuto / vypnuto | Diktování tlačítkem s mikrofonem v liště vedle schránky (nezávisle na podržení Enteru, které řídí `voice_input`). | Hlas |
 
 ## Gesta a schránka
 
