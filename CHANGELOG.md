@@ -2,6 +2,9 @@
 
 Jedna věta za verzi, nejnovější nahoře. Čísla verzí odpovídají commitům (`vX.Y: …`).
 
+## 1.47.5 – 2026-11-27
+Osobní slovník má zpět textové pole před Přidat (jiskry roztahovaly obal tlačítka); stav klávesnice je samostatný symbol bez kolečka a 1,5× větší (✓, !, ✕), znaky kroků 1 a 2 jsou o třetinu menší.
+
 ## 1.47.4 – 2026-11-27
 Skutečná příčina slepeného řádku hlavičky: vlna kolem tlačítka Uložit roztahovala obal na celou šířku; má teď vlastní míru nula, takže Obnovit a Uložit leží vpravo ke kraji.
 

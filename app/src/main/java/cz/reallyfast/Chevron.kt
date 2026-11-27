@@ -550,6 +550,13 @@ class BurstView(context: Context) : View(context) {
     private var reach = 0f
     private var anim: ValueAnimator? = null
 
+    /** Bez vlastni velikosti: jiskry nesmi roztahnout rodice (jinak zmizi pole vedle tlacitka Pridat). */
+    override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
+        val w = if (MeasureSpec.getMode(widthMeasureSpec) == MeasureSpec.EXACTLY) MeasureSpec.getSize(widthMeasureSpec) else 0
+        val h = if (MeasureSpec.getMode(heightMeasureSpec) == MeasureSpec.EXACTLY) MeasureSpec.getSize(heightMeasureSpec) else 0
+        setMeasuredDimension(w, h)
+    }
+
     init {
         paint.style = Paint.Style.STROKE
         paint.strokeCap = Paint.Cap.ROUND

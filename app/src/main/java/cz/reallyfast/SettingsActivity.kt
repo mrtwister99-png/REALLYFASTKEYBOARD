@@ -236,10 +236,10 @@ class SettingsActivity : SettingsScreen() {
         card.setPadding(dp(14f), dp(14f), dp(14f), dp(14f))
         val badge = TextView(this)
         badge.gravity = Gravity.CENTER
-        badge.setTextColor(0xFFFFFFFF.toInt())
-        badge.setTextSize(TypedValue.COMPLEX_UNIT_SP, 26f)
+        badge.setTextColor(0xFF10B981.toInt())
+        badge.setTextSize(TypedValue.COMPLEX_UNIT_SP, 39f)
         badge.typeface = android.graphics.Typeface.DEFAULT_BOLD
-        card.addView(badge, LinearLayout.LayoutParams(dp(52f), dp(52f)))
+        card.addView(badge, LinearLayout.LayoutParams(dp(78f), dp(78f)))
         val st = label("", 17f, text)
         st.typeface = android.graphics.Typeface.create("sans-serif-medium", android.graphics.Typeface.NORMAL)
         st.setPadding(dp(14f), 0, 0, 0)
@@ -259,7 +259,7 @@ class SettingsActivity : SettingsScreen() {
             holder.addView(b, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
             val m = StepMark(this, dim)
             mark(m)
-            val mlp = FrameLayout.LayoutParams(dp(26f), dp(26f), Gravity.START or Gravity.CENTER_VERTICAL)
+            val mlp = FrameLayout.LayoutParams(dp(17f), dp(17f), Gravity.START or Gravity.CENTER_VERTICAL)
             mlp.leftMargin = dp(14f)
             holder.addView(m, mlp)
             val lp = rowParams()
@@ -496,10 +496,8 @@ class SettingsActivity : SettingsScreen() {
             else -> 0xFFEF4444.toInt()
         }
         statusBadge?.text = if (active) "✓" else if (enabled) "!" else "✕"
-        statusBadge?.background = android.graphics.drawable.GradientDrawable().apply {
-            shape = android.graphics.drawable.GradientDrawable.OVAL
-            setColor(tone)
-        }
+        // Symbol bez vyplneneho kolecka: jen znak v barve stavu.
+        statusBadge?.setTextColor(tone)
         statusCard?.background = android.graphics.drawable.GradientDrawable().apply {
             cornerRadius = dp(16f).toFloat()
             setColor((tone and 0x00FFFFFF) or 0x26000000)
