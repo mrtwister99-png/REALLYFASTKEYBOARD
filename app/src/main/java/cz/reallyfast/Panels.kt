@@ -788,14 +788,23 @@ class CommandPanel(context: Context, private val theme: Theme, private val phras
         body.addView(tv, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT))
     }
 
-    private fun save(text: String) {
-        callbacks.onCommandSaved(RustBridge.saveVoiceCommand(0, phrase, "text", text))
+    private fun save(text: String, action: String = "text") {
+        callbacks.onCommandSaved(RustBridge.saveVoiceCommand(0, phrase, action, text))
     }
 
     private fun showChoices() {
         body.removeAllViews()
         row(context.getString(R.string.voice_learn_macro)) { showMacros() }
         row(context.getString(R.string.voice_learn_clip)) { showClips() }
+        row(context.getString(R.string.voice_learn_classic)) { showClassic() }
+    }
+
+    /** Klasicke povely (smazat slovo, novy radek ...): stejne akce jako v Hlas -> Povely. */
+    private fun showClassic() {
+        body.removeAllViews()
+        val actions = listOf("delete_word", "delete_last", "newline", "enter", "stop")
+        val names = intArrayOf(R.string.voice_action_delete_word, R.string.voice_action_delete_last, R.string.voice_action_newline, R.string.voice_action_enter, R.string.voice_action_stop)
+        for (i in actions.indices) row(context.getString(names[i])) { save("", actions[i]) }
     }
 
     private fun showMacros() {

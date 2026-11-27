@@ -2,6 +2,9 @@
 
 Jedna věta za verzi, nejnovější nahoře. Čísla verzí odpovídají commitům (`vX.Y: …`).
 
+## 1.53 – 2026-11-27
+Uložit ve vzhledu: text povyskočí a přes tlačítko projedou zleva doprava dva křivé pruhy (zelený a žlutý); R losuje každou druhou barvu i směr přechodu zvlášť (od jedné úpravy po všechny); při nahrávání nového povelu je nad lištou návrhů tabulka „Nahraj max. 4 slova!“ a na výběr jsou i klasické povely (smazat slovo, nový řádek, Enter, ukončit diktování).
+
 ## 1.52 – 2026-11-27
 Podržení ?123 už nenabízí emoji (jen schránku a nastavení; emoji zůstaly na podržení tlačítka maker); nový hlasový povel z podržení mikrofonu se ukládá i při delším spouštěči (ořízne se na 4 slova) a seznam povelů se při návratu na obrazovku obnoví.
 

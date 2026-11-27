@@ -351,17 +351,20 @@ class AppearanceActivity : SettingsScreen() {
         s.typeface = Typeface.DEFAULT_BOLD
         s.setPadding(dp(24f), 0, dp(24f), 0)
         saveBtn = s
-        // Tlacitko Ulozit v obalu: po ulozeni se zvetsi na 1,3x a kolem vystreli zlutozelena vlna (3 oblouky po 20 % obvodu).
+        // Tlacitko Ulozit v obalu: po ulozeni text povyskoci (zvetsi se) a pres tlacitko projedou zleva doprava dva krive pruhy, zeleny a zluty.
         val saveHolder = FrameLayout(this)
         saveHolder.clipChildren = false
         saveHolder.addView(s, FrameLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, dp(42f)))
-        val saveWave = RingWaveView(this)
-        saveHolder.addView(saveWave, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
+        val saveWave = SweepView(this)
+        val swp = FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
+        swp.setMargins(-dp(18f), -dp(6f), -dp(18f), -dp(6f))
+        saveHolder.addView(saveWave, swp)
+        right.clipChildren = false
         s.setOnClickListener {
             if (saveSlot()) {
-                saveWave.fire(30f, 900L)
+                saveWave.fire(800L)
                 s.animate().cancel()
-                s.animate().scaleX(1.3f).scaleY(1.3f).setDuration(180L).withEndAction {
+                s.animate().scaleX(1.35f).scaleY(1.35f).setDuration(180L).withEndAction {
                     s.animate().scaleX(1f).scaleY(1f).setDuration(260L).start()
                 }.start()
             }
@@ -907,31 +910,41 @@ class AppearanceActivity : SettingsScreen() {
         m["glow_color"] = hex()
         m["trail_style"] = pick("line", "dashed", "fire", "pixel")
         m["trail_color"] = hex()
-        val groups = ArrayList<() -> Unit>()
-        groups.add {
-            m["key_radius_dp"] = int(2, 22); m["key_gap_dp"] = int(0, 10); m["row_gap_dp"] = int(0, 16)
-            m["key_text_percent"] = int(90, 130); m["key_shadow"] = r.nextBoolean(); m["special_outline"] = r.nextBoolean()
-            m["number_divider"] = r.nextBoolean(); m["outline_width_dp"] = int(1, 6)
+        // Kazda uprava zvlast (kazda druha barva i kazdy smer prechodu); sance na zarazeni je nahodna: od jedne po vsechny.
+        val items = ArrayList<() -> Unit>()
+        items.add { m["key_radius_dp"] = int(2, 22) }
+        items.add { m["key_gap_dp"] = int(0, 10) }
+        items.add { m["row_gap_dp"] = int(0, 16) }
+        items.add { m["key_text_percent"] = int(90, 130) }
+        items.add { m["key_shadow"] = r.nextBoolean() }
+        items.add { m["special_outline"] = r.nextBoolean() }
+        items.add { m["number_divider"] = r.nextBoolean() }
+        items.add { m["outline_width_dp"] = int(1, 6) }
+        items.add { m["key_color2"] = rb(hex()); m["key_grad_dir"] = dir() }
+        items.add { m["text_color2"] = rb(readable()); m["text_grad_dir"] = dir() }
+        items.add { m["background_color2"] = rb(hex()); m["bg_grad_dir"] = dir() }
+        items.add { m["digit_key_color2"] = rb(hex()); m["digit_key_grad_dir"] = dir() }
+        items.add { m["digit_text_color2"] = rb(readable()); m["digit_text_grad_dir"] = dir() }
+        items.add { m["outline_color"] = hex(); m["outline_grad_dir"] = dir() }
+        items.add { m["outline_color"] = hex(); m["outline_color2"] = rb(hex()); m["outline_grad_dir"] = dir() }
+        items.add { m["neon_color2"] = rb(hex()) }
+        items.add { m["tap_text_color"] = hex() }
+        items.add { m["tap_text_color2"] = hex() }
+        items.add { m["outline_tap_color"] = hex() }
+        items.add { m["outline_tap_color2"] = hex() }
+        items.add { m["hover_text_color"] = hex() }
+        items.add { m["passed_text_color"] = hex() }
+        items.add { m["outline_hover_color"] = hex() }
+        items.add { m["outline_passed_color"] = hex() }
+        items.add { m["glow_color2"] = hex() }
+        items.add { m["trail_color2"] = hex() }
+        val chance = r.nextFloat()
+        var any = false
+        for (it in items) if (r.nextFloat() < chance) {
+            it()
+            any = true
         }
-        groups.add { m["key_color2"] = rb(hex()); m["key_grad_dir"] = dir() }
-        groups.add { m["text_color2"] = rb(readable()); m["text_grad_dir"] = dir() }
-        groups.add { m["background_color2"] = rb(hex()); m["bg_grad_dir"] = dir() }
-        groups.add {
-            m["digit_key_color2"] = rb(hex()); m["digit_key_grad_dir"] = dir()
-            m["digit_text_color2"] = rb(readable()); m["digit_text_grad_dir"] = dir()
-        }
-        groups.add { m["outline_color"] = hex(); m["outline_color2"] = rb(hex()); m["outline_grad_dir"] = dir() }
-        groups.add {
-            m["tap_text_color"] = hex(); m["tap_text_color2"] = hex(); m["outline_tap_color"] = hex()
-            m["outline_tap_color2"] = hex(); m["neon_color2"] = rb(hex())
-        }
-        groups.add {
-            m["hover_text_color"] = hex(); m["passed_text_color"] = hex(); m["outline_hover_color"] = hex()
-            m["outline_passed_color"] = hex(); m["glow_color2"] = hex(); m["trail_color2"] = hex()
-        }
-        groups.shuffle(r)
-        // Nahodny pocet skupin: od zadne po vsechny.
-        for (i in 0 until r.nextInt(groups.size + 1)) groups[i]()
+        if (!any) items[r.nextInt(items.size)]()
         updateAll(*m.map { it.key to it.value }.toTypedArray())
     }
 

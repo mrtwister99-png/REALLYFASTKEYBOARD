@@ -112,6 +112,8 @@
     <string name="voice_learn_clip">Send from clipboard</string>
     <string name="voice_learn_macro_empty">You have no macros yet.</string>
     <string name="voice_learn_clip_empty">The clipboard is empty.</string>
+    <string name="voice_learn_tip">Say 4 words at most!</string>
+    <string name="voice_learn_classic">Classic commands</string>
     <string name="voice_learn_saved">Command saved</string>
     <string name="key_height">Key height</string>
     <string name="styles">Ready-made styles</string>

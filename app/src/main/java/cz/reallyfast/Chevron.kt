@@ -385,6 +385,73 @@ class RingWaveView(context: Context) : View(context) {
 }
 
 /**
+ * Dva krive pruhy (zeleny a zluty), ktere projedou zleva doprava pres cely pohled (a kousek za nej); zluty o chvili za zelenym.
+ * Bez vlastni velikosti (jako RingWaveView), nic se nealokuje pri kresleni.
+ */
+class SweepView(context: Context) : View(context) {
+    private val d = resources.displayMetrics.density
+    private val paint = Paint(Paint.ANTI_ALIAS_FLAG)
+    private val path = android.graphics.Path()
+    private var t = -1f
+
+    override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
+        val w = if (MeasureSpec.getMode(widthMeasureSpec) == MeasureSpec.EXACTLY) MeasureSpec.getSize(widthMeasureSpec) else 0
+        val h = if (MeasureSpec.getMode(heightMeasureSpec) == MeasureSpec.EXACTLY) MeasureSpec.getSize(heightMeasureSpec) else 0
+        setMeasuredDimension(w, h)
+    }
+
+    private val animator = android.animation.ValueAnimator.ofFloat(0f, 1f).apply {
+        addUpdateListener {
+            t = it.animatedValue as Float
+            invalidate()
+        }
+        addListener(object : android.animation.AnimatorListenerAdapter() {
+            override fun onAnimationEnd(animation: android.animation.Animator) {
+                t = -1f
+                invalidate()
+            }
+        })
+    }
+
+    init {
+        paint.style = Paint.Style.STROKE
+        paint.strokeCap = Paint.Cap.ROUND
+        isClickable = false
+    }
+
+    fun fire(ms: Long) {
+        animator.cancel()
+        animator.duration = ms
+        animator.start()
+    }
+
+    private fun band(canvas: Canvas, p: Float, color: Int) {
+        if (p <= 0f || p >= 1f) return
+        val w = width.toFloat()
+        val h = height.toFloat()
+        val x = -0.25f * w + p * 1.5f * w
+        path.reset()
+        path.moveTo(x - 0.12f * w, 0f)
+        path.quadTo(x + 0.22f * w, h * 0.5f, x - 0.12f * w, h) // krivy pruh: prohnuty doprava
+        paint.color = color
+        paint.alpha = (255f * kotlin.math.sin(p * Math.PI.toFloat())).toInt().coerceIn(0, 255)
+        paint.strokeWidth = 7f * d
+        canvas.drawPath(path, paint)
+    }
+
+    override fun onDraw(canvas: Canvas) {
+        if (t < 0f) return
+        band(canvas, (t / 0.8f).coerceAtMost(1f), ChevronView.GREEN)
+        band(canvas, ((t - 0.2f) / 0.8f), ChevronView.YELLOW)
+    }
+
+    override fun onDetachedFromWindow() {
+        animator.cancel()
+        super.onDetachedFromWindow()
+    }
+}
+
+/**
  * Znacka kroku nastaveni: obrys zatrzitka je videt vzdy, po splneni kroku se pres nej objevi zelena vyplnena a cela znacka
  * se zvetsi. Dva obrazky (stejne platno), obrys se barvi podle motivu.
  */

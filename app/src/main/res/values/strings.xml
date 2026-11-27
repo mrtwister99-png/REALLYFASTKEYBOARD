@@ -109,6 +109,8 @@
     <string name="voice_learn_clip">Poslat ze schránky</string>
     <string name="voice_learn_macro_empty">Zatím nemáš žádná makra.</string>
     <string name="voice_learn_clip_empty">Schránka je prázdná.</string>
+    <string name="voice_learn_tip">Nahraj max. 4 slova!</string>
+    <string name="voice_learn_classic">Klasické povely</string>
     <string name="voice_learn_saved">Povel uložen</string>
     <string name="styles">Připravené styly</string>
     <string name="key_radius">Zaoblení kláves</string>

@@ -34,6 +34,7 @@ import android.view.inputmethod.ExtractedTextRequest
 import android.view.inputmethod.InputConnection
 import android.widget.FrameLayout
 import android.widget.LinearLayout
+import android.widget.TextView
 import kotlin.math.abs
 import kotlin.math.max
 import kotlin.math.min
@@ -73,6 +74,8 @@ class KeyboardService : InputMethodService(), KeyboardView.Listener,
     private var emojiPanel: EmojiPanel? = null
     private var clipPanel: ClipboardPanel? = null
     private var cmdPanel: CommandPanel? = null
+    /** Tabulka nad listou navrhu pri nahravani spoustece noveho povelu. */
+    private var learnTip: TextView? = null
     /** Dikuje se spoustec noveho hlasoveho povelu (podrzeni mikrofonu): vysledek se nevklada do textu. */
     private var learningPhrase = false
     private var theme: Theme = Theme.from(RustBridge.settings)
@@ -188,6 +191,18 @@ class KeyboardService : InputMethodService(), KeyboardView.Listener,
         val shoal = Shoal(this) { onNetted() }
         shoal.visibility = View.GONE
         outer.addView(shoal, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, shoal.strip))
+        val tip = TextView(this)
+        tip.text = getString(R.string.voice_learn_tip)
+        tip.setTextColor(theme.text)
+        tip.setBackgroundColor(theme.key)
+        tip.setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, 15f)
+        tip.typeface = android.graphics.Typeface.DEFAULT_BOLD
+        tip.gravity = android.view.Gravity.CENTER
+        val pad = (8f * resources.displayMetrics.density).toInt()
+        tip.setPadding(0, pad, 0, pad)
+        tip.visibility = View.GONE
+        outer.addView(tip, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+        learnTip = tip
         outer.addView(root, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
         this.shoal?.stop()
         this.shoal = shoal
@@ -207,6 +222,12 @@ class KeyboardService : InputMethodService(), KeyboardView.Listener,
     /** Okno se zvetsi o pruh, ale aplikace pod nim se nehne; dotyk jen na klavesnici a viditelne casti. */
     override fun onComputeInsets(outInsets: Insets) {
         super.onComputeInsets(outInsets)
+        learnTip?.let {
+            if (it.visibility == View.VISIBLE) {
+                outInsets.contentTopInsets += it.height
+                outInsets.visibleTopInsets += it.height
+            }
+        }
         val s = shoal ?: return
         if (!s.active || s.visibility != View.VISIBLE) return
         val h = s.height
@@ -1284,6 +1305,7 @@ class KeyboardService : InputMethodService(), KeyboardView.Listener,
             return
         }
         voiceSession = false // jedna promluva, zadne Play / pauza
+        learnTip?.visibility = View.VISIBLE
     }
 
     /** Spoustec povelu je nadiktovany: ukonci poslech a otevre panel s vyberem akce. */
@@ -1491,6 +1513,7 @@ class KeyboardService : InputMethodService(), KeyboardView.Listener,
 
     private fun endDictation(allowSend: Boolean = true) {
         handler.removeCallbacks(voiceTimeout)
+        learnTip?.visibility = View.GONE
         dictating = false
         voicePaused = false
         keyboard?.voicePaused = false
