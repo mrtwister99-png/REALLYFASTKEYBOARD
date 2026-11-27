@@ -866,40 +866,73 @@ class AppearanceActivity : SettingsScreen() {
     }
 
     /** Uplne nahodny styl: barvy, tvary klaves a efekty se vylosuji; citelnost textu se hlida jen minimalne. */
+    /**
+     * Cisty nahodny styl: vzdy nova zakladni paleta (s citelnym textem), efekty a jejich barvy; k tomu nahodny pocet
+     * (jedna az vsechny) skupin uprav navic: tvary, druhe barvy s nahodnym smerem prechodu, cisla, obrysy, barvy po klepnuti a po tahu.
+     * Co nevyjde, se vrati na vychozi (prazdne / top), aby po predchozim stylu nic nezustalo.
+     */
     private fun randomStyle() {
         val r = java.util.Random()
         fun hex(): String = String.format("#%06X", r.nextInt(0x1000000))
+        fun hsv(v0: Float, v1: Float): String {
+            val c = android.graphics.Color.HSVToColor(floatArrayOf(r.nextFloat() * 360f, 0.45f + r.nextFloat() * 0.55f, v0 + r.nextFloat() * (v1 - v0)))
+            return String.format("#%06X", c and 0xFFFFFF)
+        }
         fun <T> pick(vararg v: T): T = v[r.nextInt(v.size)]
         fun int(lo: Int, hi: Int): Int = lo + r.nextInt(hi - lo + 1)
+        fun dir(): String = pick("top", "bottom", "left", "right")
+        fun rb(c: String): String = if (r.nextInt(8) == 0) "rainbow" else c
         val bgc = hex()
         val keyc = hex()
-        val keyLum = Theme.luminance(Theme.parse(keyc, 0xFF000000.toInt()))
-        val textc = if (keyLum > 0.5f) "#111111" else "#FFFFFF"
-        val second = if (r.nextBoolean()) hex() else ""
-        updateAll(
-            "theme" to "custom",
-            "accent_color" to hex(),
-            "custom_background" to bgc,
-            "custom_key" to keyc,
-            "custom_text" to textc,
-            "key_radius_dp" to int(2, 22),
-            "key_gap_dp" to int(0, 10),
-            "row_gap_dp" to int(0, 16),
-            "key_text_percent" to int(90, 130),
-            "key_shadow" to r.nextBoolean(),
-            "special_outline" to r.nextBoolean(),
-            "number_divider" to r.nextBoolean(),
-            "key_glow" to true,
-            "tap_effect" to pick("neon", "glitch", "paint", "ghost", "orbit", "pop", "cut", "slide"),
-            "neon_color" to hex(),
-            "neon_color2" to second,
-            "paint_color1" to hex(), "paint_color2" to hex(), "paint_color3" to hex(),
-            "paint_color4" to hex(), "paint_color5" to hex(), "paint_color6" to hex(),
-            "glow_style" to pick("neon", "paint", "ghost", "flip"),
-            "glow_color" to hex(),
-            "trail_style" to pick("line", "dashed", "fire", "pixel"),
-            "trail_color" to hex(),
-        )
+        val keyLight = Theme.luminance(Theme.parse(keyc, 0xFF000000.toInt())) > 0.5f
+        // Text citelny na klavese: na svetle klavese tmavy, na tmave svetly.
+        fun readable(): String = if (keyLight) hsv(0.05f, 0.35f) else hsv(0.75f, 1f)
+        val m = LinkedHashMap<String, Any>()
+        for (k in listOf(
+            "key_color2", "text_color2", "background_color2", "digit_key_color2", "digit_text_color2", "outline_color", "outline_color2",
+            "neon_color2", "trail_color2", "glow_color2", "tap_text_color", "tap_text_color2", "outline_tap_color", "outline_tap_color2",
+            "hover_text_color", "passed_text_color", "outline_hover_color", "outline_passed_color",
+        )) m[k] = ""
+        for (k in listOf("bg_grad_dir", "key_grad_dir", "digit_key_grad_dir", "text_grad_dir", "digit_text_grad_dir", "outline_grad_dir")) m[k] = "top"
+        m["theme"] = "custom"
+        m["accent_color"] = hex()
+        m["custom_background"] = bgc
+        m["custom_key"] = keyc
+        m["custom_text"] = readable()
+        m["key_glow"] = true
+        m["tap_effect"] = pick("neon", "glitch", "paint", "ghost", "orbit", "pop", "cut", "slide")
+        m["neon_color"] = hex()
+        for (i in 1..6) m["paint_color$i"] = hex()
+        m["glow_style"] = pick("neon", "paint", "ghost", "flip")
+        m["glow_color"] = hex()
+        m["trail_style"] = pick("line", "dashed", "fire", "pixel")
+        m["trail_color"] = hex()
+        val groups = ArrayList<() -> Unit>()
+        groups.add {
+            m["key_radius_dp"] = int(2, 22); m["key_gap_dp"] = int(0, 10); m["row_gap_dp"] = int(0, 16)
+            m["key_text_percent"] = int(90, 130); m["key_shadow"] = r.nextBoolean(); m["special_outline"] = r.nextBoolean()
+            m["number_divider"] = r.nextBoolean(); m["outline_width_dp"] = int(1, 6)
+        }
+        groups.add { m["key_color2"] = rb(hex()); m["key_grad_dir"] = dir() }
+        groups.add { m["text_color2"] = rb(readable()); m["text_grad_dir"] = dir() }
+        groups.add { m["background_color2"] = rb(hex()); m["bg_grad_dir"] = dir() }
+        groups.add {
+            m["digit_key_color2"] = rb(hex()); m["digit_key_grad_dir"] = dir()
+            m["digit_text_color2"] = rb(readable()); m["digit_text_grad_dir"] = dir()
+        }
+        groups.add { m["outline_color"] = hex(); m["outline_color2"] = rb(hex()); m["outline_grad_dir"] = dir() }
+        groups.add {
+            m["tap_text_color"] = hex(); m["tap_text_color2"] = hex(); m["outline_tap_color"] = hex()
+            m["outline_tap_color2"] = hex(); m["neon_color2"] = rb(hex())
+        }
+        groups.add {
+            m["hover_text_color"] = hex(); m["passed_text_color"] = hex(); m["outline_hover_color"] = hex()
+            m["outline_passed_color"] = hex(); m["glow_color2"] = hex(); m["trail_color2"] = hex()
+        }
+        groups.shuffle(r)
+        // Nahodny pocet skupin: od zadne po vsechny.
+        for (i in 0 until r.nextInt(groups.size + 1)) groups[i]()
+        updateAll(*m.map { it.key to it.value }.toTypedArray())
     }
 
     private fun saveAdjust() {

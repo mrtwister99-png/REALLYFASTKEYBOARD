@@ -2,6 +2,9 @@
 
 Jedna věta za verzi, nejnovější nahoře. Čísla verzí odpovídají commitům (`vX.Y: …`).
 
+## 1.51 – 2026-11-27
+Tlačítko R losuje navíc náhodný počet skupin úprav (od žádné po všechny): tvary, druhé barvy se směrem přechodu (klávesy, znaky, pozadí, čísla, obrys), barvy po klepnutí a po tahu; nevylosované se vrátí na výchozí; Řez a Slide přidány do přehledu nastavení.
+
 ## 1.50 – 2026-11-27
 Druhá barva klávesy po klepnutí je v Animaci po kliknutí III a řídí se efektem (Neon, Výbuch, Řez a Slide střídají, Glitch losuje, Duch střídá barvu dozvuků); Barvy mají další tři barvy (4–6); Výbuch rozmetá i celou klávesu na větší kusy; nahoře vedle Obnovit je tlačítko R s úplně náhodným stylem.
 
