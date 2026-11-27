@@ -179,6 +179,12 @@ class VoiceActivity : SubScreen() {
         return if (i >= 0) getString(ACTION_LABELS[i]) else action
     }
 
+    override fun onResume() {
+        super.onResume()
+        // Povel pridany z klavesnice (podrzeni mikrofonu) se musi objevit i v uz otevrene obrazovce.
+        if (::list.isInitialized) refresh()
+    }
+
     private fun refresh() {
         list.removeAllViews()
         val commands = RustBridge.voiceCommands()

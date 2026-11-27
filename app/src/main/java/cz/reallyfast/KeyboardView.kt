@@ -124,7 +124,7 @@ class KeyboardView(context: Context) : View(context) {
         fun onCursorSteps(steps: Int)
         fun onSpaceLongPress()
         fun onPinchScale(scale: Float)
-        /** Polozka nabidky po dlouhem stisku ?123: 0 = emoji, 1 = schranka, 2 = nastaveni. */
+        /** Polozka nabidky po dlouhem stisku ?123: 0 = schranka, 1 = nastaveni (emoji jsou jen na podrzeni tlacitka maker). */
         fun onMenuAction(kind: Int, index: Int)
         /** Tesne pred dekodovanim noveho swipe (sluzba uzavre uceni predchoziho slova). */
         fun onBeforeSwipe()
@@ -200,9 +200,8 @@ class KeyboardView(context: Context) : View(context) {
 
         const val KIND_MACRO = 8
 
-        const val MENU_EMOJI = 0
-        const val MENU_CLIPBOARD = 1
-        const val MENU_SETTINGS = 2
+        const val MENU_CLIPBOARD = 0
+        const val MENU_SETTINGS = 1
 
         /** Druh nabidky: rychla (drzeni ?123) nebo seznam maker. */
         const val MENU_KIND_QUICK = 0
@@ -1035,11 +1034,10 @@ class KeyboardView(context: Context) : View(context) {
 
     // --- nabidka po dlouhem stisku ?123
     private val quickLabels = listOf(
-        context.getString(R.string.menu_emoji),
         context.getString(R.string.clipboard),
         context.getString(R.string.menu_settings),
     )
-    private val quickIcons = intArrayOf(ICON_DIAMOND, ICON_CLIPBOARD, ICON_GEAR)
+    private val quickIcons = intArrayOf(ICON_CLIPBOARD, ICON_GEAR)
     private var menuItems: List<String> = emptyList()
     private var menuIcons: IntArray = IntArray(0)
     private var menuKind = MENU_KIND_QUICK

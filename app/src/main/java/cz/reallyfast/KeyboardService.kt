@@ -1297,7 +1297,8 @@ class KeyboardService : InputMethodService(), KeyboardView.Listener,
         }
         endDictation(false)
         voiceStatus = false
-        val phrase = raw.trim()
+        // Spoustec smi mit nejvyse 4 slova a 40 znaku (jinak by ho Rust odmitl a povel by se tise neulozil).
+        val phrase = raw.trim().split(Regex("\\s+")).filter { it.isNotEmpty() }.take(4).joinToString(" ").take(40).trim()
         if (phrase.isEmpty()) {
             showVoiceStatus(getString(R.string.voice_nothing), 1500)
             return
@@ -1653,7 +1654,6 @@ class KeyboardService : InputMethodService(), KeyboardView.Listener,
             return
         }
         when (index) {
-            KeyboardView.MENU_EMOJI -> showEmoji()
             KeyboardView.MENU_CLIPBOARD -> if (clipPanel?.visibility != View.VISIBLE) onClipboardClicked()
             KeyboardView.MENU_SETTINGS -> {
                 openScreen(SettingsActivity::class.java)
