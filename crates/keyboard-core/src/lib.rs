@@ -247,6 +247,11 @@ impl Engine {
     /// Spocita rozlozeni pro danou plochu. S `remember` si rozlozeni pismen zapamatuje
     /// pro swipe decoder (nahled v nastaveni vola s `remember = false`).
     pub fn layout(&mut self, width: f32, height: f32, mode: u8, remember: bool) -> Layout {
+        self.layout_with_offsets(width, height, mode, remember, None)
+    }
+
+    /// Jako `layout`, ale s vlastnimi posuny radku (nahled upravy radku v nastaveni) misto ulozenych.
+    pub fn layout_with_offsets(&mut self, width: f32, height: f32, mode: u8, remember: bool, offsets: Option<&[f32]>) -> Layout {
         let mut l = Layout::build_with(
             width,
             height,
@@ -264,6 +269,7 @@ impl Engine {
         // Premapovani pred zapamatovanim geometrie, aby swipe sel podle noveho rozlozeni.
         l.apply_key_map(&self.settings.key_map);
         l.apply_key_alts(&self.settings.key_alts);
+        l.apply_row_offsets(offsets.unwrap_or(&self.settings.row_offsets));
         if remember && mode == MODE_LETTERS {
             self.geom = Some(l.geom());
         }
@@ -844,7 +850,9 @@ pub fn dispatch(op: i32, a: &[u8], b: &[u8], num: i64) -> Vec<u8> {
             if f.len() < 3 {
                 return Vec::new();
             }
-            e.layout(f[0], f[1], f[2] as u8, num == 0).to_json().into_bytes()
+            // Volitelne dalsich ROW_OFFSET_SLOTS cisel = posuny radku z editoru (misto ulozenych).
+            let offs = (f.len() >= 3 + layout::ROW_OFFSET_SLOTS).then(|| &f[3..3 + layout::ROW_OFFSET_SLOTS]);
+            e.layout_with_offsets(f[0], f[1], f[2] as u8, num == 0, offs).to_json().into_bytes()
         }
         OP_SUGGEST => {
             let limit = if num & FLAG_MORE != 0 { predict::MAX_SUGGESTIONS + 2 } else { predict::MAX_SUGGESTIONS };
@@ -1001,6 +1009,20 @@ mod tests {
         e.set_settings(s);
         e.save_style(slot);
         e
+    }
+
+    #[test]
+    fn layout_uses_editor_offsets_first_then_saved_ones() {
+        let mut e = Engine::with_storage(Storage::in_memory(), NOW);
+        let edit = e.layout_with_offsets(1440.0, 1000.0, 0, false, Some(&[0.0, 0.0, 0.2, 0.0, -0.1]));
+        assert!((edit.row_offsets[2] - 0.2).abs() < 1e-6);
+        // ulozene posuny se pouziji, kdyz editor zadne nedodal
+        let mut s = e.settings().clone();
+        s.row_offsets = vec![0.0, 0.0, 0.15, 0.0, 0.0];
+        e.set_settings(s);
+        let plain = e.layout(1440.0, 1000.0, 0, false);
+        assert!((plain.row_offsets[2] - 0.15).abs() < 1e-6);
+        assert!(plain.to_json().contains("row_offsets"));
     }
 
     #[test]

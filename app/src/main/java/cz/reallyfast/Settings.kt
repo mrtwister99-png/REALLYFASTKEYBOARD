@@ -27,6 +27,11 @@ class Settings(val json: JSONObject) {
     val autoCapitalize: Boolean get() = json.optBoolean("auto_capitalize", true)
     val doubleSpaceToPeriod: Boolean get() = json.optBoolean("double_space_to_period", true)
     val autoDiacritics: Boolean get() = json.optBoolean("auto_diacritics", true)
+    /** Posuny radku (radkove vysky, od spodni rady, kladne = dolu); vzdy 5 hodnot. */
+    val rowOffsets: FloatArray get() {
+        val a = json.optJSONArray("row_offsets")
+        return FloatArray(5) { a?.optDouble(it, 0.0)?.toFloat() ?: 0f }
+    }
     val longPressDelayMs: Int get() = json.optInt("long_press_delay_ms", 250)
     val customBackground: String get() = json.optString("custom_background", "#111113")
     val customKey: String get() = json.optString("custom_key", "#26262B")

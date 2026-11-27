@@ -5,8 +5,8 @@ a velmi podrobným přizpůsobením vzhledu. Logika je v Rustu (`crates/keyboard
 (`InputMethodService`, Canvas, haptika). Žádný internet, žádná reklama, žádná telemetrie.
 Oprávnění: `VIBRATE` a `RECORD_AUDIO` (jen pro diktování).
 
-**Stav:** verze **1.42** (`versionName` v `app/build.gradle.kts`). Funkce a vzhled jsou hotové a pokryté testy
-(205 testů Rustu + 20 testů v JVM: JNI most, shoda kódů operací, postup odemykání). Na skutečném telefonu bylo zatím změřeno jen vykreslování v nastavení (viz [docs/audit-1.41.md](docs/audit-1.41.md)): build, testy
+**Stav:** verze **1.43** (`versionName` v `app/build.gradle.kts`). Funkce a vzhled jsou hotové a pokryté testy
+(211 testů Rustu + 20 testů v JVM: JNI most, shoda kódů operací, postup odemykání). Na skutečném telefonu bylo zatím změřeno jen vykreslování v nastavení (viz [docs/audit-1.41.md](docs/audit-1.41.md)): build, testy
 a logika jsou ověřené, ale vzhled na displeji, animace a gesta je potřeba projít ručně (viz [Známé limitace](#10-známé-limitace)).
 
 Identifikátor balíčku je `cz.reallyfast`, zobrazovaný název je „fAZT!“ (vykřičník nemůže být v ID balíčku).
@@ -160,7 +160,7 @@ Poznámky k odchylkám od zadání:
 ## 8. Testy a benchmarky
 
 ```
-scripts/ci.sh                      # cargo test (205 testů + testy bin a benchů)
+scripts/ci.sh                      # cargo test (211 testů + testy bin a benchů)
 scripts/ci.sh --bench --jni        # + benchmarky + JVM test JNI mostu
 gradlew.bat :app:testDebugUnitTest # 20 testů (JNI most načtený do JVM, shoda OP_* kódů Rust ↔ Kotlin, odemykání)
 ```

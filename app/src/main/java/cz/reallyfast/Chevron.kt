@@ -21,7 +21,14 @@ import kotlin.math.sin
  * vyleti jiskry a cela sipka umi odjet do strany. Kresleni je bez alokaci, cesta se stavi pri zmene velikosti.
  */
 @SuppressLint("ViewConstructor")
-class ChevronView(context: Context, private val pointsRight: Boolean, outline: Int, @Suppress("UNUSED_PARAMETER") hole: Int = 0) : View(context) {
+class ChevronView(
+    context: Context,
+    private val pointsRight: Boolean,
+    outline: Int,
+    @Suppress("UNUSED_PARAMETER") hole: Int = 0,
+    /** Tvar sipky zpet (obrys sipky s ohnutym ocasem) misto dute sipky. */
+    private val backShape: Boolean = false,
+) : View(context) {
     private val d = resources.displayMetrics.density
     private val path = Path()
     private val outerPaint = Paint(Paint.ANTI_ALIAS_FLAG)
@@ -60,13 +67,38 @@ class ChevronView(context: Context, private val pointsRight: Boolean, outline: I
             p.strokeJoin = Paint.Join.ROUND
         }
         ringPaint.color = outline
-        ringPaint.style = Paint.Style.FILL
+        ringPaint.style = if (backShape) Paint.Style.STROKE else Paint.Style.FILL
         fillPaint.style = Paint.Style.FILL
         fillPaint.color = 0xFFFFD60A.toInt()
         sparkPaint.strokeWidth = 2.2f * d
     }
 
+    /** Sipka zpet podle predlohy (obrys, vevnitr pruhledno): souradnice z obrazku 500x500, vystredene a zmensene na pohled. */
+    private fun buildBackShape(w: Int, h: Int) {
+        val sc = min(w, h) * 0.84f / 400f
+        val cx = w / 2f
+        val cy = h / 2f
+        fun px(x: Float) = cx + (x - 249f) * sc
+        fun py(y: Float) = cy + (y - 241.5f) * sc
+        ring.reset()
+        ring.moveTo(px(50f), py(243f))
+        ring.lineTo(px(167f), py(128f))
+        ring.lineTo(px(167f), py(185f))
+        ring.lineTo(px(448f), py(185f))
+        ring.lineTo(px(448f), py(197f))
+        ring.quadTo(px(432f), py(300f), px(345f), py(300f))
+        ring.lineTo(px(170f), py(300f))
+        ring.lineTo(px(170f), py(355f))
+        ring.close()
+        ringPaint.strokeWidth = (22f * sc).coerceAtLeast(1.4f * d)
+        size = min(w, h) * 0.5f
+    }
+
     override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
+        if (backShape) {
+            buildBackShape(w, h)
+            return
+        }
         size = min(w, h) * 0.5f
         val cx = w / 2f
         val cy = h / 2f
@@ -91,6 +123,16 @@ class ChevronView(context: Context, private val pointsRight: Boolean, outline: I
     }
 
     override fun onDraw(canvas: Canvas) {
+        if (backShape) {
+            if (progress > 0f) {
+                canvas.save()
+                canvas.clipRect(0f, 0f, width * progress, height.toFloat())
+                canvas.drawPath(ring, fillPaint)
+                canvas.restore()
+            }
+            canvas.drawPath(ring, ringPaint)
+            return
+        }
         if (progress > 0f) {
             canvas.save()
             canvas.clipRect(0f, 0f, width * progress, height.toFloat())

@@ -230,6 +230,8 @@
     <string name="style_import_skip">Přeskočit</string>
     <string name="style_restore">Obnovit profil</string>
     <string name="style_restore_confirm">Opravdu chceš tento profil obnovit? Neuložené změny se ztratí.</string>
+    <string name="row_edit">Upravit výšku řádků</string>
+    <string name="row_edit_hint">Táhni šipky nahoru a dolů. Každá řada má své meze, nejvyšší jde jen kousek nahoru.</string>
     <string name="style_saved">Vzhled uložen do stylu %1$d</string>
     <string name="style_loaded">Načten styl %1$d</string>
     <string name="style_pick_first">Nejdřív nahoře vyberte styl 1–5</string>

@@ -26,6 +26,36 @@ pub const CODE_EMOJI: i32 = -8;
 pub const CODE_MACRO: i32 = -9;
 pub const CODE_SPACE: i32 = 32;
 
+/// Pocet radku, pro ktere se uklada posun (cisla se pocitaji od spodni rady: 0 = mezernik, 4 = rada cislic).
+pub const ROW_OFFSET_SLOTS: usize = 5;
+/// O kolik radkovych vysek smi nejvyssi rada ujet nahoru a spodni rada dolu.
+const ROW_TOP_LEEWAY: f32 = 0.3;
+const ROW_BOTTOM_LEEWAY: f32 = 0.2;
+/// O kolik se smi rada priblizit sousedni rade (v radkovych vyskach), aby se klavesy neprekryly.
+const ROW_MAX_SQUEEZE: f32 = 0.1;
+
+/// Skutecne pouzitelne posuny radku (v radkovych vyskach, cislovane od spodni rady, kladne = dolu):
+/// kazda rada ma sve omezeni, nejvyssi jde jen kousek nahoru, spodni kousek dolu a rady se nesmi prekryt.
+pub fn clamp_row_offsets(requested: &[f32], rows: usize) -> Vec<f32> {
+    let mut o: Vec<f32> = (0..rows)
+        .map(|j| requested.get(j).copied().filter(|v| v.is_finite()).unwrap_or(0.0).clamp(-1.0, 1.0))
+        .collect();
+    if rows == 0 {
+        return o;
+    }
+    // Shora dolu: nejvyssi rada nahoru jen o kousek, kazda nizsi nejvyse o ROW_MAX_SQUEEZE vic nahoru nez ta nad ni.
+    o[rows - 1] = o[rows - 1].max(-ROW_TOP_LEEWAY);
+    for j in (0..rows - 1).rev() {
+        o[j] = o[j].max(o[j + 1] - ROW_MAX_SQUEEZE);
+    }
+    // Zdola nahoru: spodni rada dolu jen o kousek, kazda vyssi nejvyse o ROW_MAX_SQUEEZE vic dolu nez ta pod ni.
+    o[0] = o[0].min(ROW_BOTTOM_LEEWAY);
+    for j in 1..rows {
+        o[j] = o[j].min(o[j - 1] + ROW_MAX_SQUEEZE);
+    }
+    o
+}
+
 pub const MODE_LETTERS: u8 = 0;
 pub const MODE_SYMBOLS: u8 = 1;
 pub const MODE_SYMBOLS2: u8 = 2;
@@ -65,6 +95,8 @@ pub struct Layout {
     pub mode: u8,
     /// Prvni radek je rada cislic nad pismeny (jen v rezimu pismen se zapnutou radou).
     pub number_row: bool,
+    /// Skutecne pouzite posuny radku od spodni rady (viz `clamp_row_offsets`); samé nuly = zadny posun.
+    pub row_offsets: Vec<f32>,
 }
 
 /// Stredy pismen a-z v normalizovanych jednotkach (1 = sirka klavesy / vyska radku).
@@ -338,9 +370,22 @@ impl Layout {
                 x += vw;
             }
         }
-        let mut layout = Layout { keys, width, height, rows: n_rows, unit_w, row_h, mode, number_row };
+        let mut layout = Layout { keys, width, height, rows: n_rows, unit_w, row_h, mode, number_row, row_offsets: vec![0.0; n_rows] };
         layout.apply_swaps(bottom.swap_mode_enter, bottom.swap_shift_delete);
         layout
+    }
+
+    /// Posune cele rady nahoru / dolu (viz `clamp_row_offsets`); poradi radku se nemeni, takze swipe geometrie sedi.
+    pub fn apply_row_offsets(&mut self, requested: &[f32]) {
+        let eff = clamp_row_offsets(requested, self.rows);
+        for k in &mut self.keys {
+            let row = ((k.y / self.row_h) + 0.5) as usize;
+            if row < self.rows {
+                let j = self.rows - 1 - row;
+                k.y += eff[j] * self.row_h;
+            }
+        }
+        self.row_offsets = eff;
     }
 
     /// Prohodi identitu dvou klaves (kod, druh, popisek...); geometrie slotu zustava.
@@ -468,6 +513,7 @@ impl Layout {
             rows: usize,
             mode: u8,
             number_row: bool,
+            row_offsets: &'a [f32],
             keys: &'a [Key],
         }
         serde_json::to_string(&Out {
@@ -476,6 +522,7 @@ impl Layout {
             rows: self.rows,
             mode: self.mode,
             number_row: self.number_row,
+            row_offsets: &self.row_offsets,
             keys: &self.keys,
         })
             .unwrap_or_else(|_| "{\"keys\":[]}".to_string())
@@ -615,6 +662,60 @@ mod tests {
                 }
             }
         }
+    }
+
+    #[test]
+    fn row_offsets_zero_changes_nothing() {
+        let base = letters(true);
+        let mut l = letters(true);
+        l.apply_row_offsets(&[0.0; ROW_OFFSET_SLOTS]);
+        assert_eq!(l.keys, base.keys);
+        assert!(l.row_offsets.iter().all(|v| *v == 0.0));
+    }
+
+    #[test]
+    fn row_offsets_respect_limits_of_every_row() {
+        // nejvyssi rada jen kousek nahoru, spodni jen kousek dolu
+        let eff = clamp_row_offsets(&[1.0, 0.0, 0.0, 0.0, -1.0], 5);
+        assert_eq!(eff[0], ROW_BOTTOM_LEEWAY);
+        assert_eq!(eff[4], -ROW_TOP_LEEWAY);
+        // rada nesmi do sousedni: prostredni rada nahoru nejvic o ROW_MAX_SQUEEZE vic nez ta nad ni
+        let eff = clamp_row_offsets(&[0.0, 0.0, -0.9, 0.0, 0.0], 5);
+        assert!((eff[2] + ROW_MAX_SQUEEZE).abs() < 1e-6, "{eff:?}");
+        // nekonecno a nesmysly se zahodi
+        let eff = clamp_row_offsets(&[f32::NAN, f32::INFINITY], 5);
+        assert!(eff.iter().all(|v| v.is_finite()));
+    }
+
+    #[test]
+    fn row_offsets_never_overlap_rows_and_keep_order() {
+        let probes = [[0.9f32, -0.9, 0.9, -0.9, 0.9], [-1.0; 5], [1.0; 5], [0.3, -0.2, 0.5, -0.4, 0.1]];
+        for off in probes {
+            let mut l = letters(true);
+            l.apply_row_offsets(&off);
+            let mut ys: Vec<f32> = l.keys.iter().map(|k| k.y).collect();
+            ys.sort_by(|a, b| a.total_cmp(b));
+            ys.dedup_by(|a, b| (*a - *b).abs() < 0.01);
+            assert_eq!(ys.len(), l.rows, "{off:?}");
+            for w in ys.windows(2) {
+                assert!(w[1] - w[0] >= l.row_h * (1.0 - ROW_MAX_SQUEEZE) - 0.5, "{off:?}: {ys:?}");
+            }
+            assert!(ys[0] >= -ROW_TOP_LEEWAY * l.row_h - 0.5);
+            assert!(*ys.last().unwrap() + l.row_h <= l.height + ROW_BOTTOM_LEEWAY * l.row_h + 0.5);
+        }
+    }
+
+    #[test]
+    fn row_offsets_move_swipe_geometry_with_keys() {
+        let before = letters(true).geom();
+        let mut l = letters(true);
+        l.apply_row_offsets(&[0.0, 0.0, 0.2, 0.0, 0.0]);
+        let g = l.geom();
+        // rada "asdf" je druha odspodu (index 2 od spodu = rada pismen a-l)
+        let a = ('a' as u8 - b'a') as usize;
+        assert!((g.centers[a].1 - before.centers[a].1 - 0.2).abs() < 1e-3);
+        let q = ('q' as u8 - b'a') as usize;
+        assert_eq!(g.centers[q], before.centers[q]);
     }
 
     #[test]

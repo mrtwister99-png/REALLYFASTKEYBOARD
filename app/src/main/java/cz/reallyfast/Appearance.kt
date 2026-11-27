@@ -137,6 +137,11 @@ class AppearanceActivity : SettingsScreen() {
     private var imeVisible = false
     private var adjusting = false
     private var adjLabel = false
+    /** Probiha uprava vysky radku (misto polohy znaku / napovedy). */
+    private var adjRows = false
+    private var adjOffsets = FloatArray(5)
+    private var rowEditButton: TextView? = null
+    private lateinit var rowHint: TextView
     private var saving = false
     private var adjX = 1f
     private var adjY = 0f
@@ -236,6 +241,11 @@ class AppearanceActivity : SettingsScreen() {
         slp.rightMargin = dp(22f)
         panel.addView(save, slp)
         box.addView(panel, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(170f)))
+        // Napoveda k uprave radku (jen v tomto rezimu), misto ovladace polohy napovedy.
+        val rh = label(getString(R.string.row_edit_hint), 13f, dim)
+        rh.visibility = View.GONE
+        panel.addView(rh, FrameLayout.LayoutParams(dp(210f), ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.START or Gravity.CENTER_VERTICAL).also { it.leftMargin = dp(20f) })
+        rowHint = rh
         hintPanel = panel
         hintPad = pad
         hintSave = save
@@ -287,7 +297,7 @@ class AppearanceActivity : SettingsScreen() {
         // Zpetna sipka: tlacitko zustane stat, sipka z nej po klepnuti vystreli doleva.
         val back = FrameLayout(this)
         back.clipChildren = false
-        val arrow = chevron(false, 42f, field, text)
+        val arrow = chevron(false, 42f, field, text, back = true)
         arrow.contentDescription = getString(R.string.back)
         back.addView(arrow, FrameLayout.LayoutParams(dp(48f), dp(42f)))
         back.setOnClickListener { if (arrow.isEnabled) playBack(arrow) { if (!onBackRequested()) finish() else arrow.returnHome() } }
@@ -415,7 +425,7 @@ class AppearanceActivity : SettingsScreen() {
         paintPills()
         paintSlots()
         for (f in fontPainters) f()
-        if (adjusting && !adjLabel) refreshHintRange()
+        if (adjusting && !adjLabel && !adjRows) refreshHintRange()
     }
 
     override fun onSettingUpdated(key: String, value: Any) {
@@ -740,6 +750,37 @@ class AppearanceActivity : SettingsScreen() {
         paintPills()
     }
 
+    /** Zapne upravu vysky radku: ztmavena klavesnice bez pismen, u kazde rady sipka, tah posouva celou radu. */
+    private fun startRowEdit() {
+        if (adjusting) return
+        if (testMode) stopTest()
+        currentBubble?.hide(immediate = true)
+        cancelSwap()
+        adjusting = true
+        adjLabel = false
+        adjRows = true
+        saving = false
+        applyPickMode()
+        if (shownMode != KeyboardView.MODE_LETTERS) {
+            shownMode = KeyboardView.MODE_LETTERS
+            preview.setMode(KeyboardView.MODE_LETTERS)
+        }
+        adjOffsets = RustBridge.settings.rowOffsets
+        preview.editOffsets = adjOffsets.copyOf()
+        preview.onRowEdited = { adjOffsets = it }
+        preview.rowEditMode = true
+        testButton.visibility = View.GONE
+        testView.visibility = View.INVISIBLE
+        rowEditButton?.text = getString(R.string.cancel)
+        hintPad.visibility = View.GONE
+        rowHint.visibility = View.VISIBLE
+        hintPanel.visibility = View.VISIBLE
+        hintSave.animate().cancel()
+        hintSave.translationX = resources.displayMetrics.widthPixels.toFloat()
+        hintSave.animate().translationX(0f).setDuration(250).start()
+        paintPills()
+    }
+
     /**
      * Prenastavi ovladac na rozsah polohy napovedy pro soucasne mezery a zasadi do nej ulozenou
      * hodnotu (pri zmene mezer behem nastavovani se hodnota ohrani novym rozsahem).
@@ -767,7 +808,15 @@ class AppearanceActivity : SettingsScreen() {
         hintSave.animate().cancel()
         hintSave.translationX = 0f
         hintPanel.visibility = View.GONE
-        if (adjLabel) {
+        if (adjRows) {
+            adjRows = false
+            preview.rowEditMode = false
+            preview.editOffsets = null
+            preview.onRowEdited = null
+            hintPad.visibility = View.VISIBLE
+            rowHint.visibility = View.GONE
+            rowEditButton?.text = getString(R.string.row_edit)
+        } else if (adjLabel) {
             preview.clearLabelOverride()
         } else {
             preview.hintFocus = false
@@ -786,8 +835,14 @@ class AppearanceActivity : SettingsScreen() {
         if (!adjusting || saving) return
         saving = true
         val j = RustBridge.settings.edit()
-        j.put(if (adjLabel) "key_label_x" else "key_hint_x", (adjX * 1000f).roundToInt() / 1000.0)
-        j.put(if (adjLabel) "key_label_y" else "key_hint_y", (adjY * 1000f).roundToInt() / 1000.0)
+        if (adjRows) {
+            val arr = org.json.JSONArray()
+            for (v in adjOffsets) arr.put((v * 1000f).roundToInt() / 1000.0)
+            j.put("row_offsets", arr)
+        } else {
+            j.put(if (adjLabel) "key_label_x" else "key_hint_x", (adjX * 1000f).roundToInt() / 1000.0)
+            j.put(if (adjLabel) "key_label_y" else "key_hint_y", (adjY * 1000f).roundToInt() / 1000.0)
+        }
         RustBridge.setSettings(j)
         // Tlacitko nejdriv odjede doprava za okraj, az pak se obrazovka vrati do normalu.
         hintSave.animate().cancel()
@@ -889,13 +944,13 @@ class AppearanceActivity : SettingsScreen() {
     /**
      * Pozadi karty kategorie: zavrena = prechod zleva doprava mezi sedou a modrou (sude karty ze tmave sede do svetle modre,
      * liche z tmave modre do svetle sede); otevrena kategorie s urovnemi (1.-4.) = prechod shora dolu podle urovne
-     * (I zlutosedou, II oranzovosedou, III cervenosedou) do barvy karty.
+     * (I zelenosedou, II oranzovosedou, III cervenosedou) do barvy karty.
      */
     private fun paintCatCard(index: Int) {
         val open = expandedCat == index
         val def = catDefs[index]
         val g = if (open && def.showBar && def.titleRes != R.string.cat_waiting) {
-            val tone = when (catLevel[index]) { 0 -> 0xFF5A5A38.toInt(); 1 -> 0xFF66503A.toInt(); else -> 0xFF633B3B.toInt() }
+            val tone = when (catLevel[index]) { 0 -> 0xFF3A5A3C.toInt(); 1 -> 0xFF66503A.toInt(); else -> 0xFF633B3B.toInt() }
             GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM, intArrayOf(tone, card))
         } else {
             val cols = if (index % 2 == 0) intArrayOf(0xFF26262C.toInt(), 0xFF2E4A68.toInt()) else intArrayOf(0xFF1F3552.toInt(), 0xFF38383F.toInt())
@@ -999,6 +1054,8 @@ class AppearanceActivity : SettingsScreen() {
         choiceRow(s, R.string.emoji_key_label, "emoji_key", places, placeLabels)
         choiceRow(s, R.string.macro_key_label, "macro_key", places, placeLabels)
         hintText(s, getString(R.string.bottom_row_hint))
+        // Uprava vysky radku: klavesnice se ztmavi a u kazde rady je sipka, kterou jde rada posunout nahoru / dolu.
+        rowEditButton = buttonRow(s, getString(R.string.row_edit), accent) { if (adjusting) finishAdjust() else startRowEdit() }
     }
 
     /** 2. I. Zakladni barvy. */

@@ -139,6 +139,8 @@ pub struct Settings {
     /// Svisla mezera mezi radky v dp. Chybejici hodnota (-1) se odvodi z `key_gap_dp` (1,6x).
     #[serde(default = "row_gap_unset")]
     pub row_gap_dp: i32,
+    /// Posun jednotlivych radku nahoru / dolu v radkovych vyskach (od spodni rady, kladne = dolu); presne ROW_OFFSET_SLOTS hodnot.
+    pub row_offsets: Vec<f32>,
     /// Barva bubliny nad stisknutou klavesou ("" = automaticka podle motivu).
     pub popup_color: String,
     /// Barva listy znaku pri podrzeni klavesy ("" = automaticka podle motivu).
@@ -298,6 +300,7 @@ impl Settings {
             trail_style: "line".into(),
             key_gap_dp: 5,
             row_gap_dp: 8,
+            row_offsets: vec![0.0; crate::layout::ROW_OFFSET_SLOTS],
             popup_color: String::new(),
             alts_color: String::new(),
             number_divider: true,
@@ -618,6 +621,10 @@ impl Settings {
             self.row_gap_dp = (self.key_gap_dp as f32 * 1.6).round() as i32;
         }
         self.row_gap_dp = self.row_gap_dp.clamp(0, 16);
+        self.row_offsets.resize(crate::layout::ROW_OFFSET_SLOTS, 0.0);
+        for v in &mut self.row_offsets {
+            *v = if v.is_finite() { (v.clamp(-1.0, 1.0) * 1000.0).round() / 1000.0 } else { 0.0 };
+        }
         self.key_text_percent = self.key_text_percent.clamp(70, 200);
         match self.glow_style.as_str() { "blink" => self.glow_style = "neon".into(), "fill" => self.glow_style = "paint".into(), "fly" => self.glow_style = "ghost".into(), _ => {} }
         if !GLOW_STYLES.contains(&self.glow_style.as_str()) {
@@ -777,6 +784,18 @@ impl Settings {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn row_offsets_are_padded_clamped_and_not_style() {
+        let d = Settings::default();
+        assert_eq!(d.row_offsets, vec![0.0; 5]);
+        let s = Settings::from_json(r#"{"row_offsets":[2.0,-3.0,0.12345]}"#).unwrap();
+        assert_eq!(s.row_offsets, vec![1.0, -1.0, 0.123, 0.0, 0.0]);
+        let s = Settings::from_json(r#"{"row_offsets":[0,0,0,0,0,0,0,9]}"#).unwrap();
+        assert_eq!(s.row_offsets.len(), 5);
+        assert!(!STYLE_KEYS.contains(&"row_offsets"));
+        assert_eq!(Settings::from_json(&s.to_json()).unwrap().row_offsets, s.row_offsets);
+    }
 
     #[test]
     fn char_outline_color_is_optional_style_key() {

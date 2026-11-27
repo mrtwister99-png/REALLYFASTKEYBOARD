@@ -64,6 +64,7 @@ Počet nastavení: **94**.
 | `key_font` | `system` | `system` nebo název souboru z `assets/fonts` | Písmo znaků na klávesách i malé nápovědy (bez cesty; neplatný název = systémové). | Rychle |
 | `key_gap_dp` | `5` | 1 – 10 | Vodorovná mezera mezi klávesami (dp). | Pokročilé → Rozměry a detaily |
 | `row_gap_dp` | `8` | 0 – 16 | Svislá mezera mezi řadami (dp); menší mezera zmenší i celkovou výšku klávesnice (řada = `key_height_dp` + `row_gap_dp` − 8); u starého souboru se odvodí z `key_gap_dp`. | Pokročilé → Rozměry a detaily |
+| `row_offsets` | `[0,0,0,0,0]` | 5 čísel −1 – 1 | Posun jednotlivých řad nahoru (−) a dolů (+) v násobcích výšky řady, číslováno od spodní řady (0 = mezerník, 4 = číslice). Při použití se omezí: nejvyšší řada jde jen kousek nahoru, spodní kousek dolů a řady se nesmí překrýt. | Rozložení a písmo III → Upravit výšku řádků |
 | `key_label_x` | `0.5` | 0 – 1 | Vodorovná poloha hlavního znaku na klávese (0,5 = uprostřed). | Pokročilé → Polohy a nápovědy |
 | `key_label_y` | `0.5` | 0 – 1 | Svislá poloha hlavního znaku na klávese (0,5 = uprostřed). | Pokročilé → Polohy a nápovědy |
 | `label_weight` | `400` | 100 – 900 po 100 | Tloušťka písma znaků na písmenech. | Pokročilé → Rozměry a detaily |

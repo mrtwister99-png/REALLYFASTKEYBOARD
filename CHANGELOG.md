@@ -2,6 +2,9 @@
 
 Jedna věta za verzi, nejnovější nahoře. Čísla verzí odpovídají commitům (`vX.Y: …`).
 
+## 1.43 – 2026-11-27
+Úprava výšky řádků (Rozložení a písmo III: ztmavená klávesnice bez písmen, šipky u řad, tah nahoru a dolů s mezemi pro každou řadu, nové nastavení `row_offsets` platné i pro swipe), šipka zpět podle nového obrázku, úroveň I se v kartách vybarvuje do zelena.
+
 ## 1.42 – 2026-11-27
 Nové duté šipky (zpět, otevření obrazovky, konce posuvníků, karty vzhledu) s výplní zleva doprava, jiskrami a vystřelením, čtvercové jezdce posuvníků, tlačítko obnovy profilu ve Vzhledu, pulzující zkušební pole po dokončení nastavení, Waiting jen s obrysem znaku (nová barva `char_outline_color`) a začátky přechodů, obrys speciálních kláves pevně v akcentu, tloušťka čáry stopy podle nastavení, pomalejší a zvýrazněný banner uloženého slova.
 

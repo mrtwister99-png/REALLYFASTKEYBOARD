@@ -34,8 +34,8 @@ abstract class BaseScreen : Activity() {
     private val chevrons = ArrayList<ChevronView>()
 
     /** Duta sipka s vyplni; `hole` je barva pozadi za ni (kvuli dute podobe). */
-    protected fun chevron(pointsRight: Boolean, sizeDp: Float, hole: Int, outline: Int = dim): ChevronView {
-        val c = ChevronView(this, pointsRight, outline, hole)
+    protected fun chevron(pointsRight: Boolean, sizeDp: Float, hole: Int, outline: Int = dim, back: Boolean = false): ChevronView {
+        val c = ChevronView(this, pointsRight, outline, hole, back)
         c.layoutParams = ViewGroup.LayoutParams(dp(sizeDp), dp(sizeDp))
         chevrons.add(c)
         return c
@@ -127,7 +127,7 @@ abstract class BaseScreen : Activity() {
     protected fun title(parent: LinearLayout, s: CharSequence): TextView {
         val row = LinearLayout(this)
         row.gravity = Gravity.CENTER_VERTICAL
-        val arrow = chevron(false, 40f, bg)
+        val arrow = chevron(false, 40f, bg, back = true)
         arrow.contentDescription = getString(R.string.back)
         arrow.setOnClickListener { playBack(arrow) { if (!onBackRequested()) finish() else arrow.returnHome() } }
         row.addView(arrow, LinearLayout.LayoutParams(dp(40f), dp(40f)))

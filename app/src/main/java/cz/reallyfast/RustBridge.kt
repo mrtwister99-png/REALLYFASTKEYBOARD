@@ -257,9 +257,11 @@ object RustBridge {
     // ------------------------------------------------------------------ rozlozeni a psani
 
     /** Geometrie klaves jako JSON. `preview` = nahled v nastaveni (neovlivni swipe decoder). */
-    fun layout(width: Int, height: Int, mode: Int, preview: Boolean = false): String {
+    fun layout(width: Int, height: Int, mode: Int, preview: Boolean = false, rowOffsets: FloatArray? = null): String {
         val t0 = Perf.now()
-        val r = call(OP_LAYOUT, "$width,$height,$mode", null, if (preview) 1 else 0)
+        // Posuny radku z editoru (5 cisel od spodni rady) se pripisou za rozmery; bez nich plati ulozene.
+        val extra = if (rowOffsets != null && rowOffsets.size == 5) "," + rowOffsets.joinToString(",") else ""
+        val r = call(OP_LAYOUT, "$width,$height,$mode$extra", null, if (preview) 1 else 0)
         Perf.end("layout-rust", t0)
         return r
     }

@@ -38,7 +38,7 @@ Uživatel píše česky a neformálně; odpovídej **česky**, stručně a věcn
 Z kořene repozitáře (Windows: Git Bash nebo PowerShell):
 
 ```
-cd crates/keyboard-core && cargo test --lib          # rychlé testy jádra (205)
+cd crates/keyboard-core && cargo test --lib          # rychlé testy jádra (211)
 cd crates/keyboard-core && cargo test --all-targets  # vše včetně bin a benchů (pomalejší)
 ./gradlew.bat :app:testDebugUnitTest :app:assembleDebug --console=plain   # JVM testy mostu + APK
 ```

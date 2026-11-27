@@ -37,7 +37,7 @@ Prstem nepouštěj displej a jeď přes písmena slova; po zvednutí se slovo na
 ## 4. Návrhy a oprava
 
 Lišta nad klávesnicí nabízí doplnění slova, doplnění diakritiky, opravu překlepu a další slovo. Překlepy se **nikdy neopravují automaticky bez tvé volby**,
-jen se nabídnou; výjimkou je doplnění diakritiky neznámému slovu při mezerníku (*Psaní → Doplňovat diakritiku mezerníkem*, kdyz → když). Podržíš-li slovo v liště, nad ním vyjedou další dvě možnosti. Klepneš-li na napsané slovo, lišta nabídne podobná slova; vybereš-li jiné, klávesnice si to zapamatuje a příště ho nabídne dřív. Tlačítko **+** vlevo v liště přidá rozepsané (nebo poslední) slovo do osobního slovníku. Správa slov je v nastavení → **Osobní slovník**
+jen se nabídnou; výjimkou je doplnění diakritiky neznámému slovu při mezerníku (*Psaní → Doplňovat diakritiku mezerníkem*, kdyz → když). Řady kláves jde posouvat nahoru a dolů: *Vzhled a rozložení → 1 → III → Upravit výšku řádků* ztmaví klávesnici a u každé řady je šipka, za kterou se dá tahat (každá řada má své meze). Podržíš-li slovo v liště, nad ním vyjedou další dvě možnosti. Klepneš-li na napsané slovo, lišta nabídne podobná slova; vybereš-li jiné, klávesnice si to zapamatuje a příště ho nabídne dřív. Tlačítko **+** vlevo v liště přidá rozepsané (nebo poslední) slovo do osobního slovníku. Správa slov je v nastavení → **Osobní slovník**
 (přidání, hledání, mazání, export a import).
 
 ## 5. Gesta

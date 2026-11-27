@@ -439,6 +439,33 @@ class KeyboardView(context: Context) : View(context) {
     private var deleteFillStart = 0L
     private var deleteKey: Key? = null
     private var charOutlineOn = false
+
+    // --- uprava vysky radku (nahled v nastaveni): tmava klavesnice bez pismen a u kazde rady sipka, kterou jde tahnout nahoru a dolu
+    /** Je zapnuta uprava radku. */
+    var rowEditMode = false
+        set(value) {
+            if (field != value) {
+                field = value
+                dragRow = -1
+                reloadLayout()
+                invalidate()
+            }
+        }
+
+    /** Posuny radku nastavovane editorem (od spodni rady); null = ulozene z nastaveni. */
+    var editOffsets: FloatArray? = null
+
+    /** Po kazde zmene posunu v editoru: skutecne pouzite (omezene) posuny od spodni rady. */
+    var onRowEdited: ((FloatArray) -> Unit)? = null
+    private val effOffsets = FloatArray(5)
+    private val rowTops = FloatArray(5)
+    private var rowCount = 0
+    private var dragRow = -1
+    private var dragStartY = 0f
+    private var dragStartOffset = 0f
+    private val handlePath = Path()
+    private val handlePaint = Paint(Paint.ANTI_ALIAS_FLAG)
+    private val dimPaint = Paint(Paint.ANTI_ALIAS_FLAG)
     private var charOutlineCol = 0
     private var keyWidthDp = 0
     private var cutEffect = false
@@ -1218,8 +1245,9 @@ class KeyboardView(context: Context) : View(context) {
         numberRow = false
         try {
             // Zkusebni rezim nahledu registruje geometrii pro swipe (preview = false -> Rust si ji zapamatuje).
-            val root = JSONObject(RustBridge.layout(width, height, mode, preview && !previewTouch))
+            val root = JSONObject(RustBridge.layout(width, height, mode, preview && !previewTouch, if (rowEditMode) editOffsets else null))
             numberRow = root.optBoolean("number_row", false)
+            root.optJSONArray("row_offsets")?.let { a -> for (i in 0 until min(5, a.length())) effOffsets[i] = a.optDouble(i, 0.0).toFloat() }
             val arr = root.getJSONArray("keys")
             val rows = max(1, root.optInt("rows", 5))
             unitW = width / 10f
@@ -1245,6 +1273,14 @@ class KeyboardView(context: Context) : View(context) {
             parsed.map { k -> val units = if (unit > 0f) k.vw / unit else 1f; val newVw = fixed * units.coerceIn(1f, 5f); val centre = k.vx + k.vw / 2f; val newVx = (centre - newVw / 2f).coerceIn(k.x, maxOf(k.x, k.x + k.w - newVw)); Key(k.x, k.y, k.w, k.h, newVx, newVw, k.code, k.kind, k.label, k.alts, k.desc, k.src) }
         } else parsed
         keys = adjusted
+        // Horni okraje radku (od nejvyssiho) pro ovladaci sipky upravy radku.
+        rowCount = 0
+        for (k in adjusted) {
+            var known = false
+            for (i in 0 until rowCount) if (kotlin.math.abs(rowTops[i] - k.y) < 1f) known = true
+            if (!known && rowCount < 5) rowTops[rowCount++] = k.y
+        }
+        java.util.Arrays.sort(rowTops, 0, rowCount)
         resolveMacros()
         if (glowSide.size != parsed.size) glowSide = IntArray(parsed.size) { -1 }
         updateMetrics()
@@ -1326,7 +1362,87 @@ class KeyboardView(context: Context) : View(context) {
     override fun onDraw(canvas: Canvas) {
         val t0 = Perf.now()
         drawKeys(canvas)
+        if (rowEditMode) drawRowEdit(canvas)
         Perf.end("onDraw", t0)
+    }
+
+    /** Sirka ovladaci zony se sipkami u leveho okraje. */
+    private fun handleZone() = 40f * density
+
+    /**
+     * Uprava radku: klavesnice se ztmavi, pismena zmizi (zustanou jen siluety klaves) a u leveho okraje kazde rady je
+     * plna sipka doprava; tahem za ni jde cela rada nahoru / dolu.
+     */
+    private fun drawRowEdit(canvas: Canvas) {
+        dimPaint.style = Paint.Style.FILL
+        dimPaint.color = 0xE6101012.toInt()
+        canvas.drawRect(0f, 0f, width.toFloat(), height.toFloat(), dimPaint)
+        dimPaint.color = 0xFF3A3A40.toInt()
+        for (k in keys) {
+            rect.set(k.vx + padX, k.y + padY, k.vx + k.vw - padX, k.y + k.h - padY)
+            canvas.drawRoundRect(rect, keyRadius, keyRadius, dimPaint)
+        }
+        handlePaint.style = Paint.Style.FILL
+        for (i in 0 until rowCount) {
+            val j = rowCount - 1 - i
+            val cy = rowTops[i] + rowH / 2f
+            val h = min(rowH * 0.62f, 30f * density)
+            val w = h * 1.1f
+            val x0 = 6f * density
+            val y0 = cy - h / 2f
+            // Plna sipka doprava: telo (obdelnik) a hlava (trojuhelnik).
+            handlePath.reset()
+            handlePath.moveTo(x0, y0 + h * 0.30f)
+            handlePath.lineTo(x0 + w * 0.60f, y0 + h * 0.30f)
+            handlePath.lineTo(x0 + w * 0.60f, y0)
+            handlePath.lineTo(x0 + w, y0 + h * 0.50f)
+            handlePath.lineTo(x0 + w * 0.60f, y0 + h)
+            handlePath.lineTo(x0 + w * 0.60f, y0 + h * 0.70f)
+            handlePath.lineTo(x0, y0 + h * 0.70f)
+            handlePath.close()
+            handlePaint.color = if (dragRow == j) theme.accent or 0xFF000000.toInt() else 0xFFF4F4F5.toInt()
+            canvas.drawPath(handlePath, handlePaint)
+        }
+    }
+
+    /** Dotyk v rezimu upravy radku: tah za sipku posouva celou radu; posun omezuje Rust (kazda rada ma sve meze). */
+    private fun rowEditTouch(e: MotionEvent): Boolean {
+        when (e.actionMasked) {
+            MotionEvent.ACTION_DOWN -> {
+                if (e.x > handleZone() + 20f * density) return true
+                var best = -1
+                var bestD = Float.MAX_VALUE
+                for (i in 0 until rowCount) {
+                    val d = kotlin.math.abs(e.y - (rowTops[i] + rowH / 2f))
+                    if (d < bestD && d <= rowH * 0.6f) {
+                        bestD = d
+                        best = rowCount - 1 - i
+                    }
+                }
+                if (best >= 0) {
+                    dragRow = best
+                    dragStartY = e.y
+                    dragStartOffset = effOffsets[best]
+                    parent?.requestDisallowInterceptTouchEvent(true)
+                    invalidate()
+                }
+            }
+            MotionEvent.ACTION_MOVE -> if (dragRow >= 0 && rowH > 0f) {
+                val o = editOffsets ?: effOffsets.copyOf()
+                val want = dragStartOffset + (e.y - dragStartY) / rowH
+                if (kotlin.math.abs(want - o[dragRow]) > 0.002f) {
+                    o[dragRow] = want
+                    editOffsets = o
+                    reloadLayout()
+                    onRowEdited?.invoke(effOffsets.copyOf())
+                }
+            }
+            MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                dragRow = -1
+                invalidate()
+            }
+        }
+        return true
     }
 
     private fun drawKeys(canvas: Canvas) {
@@ -3624,6 +3740,7 @@ class KeyboardView(context: Context) : View(context) {
 
     @SuppressLint("ClickableViewAccessibility") // klavesnice ma vlastni virtualni uzly pro TalkBack
     override fun onTouchEvent(e: MotionEvent): Boolean {
+        if (rowEditMode) return rowEditTouch(e)
         if (preview && previewTouch && e.actionMasked == MotionEvent.ACTION_DOWN) {
             stopDemos()
             onUserTouch?.invoke()
