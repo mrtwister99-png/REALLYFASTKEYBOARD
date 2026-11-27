@@ -228,6 +228,8 @@
     <string name="style_import_full">Všech 5 stylů je obsazených. Chceš některý smazat a nahradit ho stylem ze zálohy?</string>
     <string name="style_import_replace">Nahradit</string>
     <string name="style_import_skip">Přeskočit</string>
+    <string name="style_restore">Obnovit profil</string>
+    <string name="style_restore_confirm">Opravdu chceš tento profil obnovit? Neuložené změny se ztratí.</string>
     <string name="style_saved">Vzhled uložen do stylu %1$d</string>
     <string name="style_loaded">Načten styl %1$d</string>
     <string name="style_pick_first">Nejdřív nahoře vyberte styl 1–5</string>
@@ -296,7 +298,6 @@
     <string name="paint_color2">Barva 2</string>
     <string name="paint_color3">Barva 3</string>
     <string name="notice_ok">OK</string>
-    <string name="paint_hint">Klepnutá klávesa se na několik sekund obarví a pak pomalu vybledne.</string>
     <string name="trail_color">Barva stopy</string>
     <string name="text_color2">Druhá barva znaků</string>
     <string name="label_pos">Pozice hlavního znaku na klávese</string>
@@ -339,20 +340,17 @@
     <string name="sec_fast">Rychle</string>
     <string name="sec_layout_dims">Rozměry</string>
     <string name="sec_layout_pos">Poloha a tloušťka</string>
-    <string name="sec_waiting_colors">Barvy Waiting + zbytky</string>
     <string name="trail_style_dashed">Čárkovaná</string>
     <string name="trail_style_pixel">Pixelová</string>
     <string name="trail_width">Šířka linky</string>
     <string name="font_system">Systémové</string>
     <string name="key_font_label">Písmo</string>
-    <string name="waiting_key_height">Výška samostatné klávesy</string>
     <string name="waiting_key_width">Šířka samostatné klávesy</string>
-    <string name="waiting_key_gap">Mezera mezi klávesami</string>
-    <string name="waiting_key_gap_hint">0 = okraj klávesy vedle okraje klávesy.</string>
+    <string name="sec_waiting_char">Znak</string>
+    <string name="waiting_char_outline_color">Barva obrysu znaku</string>
     <string name="waiting_char_outline">Obrys znaku</string>
-    <string name="waiting_char_outline_hint">Znak na klávese má tenký obrys v barvě obrysu klávesy.</string>
+    <string name="waiting_char_outline_hint">Znak na klávese má tenký obrys. Bez vlastní barvy má barvu obrysu klávesy (nebo akcentu).</string>
     <string name="tap_effect_slide">Slide</string>
-    <string name="sec_waiting_key">Samostatná klávesa</string>
     <string name="swipe_glow">Animace průchodu</string>
     <string name="font_sample">fAZT! Ahoj 123</string>
     <string name="tip_number_row">Řada čísel nad písmeny. Po vypnutí je klávesnice nižší.</string>
@@ -397,7 +395,7 @@
     <string name="digit_text_color2">Druhá barva znaků čísel</string>
     <string name="glow_style_paint">Výplň</string>
     <string name="glow_style_ghost">Text</string>
-    <string name="sec_waiting_second">Druhé barvy a začátek přechodu</string>
+    <string name="sec_waiting_second">Začátek přechodu</string>
     <string name="tip_digit_colors2">Druhá barva čísel: první barva plynule přechází zleva doprava do této.</string>
     <string name="glow_style_flip">Otočení písmen</string>
     <string name="grad_top">Shora</string>
@@ -406,9 +404,6 @@
     <string name="grad_right">Zprava</string>
     <string name="grad_dir_bg">Začátek přechodu: pozadí</string>
     <string name="grad_dir_key">Začátek přechodu: klávesy</string>
-    <string name="grad_dir_digit_key">Začátek přechodu: klávesy čísel</string>
     <string name="grad_dir_text">Začátek přechodu: znaky</string>
-    <string name="grad_dir_digit_text">Začátek přechodu: znaky čísel</string>
-    <string name="grad_dir_outline">Začátek přechodu: obrysy</string>
     <string name="passed_key_color">Barva kláves průchodu</string>
 </resources>

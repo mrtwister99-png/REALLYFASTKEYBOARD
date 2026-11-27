@@ -15,6 +15,7 @@ import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.util.TypedValue
 import android.view.Gravity
+import android.view.View
 import android.view.ViewGroup
 import android.widget.LinearLayout
 import android.widget.TextView
@@ -28,6 +29,22 @@ abstract class BaseScreen : Activity() {
     protected val dim = 0xFF9A9AA3.toInt()
     protected val danger = 0xFFEF4444.toInt()
     protected val accent: Int get() = Theme.parse(RustBridge.settings.accentColor, 0xFF0080FF.toInt())
+
+    /** Sipky obrazovky (zpet, dalsi obrazovka): po navratu na obrazovku se vrati do zakladu. */
+    private val chevrons = ArrayList<ChevronView>()
+
+    /** Duta sipka s vyplni; `hole` je barva pozadi za ni (kvuli dute podobe). */
+    protected fun chevron(pointsRight: Boolean, sizeDp: Float, hole: Int, outline: Int = dim): ChevronView {
+        val c = ChevronView(this, pointsRight, outline, hole)
+        c.layoutParams = ViewGroup.LayoutParams(dp(sizeDp), dp(sizeDp))
+        chevrons.add(c)
+        return c
+    }
+
+    override fun onResume() {
+        super.onResume()
+        for (c in chevrons) c.reset()
+    }
 
     /** Prave otevrena bublina (napoveda, editor klavesy); nejvyse jedna. */
     var currentBubble: Bubble? = null
@@ -99,15 +116,22 @@ abstract class BaseScreen : Activity() {
         return h
     }
 
+    /** Zpetna sipka: vyplni se cervene zleva doprava, vystreli doleva za okraj obrazovky a pak se provede `action`. */
+    protected fun playBack(arrow: ChevronView, action: () -> Unit) {
+        val loc = IntArray(2)
+        arrow.getLocationOnScreen(loc)
+        arrow.play(ChevronView.RED, false, -(loc[0] + arrow.width + dp(24f)).toFloat(), action)
+    }
+
     /** Velky nadpis obrazovky se sipkou zpet. Vraci text nadpisu (kvuli animaci). */
     protected fun title(parent: LinearLayout, s: CharSequence): TextView {
         val row = LinearLayout(this)
         row.gravity = Gravity.CENTER_VERTICAL
-        val arrow = label("‹", 34f, dim)
-        arrow.setPadding(0, 0, dp(14f), dp(4f))
+        val arrow = chevron(false, 40f, bg)
         arrow.contentDescription = getString(R.string.back)
-        arrow.setOnClickListener { finish() }
-        row.addView(arrow)
+        arrow.setOnClickListener { playBack(arrow) { if (!onBackRequested()) finish() else arrow.returnHome() } }
+        row.addView(arrow, LinearLayout.LayoutParams(dp(40f), dp(40f)))
+        row.addView(View(this), LinearLayout.LayoutParams(dp(8f), 1))
         val t = label(s, 26f)
         t.typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
         row.addView(t)
@@ -264,8 +288,16 @@ abstract class BaseScreen : Activity() {
             row.addView(img, ilp)
         }
         row.addView(label(s, 16f), LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
-        row.addView(label("›", 24f, dim))
-        row.setOnClickListener { onClick() }
+        val arrow = chevron(true, 28f, card)
+        row.addView(arrow, LinearLayout.LayoutParams(dp(28f), dp(28f)))
+        // Klepnuti: sipka se zleva doprava vyplni zlutou, vyletí jiskry, odjede doprava a pak se obrazovka otevre.
+        row.setOnClickListener {
+            if (!arrow.isEnabled) return@setOnClickListener
+            arrow.play(ChevronView.YELLOW, true, dp(18f).toFloat()) {
+                onClick()
+                arrow.postDelayed({ arrow.returnHome() }, 500L)
+            }
+        }
         box.addView(row, rowParams())
     }
 }

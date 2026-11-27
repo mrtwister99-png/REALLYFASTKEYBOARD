@@ -114,38 +114,46 @@ Počet nastavení: **94**.
 | `digit_key_color` | *(prázdné)* | `#RRGGBB` nebo prázdné | Barva číslicových kláves; prázdná = automatická. | Pokročilé → Číslice |
 | `digit_key_color2` | *(prázdné)* | `#RRGGBB`, `rainbow` nebo prázdné | Druhá barva kláves čísel: přechod zleva doprava. | Barvy II |
 | `digit_text_color2` | *(prázdné)* | `#RRGGBB`, `rainbow` nebo prázdné | Druhá barva znaků čísel (přechod zleva doprava). | Barvy II |
-| `bg_grad_dir`, `key_grad_dir`, `digit_key_grad_dir`, `text_grad_dir`, `digit_text_grad_dir`, `outline_grad_dir` | `top` | `top`, `bottom`, `left`, `right` | Odkud se rozbíhá přechod druhé barvy (pozadí, klávesy, klávesy čísel, znaky, znaky čísel, obrysy). | Waiting |
+| `bg_grad_dir`, `key_grad_dir`, `digit_key_grad_dir`, `text_grad_dir`, `digit_text_grad_dir`, `outline_grad_dir` | `top` | `top`, `bottom`, `left`, `right` | Odkud se rozbíhá přechod druhé barvy (pozadí, klávesy, klávesy čísel, znaky, znaky čísel, obrysy). | Waiting (jen pozadí, znaky a klávesy) |
 | `outline_color` | *(prázdné)* | `#RRGGBB` nebo prázdné | Barva stálého obrysu kláves; prázdná = bez obrysu. | Pokročilé → Obrys kláves |
 | `outline_width_dp` | `2` | 1 – 6 | Tloušťka obrysu (dp). | Pokročilé → Obrys kláves |
 | `paint_color1` | `#0080FF` | `#RRGGBB` | Efekt Barvy: první barva v pořadí. | Pokročilé → Efekty |
 | `paint_color2` | `#FF5100` | `#RRGGBB` | Efekt Barvy: druhá barva v pořadí. | Pokročilé → Efekty |
 | `paint_color3` | `#6A02E8` | `#RRGGBB` | Efekt Barvy: třetí barva v pořadí. | Pokročilé → Efekty |
 
-## Druhé barvy (úroveň 3, Waiting)
+## Druhé barvy
 
 | Klíč | Výchozí | Rozsah / hodnoty | Co dělá | Kde v aplikaci |
 |---|---|---|---|---|
-| `key_color2` | *(prázdné)* | `#RRGGBB`, `rainbow` nebo prázdné | Druhá barva kláves: přechod shora (barva klávesy) dolů. | Waiting → Druhé barvy |
-| `text_color2` | *(prázdné)* | `#RRGGBB`, `rainbow` nebo prázdné | Druhá barva znaků: přechod shora (barva textu) dolů. | Waiting → Druhé barvy |
-| `background_color2` | *(prázdné)* | `#RRGGBB`, `rainbow` nebo prázdné | Druhá barva pozadí: přechod shora dolů; poslední odstín je i pod klávesnicí a v navigační liště. | Waiting → Druhé barvy |
-| `neon_color2` | *(prázdné)* | `#RRGGBB`, `rainbow` nebo prázdné | Druhá barva efektu po klepnutí: Neon, Glitch a Duch střídají obě barvy; `rainbow` = náhodný odstín. | Animace po kliknutí II (Waiting → Druhé barvy) |
-| `trail_color2` | *(prázdné)* | `#RRGGBB` nebo prázdné | Druhá barva stopy: konec stopy za prstem přechází do této barvy. | Waiting → Druhé barvy |
-| `glow_color2` | *(prázdné)* | `#RRGGBB` nebo prázdné | Druhá barva písmen po tahu: písmena slova se střídají mezi `glow_color` a touto barvou (1., 3. … první barva, 2., 4. … druhá). | Swipe I (Waiting → Druhé barvy) |
-| `tap_text_color2` | *(prázdné)* | `#RRGGBB` nebo prázdné | Druhá barva znaku po klepnutí: klepnutí střídají obě barvy. | Animace po kliknutí II (Waiting → Druhé barvy) |
-| `outline_color2` | *(prázdné)* | `#RRGGBB`, `rainbow` nebo prázdné | Druhá barva obrysu: přechod shora (barva obrysu) dolů. | Waiting → Druhé barvy |
-| `outline_tap_color2` | *(prázdné)* | `#RRGGBB` nebo prázdné | Druhá barva obrysu po klepnutí: klepnutí střídají obě barvy. | Animace po kliknutí III (Waiting → Druhé barvy) |
+| `key_color2` | *(prázdné)* | `#RRGGBB`, `rainbow` nebo prázdné | Druhá barva kláves: přechod shora (barva klávesy) dolů. | Barvy II |
+| `text_color2` | *(prázdné)* | `#RRGGBB`, `rainbow` nebo prázdné | Druhá barva znaků: přechod shora (barva textu) dolů. | Barvy II |
+| `background_color2` | *(prázdné)* | `#RRGGBB`, `rainbow` nebo prázdné | Druhá barva pozadí: přechod shora dolů; poslední odstín je i pod klávesnicí a v navigační liště. | Barvy II |
+| `neon_color2` | *(prázdné)* | `#RRGGBB`, `rainbow` nebo prázdné | Druhá barva efektu po klepnutí: Neon, Glitch a Duch střídají obě barvy; `rainbow` = náhodný odstín. | Animace po kliknutí II |
+| `trail_color2` | *(prázdné)* | `#RRGGBB` nebo prázdné | Druhá barva stopy: konec stopy za prstem přechází do této barvy. | Swipe I |
+| `glow_color2` | *(prázdné)* | `#RRGGBB` nebo prázdné | Druhá barva písmen po tahu: písmena slova se střídají mezi `glow_color` a touto barvou (1., 3. … první barva, 2., 4. … druhá). | Swipe I |
+| `tap_text_color2` | *(prázdné)* | `#RRGGBB` nebo prázdné | Druhá barva znaku po klepnutí: klepnutí střídají obě barvy. | Animace po kliknutí II |
+| `outline_color2` | *(prázdné)* | `#RRGGBB`, `rainbow` nebo prázdné | Druhá barva obrysu: přechod shora (barva obrysu) dolů. | Barvy II |
+| `outline_tap_color2` | *(prázdné)* | `#RRGGBB` nebo prázdné | Druhá barva obrysu po klepnutí: klepnutí střídají obě barvy. | Animace po kliknutí III |
 
-## Barvy podle prstu (úroveň 3, Waiting)
+## Barvy podle prstu
 
 | Klíč | Výchozí | Rozsah / hodnoty | Co dělá | Kde v aplikaci |
 |---|---|---|---|---|
-| `tap_text_color` | *(prázdné)* | `#RRGGBB` nebo prázdné | Barva znaku po klepnutí (drží asi 2,5 s, pak 0,4 s bledne); prázdná = vypnuto. | Waiting → Barvy podle prstu |
-| `hover_text_color` | *(prázdné)* | `#RRGGBB` nebo prázdné | Barva znaku klávesy pod prstem při tahu; prázdná = automatická. Funguje jen se zapnutým `swipe_glow`. | Waiting → Barvy podle prstu |
-| `passed_text_color` | *(prázdné)* | `#RRGGBB` nebo prázdné | Barva znaku kláves, přes které prst přejel při tahu (po tahu bledne asi 0,5 s). Funguje jen se zapnutým `swipe_glow`. | Waiting → Barvy podle prstu |
+| `tap_text_color` | *(prázdné)* | `#RRGGBB` nebo prázdné | Barva znaku po klepnutí (drží asi 2,5 s, pak 0,4 s bledne); prázdná = vypnuto. | Animace po kliknutí I |
+| `hover_text_color` | *(prázdné)* | `#RRGGBB` nebo prázdné | Barva znaku klávesy pod prstem při tahu; prázdná = automatická. Funguje jen se zapnutým `swipe_glow`. | Swipe II |
+| `passed_text_color` | *(prázdné)* | `#RRGGBB` nebo prázdné | Barva znaku kláves, přes které prst přejel při tahu (po tahu bledne asi 0,5 s). Funguje jen se zapnutým `swipe_glow`. | Swipe II |
 | `passed_key_color` | *(prázdné)* | `#RRGGBB` nebo prázdné | Barva klávesy, přes kterou prst při tahu přejel; prázdná = odvozená z akcentu. | Animace → Swipe I |
-| `outline_tap_color` | *(prázdné)* | `#RRGGBB` nebo prázdné | Barva obrysu po klepnutí (drží asi 2,5 s, pak 0,4 s bledne). | Waiting → Barvy podle prstu |
-| `outline_hover_color` | *(prázdné)* | `#RRGGBB` nebo prázdné | Barva obrysu klávesy pod prstem. Funguje jen se zapnutým `swipe_glow`. | Waiting → Barvy podle prstu |
-| `outline_passed_color` | *(prázdné)* | `#RRGGBB` nebo prázdné | Barva obrysu kláves, přes které prst přejel při tahu. Funguje jen se zapnutým `swipe_glow`. | Waiting → Barvy podle prstu |
+| `outline_tap_color` | *(prázdné)* | `#RRGGBB` nebo prázdné | Barva obrysu po klepnutí (drží asi 2,5 s, pak 0,4 s bledne). | Animace po kliknutí I |
+| `outline_hover_color` | *(prázdné)* | `#RRGGBB` nebo prázdné | Barva obrysu klávesy pod prstem. Funguje jen se zapnutým `swipe_glow`. | Swipe II |
+| `outline_passed_color` | *(prázdné)* | `#RRGGBB` nebo prázdné | Barva obrysu kláves, přes které prst přejel při tahu. Funguje jen se zapnutým `swipe_glow`. | Swipe II |
+
+## Waiting (úroveň 3)
+
+| Klíč | Výchozí | Rozsah | Popis | Kde v aplikaci |
+|---|---|---|---|---|
+| `char_outline` | `false` | zap / vyp | Znak na klávese má tenký obrys. | Waiting → Znak |
+| `char_outline_color` | *(prázdné)* | `#RRGGBB` nebo prázdné | Barva obrysu znaku; prázdná = barva obrysu klávesy (bez ní akcent). | Waiting → Znak |
+| `bg_grad_dir`, `text_grad_dir`, `key_grad_dir` | `top` | `top`, `bottom`, `left`, `right` | Začátek přechodu druhé barvy pro pozadí, znaky a klávesy. | Waiting → Začátek přechodu |
 
 ## Úprava kláves a makra
 

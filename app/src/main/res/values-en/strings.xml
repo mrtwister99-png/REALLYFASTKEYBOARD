@@ -228,6 +228,8 @@
     <string name="style_import_full">All 5 styles are taken. Do you want to delete one and replace it with the style from the backup\?</string>
     <string name="style_import_replace">Replace</string>
     <string name="style_import_skip">Skip</string>
+    <string name="style_restore">Restore profile</string>
+    <string name="style_restore_confirm">Do you really want to restore this profile\? Unsaved changes will be lost.</string>
     <string name="style_saved">Look saved to style %1$d</string>
     <string name="style_loaded">Style %1$d loaded</string>
     <string name="style_pick_first">First select style 1–5 above</string>
@@ -296,7 +298,6 @@
     <string name="paint_color2">Color 2</string>
     <string name="paint_color3">Color 3</string>
     <string name="notice_ok">OK</string>
-    <string name="paint_hint">A tapped key is painted for a few seconds and then slowly fades back.</string>
     <string name="trail_color">Trail color</string>
     <string name="text_color2">Second character color</string>
     <string name="label_pos">Position of the main character on the key</string>
@@ -339,20 +340,17 @@
     <string name="sec_fast">Quick</string>
     <string name="sec_layout_dims">Dimensions</string>
     <string name="sec_layout_pos">Position &amp; weight</string>
-    <string name="sec_waiting_colors">Waiting colors + leftovers</string>
     <string name="trail_style_dashed">Dashed</string>
     <string name="trail_style_pixel">Pixel</string>
     <string name="trail_width">Trail width</string>
     <string name="font_system">System</string>
     <string name="key_font_label">Font</string>
-    <string name="waiting_key_height">Single key height</string>
     <string name="waiting_key_width">Single key width</string>
-    <string name="waiting_key_gap">Gap between keys</string>
-    <string name="waiting_key_gap_hint">0 = key edge next to key edge.</string>
+    <string name="sec_waiting_char">Character</string>
+    <string name="waiting_char_outline_color">Character outline color</string>
     <string name="waiting_char_outline">Character outline</string>
-    <string name="waiting_char_outline_hint">Char on key gets a thin outline in key outline color.</string>
+    <string name="waiting_char_outline_hint">Char on key gets a thin outline. Without its own color it uses the key outline color (or the accent).</string>
     <string name="tap_effect_slide">Slide</string>
-    <string name="sec_waiting_key">Single key</string>
     <string name="swipe_glow">Pass animation</string>
     <string name="font_sample">fAZT! Hello 123</string>
     <string name="tip_number_row">Number row above the letters. Turning it off makes the keyboard shorter.</string>
@@ -397,7 +395,7 @@
     <string name="digit_text_color2">Second color of number characters</string>
     <string name="glow_style_paint">Fill</string>
     <string name="glow_style_ghost">Text</string>
-    <string name="sec_waiting_second">Second colors and gradient start</string>
+    <string name="sec_waiting_second">Gradient start</string>
     <string name="tip_digit_colors2">Second number color: the first color blends left to right into this one.</string>
     <string name="glow_style_flip">Letter flip</string>
     <string name="grad_top">Top</string>
@@ -406,9 +404,6 @@
     <string name="grad_right">Right</string>
     <string name="grad_dir_bg">Gradient start: background</string>
     <string name="grad_dir_key">Gradient start: keys</string>
-    <string name="grad_dir_digit_key">Gradient start: number keys</string>
     <string name="grad_dir_text">Gradient start: characters</string>
-    <string name="grad_dir_digit_text">Gradient start: number characters</string>
-    <string name="grad_dir_outline">Gradient start: outlines</string>
     <string name="passed_key_color">Passed key color</string>
 </resources>

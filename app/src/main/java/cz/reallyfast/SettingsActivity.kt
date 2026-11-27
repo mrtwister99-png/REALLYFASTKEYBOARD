@@ -68,6 +68,10 @@ class SettingsActivity : SettingsScreen() {
     private var swipeLogButton: TextView? = null
     private var enableButton: TextView? = null
     private var selectButton: TextView? = null
+    private var testField: EditText? = null
+    /** Uzivatel uz do zkusebniho pole psal (blikani pole se pak uz nevraci). */
+    private var typedOnce = false
+    private var hintAnim: ObjectAnimator? = null
     /** Tlacitko, jehoz obrys prave bliká (krok nastaveni, ktery zbyva), a jeho animace. */
     private var blinkTarget: View? = null
     private var blinkAnim: ObjectAnimator? = null
@@ -243,6 +247,17 @@ class SettingsActivity : SettingsScreen() {
         test.inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_CAP_SENTENCES or InputType.TYPE_TEXT_FLAG_MULTI_LINE
         test.background = rounded(field, dp(12f).toFloat())
         test.setPadding(dp(14f), dp(12f), dp(14f), dp(12f))
+        testField = test
+        // Jakmile se zacne psat, obrys pomalu zhasne a napoveda zmizi jako obvykle.
+        test.addTextChangedListener(object : android.text.TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, st: Int, c: Int, a: Int) {}
+            override fun onTextChanged(s: CharSequence?, st: Int, b: Int, c: Int) {}
+            override fun afterTextChanged(e: android.text.Editable?) {
+                if (e.isNullOrEmpty()) return
+                typedOnce = true
+                if (blinkTarget === test) fadeOutBlink()
+            }
+        })
         val tlp = rowParams()
         tlp.topMargin = dp(6f)
         tlp.bottomMargin = dp(10f)
@@ -456,7 +471,7 @@ class SettingsActivity : SettingsScreen() {
             setStroke(dp(2f), tone)
         }
         // Zbyvajici krok nastaveni bliká obrysem: 1. povolit klavesnici v systemu, 2. vybrat ji; kdyz je vse hotove, zhasne.
-        blinkOutline(if (active) null else if (enabled) selectButton else enableButton)
+        blinkOutline(if (active) (if (typedOnce) null else testField) else if (enabled) selectButton else enableButton)
     }
 
     /** Obrys `target` bliká (plynule pulzuje); null = nic nebliká. Pri vypnutych animacich obrys jen svítí. */
@@ -471,9 +486,19 @@ class SettingsActivity : SettingsScreen() {
             setStroke(dp(3f), accent)
         }
         target.foreground = outline
+        val slow = target === testField
         if (RustBridge.settings.animations) {
+            if (slow) {
+                // Zkusebni pole: obrys i napoveda "Vyzkousej psani" pomalu pulsuji do barvy akcentu.
+                hintAnim = ObjectAnimator.ofArgb(target, "hintTextColor", dim, accent).apply {
+                    duration = 1200L
+                    repeatMode = ValueAnimator.REVERSE
+                    repeatCount = ValueAnimator.INFINITE
+                    start()
+                }
+            }
             blinkAnim = ObjectAnimator.ofInt(outline, "alpha", 40, 255).apply {
-                duration = 650L
+                duration = if (slow) 1200L else 650L
                 repeatMode = ValueAnimator.REVERSE
                 repeatCount = ValueAnimator.INFINITE
                 start()
@@ -484,7 +509,36 @@ class SettingsActivity : SettingsScreen() {
     private fun stopBlink() {
         blinkAnim?.cancel()
         blinkAnim = null
+        hintAnim?.cancel()
+        hintAnim = null
+        testField?.setHintTextColor(dim)
         blinkTarget?.foreground = null
         blinkTarget = null
+    }
+
+    /** Obrys zkusebniho pole pomalu zhasne (po prvnim napsanem znaku); pak se blikani uz nevraci. */
+    private fun fadeOutBlink() {
+        val target = blinkTarget ?: return
+        val d = target.foreground as? android.graphics.drawable.GradientDrawable
+        blinkAnim?.cancel()
+        blinkAnim = null
+        hintAnim?.cancel()
+        hintAnim = null
+        testField?.setHintTextColor(dim)
+        blinkTarget = null
+        if (d == null) {
+            target.foreground = null
+            return
+        }
+        ValueAnimator.ofInt(d.alpha, 0).apply {
+            duration = 900L
+            addUpdateListener { d.alpha = it.animatedValue as Int }
+            addListener(object : AnimatorListenerAdapter() {
+                override fun onAnimationEnd(animation: Animator) {
+                    if (target.foreground === d) target.foreground = null
+                }
+            })
+            start()
+        }
     }
 }

@@ -66,7 +66,10 @@ class AppearanceActivity : SettingsScreen() {
     private lateinit var preview: KeyboardView
     private lateinit var previewBox: LinearLayout
     private lateinit var previewHost: LinearLayout
-    private lateinit var backBtn: TextView
+    private lateinit var backBtn: View
+    private lateinit var backArrow: ChevronView
+    private lateinit var restoreBtn: FrameLayout
+    private lateinit var restoreIcon: RestoreIconView
     private lateinit var saveBtn: TextView
     private val slotViews = ArrayList<StyleSlotView>()
     private var previewOpen = false
@@ -100,7 +103,7 @@ class AppearanceActivity : SettingsScreen() {
     private val catDefs = ArrayList<CatDef>()
     private val catCards = ArrayList<LinearLayout>()
     private val catBodies = ArrayList<LinearLayout>()
-    private val catArrows = ArrayList<TextView>()
+    private val catArrows = ArrayList<ChevronView>()
     private val catLevelBoxes = ArrayList<ArrayList<LinearLayout>>()
     private val catLevelBtns = ArrayList<ArrayList<TextView>>()
     private val catLevel = IntArray(8)
@@ -281,11 +284,18 @@ class AppearanceActivity : SettingsScreen() {
         header.setPadding(dp(14f), dp(10f), dp(14f), dp(6f))
         val top = LinearLayout(this)
         top.gravity = Gravity.CENTER_VERTICAL
-        val back = label("\u2190", 20f)
-        back.gravity = Gravity.CENTER
-        back.contentDescription = getString(R.string.back)
-        back.setOnClickListener { if (!onBackRequested()) finish() }
+        // Zpetna sipka: tlacitko zustane stat, sipka z nej po klepnuti vystreli doleva.
+        val back = FrameLayout(this)
+        back.clipChildren = false
+        val arrow = chevron(false, 42f, field, text)
+        arrow.contentDescription = getString(R.string.back)
+        back.addView(arrow, FrameLayout.LayoutParams(dp(48f), dp(42f)))
+        back.setOnClickListener { if (arrow.isEnabled) playBack(arrow) { if (!onBackRequested()) finish() else arrow.returnHome() } }
+        arrow.setOnClickListener { back.performClick() }
         backBtn = back
+        backArrow = arrow
+        top.clipChildren = false
+        header.clipChildren = false
         top.addView(back, LinearLayout.LayoutParams(dp(48f), dp(42f)))
         top.addView(View(this), LinearLayout.LayoutParams(0, 1, 1f))
         val test = label(getString(R.string.preview_test), 13f)
@@ -298,6 +308,17 @@ class AppearanceActivity : SettingsScreen() {
         val tlp = LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, dp(42f))
         tlp.rightMargin = dp(8f)
         top.addView(test, tlp)
+        // Obnova profilu: nedokonceny kruh se sipkou na konci; po zeptani vrati ulozenou podobu vybraneho profilu.
+        val restore = FrameLayout(this)
+        val ricon = RestoreIconView(this, text)
+        restore.contentDescription = getString(R.string.style_restore)
+        restore.addView(ricon, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
+        restore.setOnClickListener { askRestoreSlot() }
+        restoreBtn = restore
+        restoreIcon = ricon
+        val rlp0 = LinearLayout.LayoutParams(dp(42f), dp(42f))
+        rlp0.rightMargin = dp(8f)
+        top.addView(restore, rlp0)
         val s = label(getString(R.string.save), 15f)
         s.gravity = Gravity.CENTER
         s.typeface = Typeface.DEFAULT_BOLD
@@ -808,8 +829,8 @@ class AppearanceActivity : SettingsScreen() {
         val titleView = label(getString(def.titleRes), 16f)
         if (def.titleRes == R.string.cat_waiting) waitingTitle = titleView
         head.addView(titleView, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
-        val arrow = label("›", 24f, dim)
-        head.addView(arrow)
+        val arrow = ChevronView(this, true, dim)
+        head.addView(arrow, LinearLayout.LayoutParams(dp(28f), dp(28f)))
         card.addView(head, rowParams())
         val body = LinearLayout(this)
         body.orientation = LinearLayout.VERTICAL
@@ -904,16 +925,19 @@ class AppearanceActivity : SettingsScreen() {
         if (open) {
             a.animate().rotation(45f).setDuration(700L).setInterpolator(DecelerateInterpolator()).withEndAction {
                 if (expandedCat == index) {
-                    a.setTextColor(accent)
+                    a.outline = accent
                     a.animate().scaleX(1.5f).scaleY(1.5f).setDuration(220L).start()
+                    // Sipka se zleva doprava vyplni zlutou a vyletí jiskry (stejne jako u radku na hlavni obrazovce).
+                    a.fillTo(true, ChevronView.YELLOW, true)
                 }
             }.start()
         } else {
             // Nejdriv se otoci zpet o 45 stupnu, teprve potom se zmensi a zabarvi.
             a.animate().rotation(0f).setDuration(450L).setInterpolator(DecelerateInterpolator()).withEndAction {
                 if (expandedCat != index) {
-                    a.setTextColor(dim)
+                    a.outline = dim
                     a.animate().scaleX(1f).scaleY(1f).setDuration(220L).start()
+                    a.fillTo(false, ChevronView.YELLOW, false)
                 }
             }.start()
         }
@@ -1100,40 +1124,17 @@ class AppearanceActivity : SettingsScreen() {
         updateStatus()
     }
 
-    /** Waiting jako posledni kategorie (IV), porad zamcena: rozmery samostatne klavesy + druhe barvy efektu. */
+    /** Waiting jako posledni kategorie (IV), porad zamcena: obrys znaku (ano / ne, barva) a zacatek prechodu druhych barev. */
     private fun buildCatWaiting(box: LinearLayout) {
-        var s = section(box, getString(R.string.sec_waiting_key))
-        sliderRow(s, R.string.waiting_key_height, "key_height_dp", 48, 72, 1) { getString(R.string.unit_dp, it) }
-        sliderRow(s, R.string.waiting_key_width, "key_width_dp", 24, 48, 1) { getString(R.string.unit_dp, it.coerceAtLeast(24)) }
-        sliderRow(s, R.string.waiting_key_gap, "key_gap_dp", 0, 10, 1) { getString(R.string.unit_dp, it) }
-        hintText(s, getString(R.string.waiting_key_gap_hint))
+        var s = section(box, getString(R.string.sec_waiting_char))
         switchRow(s, R.string.waiting_char_outline, "char_outline", hintRes = R.string.waiting_char_outline_hint)
-        s = section(box, getString(R.string.sec_waiting_colors))
-        colorRow(s, R.string.outline_color, "outline_color", allowAuto = true)
-        colorRow(s, R.string.neon_color2, "neon_color2", allowAuto = true, allowRainbow = true)
-        colorRow(s, R.string.glow_color2, "glow_color2", allowAuto = true)
-        colorRow(s, R.string.trail_color2, "trail_color2", allowAuto = true)
-        colorRow(s, R.string.tap_text_color2, "tap_text_color2", allowAuto = true)
-        colorRow(s, R.string.outline_tap_color2, "outline_tap_color2", allowAuto = true)
-        colorRow(s, R.string.paint_color1, "paint_color1")
-        colorRow(s, R.string.paint_color2, "paint_color2")
-        colorRow(s, R.string.paint_color3, "paint_color3")
-        hintText(s, getString(R.string.paint_hint))
+        colorRow(s, R.string.waiting_char_outline_color, "char_outline_color", allowAuto = true)
         s = section(box, getString(R.string.sec_waiting_second))
         val dirValues = listOf("top", "bottom", "left", "right")
         val dirLabels = listOf(getString(R.string.grad_top), getString(R.string.grad_bottom), getString(R.string.grad_left), getString(R.string.grad_right))
-        colorRow(s, R.string.background_color2, "background_color2", allowAuto = true, allowRainbow = true)
         choiceRow(s, R.string.grad_dir_bg, "bg_grad_dir", dirValues, dirLabels)
-        colorRow(s, R.string.key_color2, "key_color2", allowAuto = true, allowRainbow = true)
-        choiceRow(s, R.string.grad_dir_key, "key_grad_dir", dirValues, dirLabels)
-        colorRow(s, R.string.digit_key_color2, "digit_key_color2", allowAuto = true, allowRainbow = true)
-        choiceRow(s, R.string.grad_dir_digit_key, "digit_key_grad_dir", dirValues, dirLabels)
-        colorRow(s, R.string.text_color2, "text_color2", allowAuto = true, allowRainbow = true)
         choiceRow(s, R.string.grad_dir_text, "text_grad_dir", dirValues, dirLabels)
-        colorRow(s, R.string.digit_text_color2, "digit_text_color2", allowAuto = true, allowRainbow = true)
-        choiceRow(s, R.string.grad_dir_digit_text, "digit_text_grad_dir", dirValues, dirLabels)
-        colorRow(s, R.string.outline_color2, "outline_color2", allowAuto = true, allowRainbow = true)
-        choiceRow(s, R.string.grad_dir_outline, "outline_grad_dir", dirValues, dirLabels)
+        choiceRow(s, R.string.grad_dir_key, "key_grad_dir", dirValues, dirLabels)
     }
 
     /** Tlacitko s popiskem, ktere zapne nastavovani polohy (znaku nebo napovedy) nad klavesnici. */
@@ -1378,9 +1379,13 @@ class AppearanceActivity : SettingsScreen() {
     private fun updateActions() {
         val a = accent
         val onA = if (Theme.luminance(a) > 0.55f) 0xFF111113.toInt() else 0xFFFFFFFF.toInt()
-        backBtn.setTextColor(text)
-        backBtn.background = rounded(field, dp(14f).toFloat())
         val canSave = saveEnabled()
+        backArrow.outline = text
+        backBtn.background = rounded(field, dp(14f).toFloat())
+        restoreIcon.color = text
+        restoreBtn.background = rounded(field, dp(21f).toFloat())
+        restoreBtn.isEnabled = canSave
+        restoreBtn.alpha = if (canSave) 1f else 0.4f
         saveBtn.isEnabled = canSave
         saveBtn.alpha = if (canSave) 1f else 0.4f
         saveBtn.setTextColor(if (canSave) onA else text)
@@ -1423,6 +1428,17 @@ class AppearanceActivity : SettingsScreen() {
     private fun loadSlot(i: Int) {
         RustBridge.loadStyle(i)
         Toast.makeText(this, getString(R.string.style_loaded, i + 1), Toast.LENGTH_SHORT).show()
+    }
+
+    /** Obnova vybraneho profilu: zahodi neulozene zmeny a nacte ulozenou podobu (po potvrzeni). */
+    private fun askRestoreSlot() {
+        val i = chosenSlot
+        if (i !in 0 until STYLE_SLOTS || !restoreBtn.isEnabled) return
+        confirmDialog(getString(R.string.style_restore_confirm), getString(R.string.yes), getString(R.string.no), false) {
+            loadSlot(i)
+            paintSlots()
+            updateActions()
+        }
     }
 
     private fun saveSlot() {

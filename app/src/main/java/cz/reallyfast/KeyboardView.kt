@@ -295,6 +295,8 @@ class KeyboardView(context: Context) : View(context) {
         private const val DEMO_FONT_MS = 1800L
         private const val DEMO_TRAIL_POINTS = 36
         private const val DEMO_SWIPE_MS = 1600L
+        /** Jak dlouho banner "slovo ulozeno" projizdi pres mezernik. */
+        private const val SAVED_BANNER_MS = 5200L
         private const val DEMO_SWIPE_STEPS = 32
         private const val DEMO_ALTS_MS = 900L
         private const val DEMO_PRESS_STEP_MS = 230L
@@ -437,6 +439,7 @@ class KeyboardView(context: Context) : View(context) {
     private var deleteFillStart = 0L
     private var deleteKey: Key? = null
     private var charOutlineOn = false
+    private var charOutlineCol = 0
     private var keyWidthDp = 0
     private var cutEffect = false
     private var slideEffect = false
@@ -449,6 +452,9 @@ class KeyboardView(context: Context) : View(context) {
     private var enterSlideKey: Key? = null
     private var enterSlideDir = 1f
     private var savedBannerText = ""
+    /** Kde v textu banneru je ulozene slovo (zvyrazni se akcentem). */
+    private var savedWordFrom = 0
+    private var savedWordTo = 0
     private var savedBannerStart = 0L
     private var savedBannerEndedAt = 0L
     private var drawShadow = true
@@ -652,6 +658,8 @@ class KeyboardView(context: Context) : View(context) {
     /** Banner "slovo X je ulozeno!" - probehne 1x zprava doleva uvnitr mezerniku. */
     fun showSavedWord(word: String) {
         savedBannerText = context.getString(R.string.word_saved_banner, word)
+        savedWordFrom = savedBannerText.indexOf(word).coerceAtLeast(0)
+        savedWordTo = if (savedBannerText.indexOf(word) >= 0) savedWordFrom + word.length else 0
         savedBannerStart = SystemClock.uptimeMillis()
         invalidate()
     }
@@ -776,6 +784,7 @@ class KeyboardView(context: Context) : View(context) {
         digitTextDir = gradDirCode(s.digitTextGradDir)
         outlineDir = gradDirCode(s.outlineGradDir)
         charOutlineOn = s.charOutline
+        charOutlineCol = Theme.parse(s.charOutlineColor, 0)
         keyWidthDp = s.keyWidthDp
         dashedTrail = s.trailStyle == "dashed"
         pixelTrail = s.trailStyle == "pixel"
@@ -1626,7 +1635,7 @@ class KeyboardView(context: Context) : View(context) {
                 }
             }
             // Barva obrysu znaku (Waiting): stejna jako aktualni obrys klavesy, bez nej barva akcentu.
-            var charOc = if (outlineCol != 0) outlineCol else theme.accent
+            var charOc = if (charOutlineCol != 0) charOutlineCol else if (outlineCol != 0) outlineCol else theme.accent
             if (outlineOn) {
                 // Obrys: zakladni barva (pripadne prechod), po projeti, po klepnuti, pod prstem (posledni vyhrava).
                 val special = specialOutline && (k.kind == KIND_SHIFT || k.kind == KIND_MODE || k.kind == KIND_BACKSPACE || k.kind == KIND_EMOJI || k.kind == KIND_MACRO)
@@ -1640,7 +1649,9 @@ class KeyboardView(context: Context) : View(context) {
                 if (tapF > 0f && outlineTapCol != 0 && tapOutShader == null) oc = mixArgb(oc, if (k.tapOut != 0) k.tapOut else outlineTapCol, tapF)
                 val over = (k.pressed && !k.passed) || (k.passed && k === hoverKey)
                 if (over && outlineHoverCol != 0) oc = outlineHoverCol
-                if (oc != 0) charOc = oc
+                // Obrys specialnich klaves je pevne v barve akcentu (zadny efekt ho neprebarvuje).
+                if (special) oc = theme.accent
+                if (oc != 0 && charOutlineCol == 0) charOc = oc
                 if (oc != 0 && cutS > 0f) {
                     val ins = outlineW / 2f
                     val r = max(0f, radius - ins)
@@ -2492,13 +2503,13 @@ class KeyboardView(context: Context) : View(context) {
             val y = samples[i * 3 + 1]
             val segRgb = if (trailCol2 != 0) Theme.blend(trailCol2, rgb, f) and 0x00FFFFFF else rgb
             stroke.color = segRgb or ((200f * f * fade).toInt().coerceIn(0, 255) shl 24)
-            stroke.strokeWidth = (1.5f + 5f * f) * density
+            stroke.strokeWidth = (1.5f + 5f * f) * density * (trailWidthDp / 4f)
             canvas.drawLine(px, py, x, y, stroke)
             px = x
             py = y
         }
         fill.color = rgb or ((255f * fade).toInt().coerceIn(0, 255) shl 24)
-        canvas.drawCircle(px, py, 4.5f * density, fill)
+        canvas.drawCircle(px, py, 4.5f * density * (trailWidthDp / 4f), fill)
         return touchMode != T_SWIPE
     }
 
@@ -2581,7 +2592,7 @@ class KeyboardView(context: Context) : View(context) {
     /** Banner ulozeni slova uvnitr mezerniku: 1x zprava doleva, od praveho okraje za levy kraj. */
     private fun drawSavedBanner(canvas: Canvas, now: Long): Boolean {
         if (savedBannerStart == 0L || savedBannerText.isEmpty()) return false
-        val dur = 2200L; val dt = now - savedBannerStart
+        val dur = SAVED_BANNER_MS; val dt = now - savedBannerStart
         if (dt >= dur) { savedBannerStart = 0L; savedBannerText = ""; savedBannerEndedAt = now; return true }
         val space = keys.firstOrNull { it.kind == KIND_SPACE } ?: return false
         val left = space.vx; val right = space.vx + space.vw; val cy = space.y + space.h / 2f
@@ -2590,7 +2601,20 @@ class KeyboardView(context: Context) : View(context) {
         val total = (right - left) + tw + 40f * density
         val x = right + 20f * density - total * (dt / dur.toFloat())
         canvas.save(); canvas.clipRect(left, space.y, right, space.y + space.h)
-        canvas.drawText(savedBannerText, x + tw / 2f, cy - (textPaint.ascent() + textPaint.descent()) / 2f, textPaint)
+        val baseY = cy - (textPaint.ascent() + textPaint.descent()) / 2f
+        val keepAlign = textPaint.textAlign
+        textPaint.textAlign = Paint.Align.LEFT
+        val from = savedWordFrom.coerceIn(0, savedBannerText.length)
+        val to = savedWordTo.coerceIn(from, savedBannerText.length)
+        val w1 = textPaint.measureText(savedBannerText, 0, from)
+        val w2 = textPaint.measureText(savedBannerText, from, to)
+        canvas.drawText(savedBannerText, 0, from, x, baseY, textPaint)
+        val keepColor = textPaint.color
+        textPaint.color = theme.accent or 0xFF000000.toInt()
+        canvas.drawText(savedBannerText, from, to, x + w1, baseY, textPaint)
+        textPaint.color = keepColor
+        canvas.drawText(savedBannerText, to, savedBannerText.length, x + w1 + w2, baseY, textPaint)
+        textPaint.textAlign = keepAlign
         canvas.restore(); textPaint.typeface = baseFace
         return true
     }

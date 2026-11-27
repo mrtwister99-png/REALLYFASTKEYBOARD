@@ -244,10 +244,17 @@ abstract class SettingsScreen : BaseScreen() {
         col.addView(head, rowParams())
         val seekRow = LinearLayout(this)
         seekRow.gravity = android.view.Gravity.CENTER_VERTICAL
-        val minus = label("‹", 24f, dim).apply { setPadding(dp(4f), 0, dp(8f), 0) }
-        val plus = label("›", 24f, dim).apply { setPadding(dp(8f), 0, dp(4f), 0) }
-        seekRow.addView(minus)
+        val minus = ChevronView(this, false, dim, card)
+        val plus = ChevronView(this, true, dim, card)
+        seekRow.addView(minus, LinearLayout.LayoutParams(dp(26f), dp(26f)))
         val seek = SeekBar(this)
+        // Posuvne tlacitko je ctverecek v barve akcentu (misto kulate vychozi podoby).
+        seek.thumb = android.graphics.drawable.GradientDrawable().apply {
+            shape = android.graphics.drawable.GradientDrawable.RECTANGLE
+            cornerRadius = dp(3f).toFloat()
+            setColor(accent)
+            setSize(dp(18f), dp(18f))
+        }
         seek.max = (max - min) / step
         fun current(): Int {
             val j = RustBridge.settings.json
@@ -284,7 +291,7 @@ abstract class SettingsScreen : BaseScreen() {
         minus.setOnClickListener { val v = (current() - step).coerceAtLeast(min); seek.progress = (v - min) / step; commit(v); value.text = format(v); onSettingTouched(key, col) }
         plus.setOnClickListener { val v = (current() + step).coerceAtMost(max); seek.progress = (v - min) / step; commit(v); value.text = format(v); onSettingTouched(key, col) }
         seekRow.addView(seek, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
-        seekRow.addView(plus)
+        seekRow.addView(plus, LinearLayout.LayoutParams(dp(26f), dp(26f)))
         col.addView(seekRow, rowParams())
         box.addView(col, rowParams())
         // Zatmaveny posuvnik: nastaveni, ktere zvolene pismo nemeni, se zasedne a nereaguje.

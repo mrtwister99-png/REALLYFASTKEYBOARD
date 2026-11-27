@@ -35,7 +35,7 @@ pub const STYLE_KEYS: &[&str] = &[
     "paint_color1", "paint_color2", "paint_color3",
     "passed_text_color", "passed_key_color", "tap_text_color", "hover_text_color", "label_weight", "digit_weight",
     "neon_color2", "outline_color", "outline_color2", "outline_tap_color", "outline_hover_color",
-    "outline_passed_color", "outline_width_dp", "char_outline",
+    "outline_passed_color", "outline_width_dp", "char_outline", "char_outline_color",
     "special_outline", "trail_color2", "glow_color2", "tap_text_color2", "outline_tap_color2",
 ];
 /// Jeden slot stylu: klic nastaveni -> hodnota (jen klice ze STYLE_KEYS).
@@ -218,6 +218,8 @@ pub struct Settings {
     /// Tloustka obrysu v dp (1..6).
     pub outline_width_dp: u32,
     pub char_outline: bool,
+    /// Barva obrysu znaku (prazdna = barva obrysu klavesy, jinak akcent).
+    pub char_outline_color: String,
     pub trail_width_dp: u32,
     /// Pismo klaves: "system" nebo nazev souboru pisma z assets/fonts (bez cesty).
     pub key_font: String,
@@ -343,6 +345,7 @@ impl Settings {
             outline_passed_color: String::new(),
             outline_width_dp: 2,
             char_outline: false,
+            char_outline_color: String::new(),
             trail_width_dp: 4,
             key_font: "system".into(),
             special_outline: true,
@@ -713,6 +716,7 @@ impl Settings {
         self.outline_width_dp = self.outline_width_dp.clamp(1, 6);
         fix_optional_color(&mut self.trail_color2);
         fix_optional_color(&mut self.glow_color2);
+        fix_optional_color(&mut self.char_outline_color);
         fix_optional_color(&mut self.tap_text_color2);
         fix_optional_color(&mut self.outline_tap_color2);
         fix_color_or_rainbow(&mut self.glow_color, &d.glow_color);
@@ -773,6 +777,15 @@ impl Settings {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn char_outline_color_is_optional_style_key() {
+        assert_eq!(Settings::default().char_outline_color, "");
+        let s = Settings::from_json(r##"{"char_outline_color":"#abcdef"}"##).unwrap();
+        assert_eq!(s.char_outline_color, "#ABCDEF");
+        assert_eq!(Settings::from_json(r#"{"char_outline_color":"bad"}"#).unwrap().char_outline_color, "");
+        assert!(STYLE_KEYS.contains(&"char_outline_color"));
+    }
 
     #[test]
     fn auto_diacritics_defaults_on_and_round_trips() {

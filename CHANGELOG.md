@@ -2,6 +2,9 @@
 
 Jedna věta za verzi, nejnovější nahoře. Čísla verzí odpovídají commitům (`vX.Y: …`).
 
+## 1.42 – 2026-11-27
+Nové duté šipky (zpět, otevření obrazovky, konce posuvníků, karty vzhledu) s výplní zleva doprava, jiskrami a vystřelením, čtvercové jezdce posuvníků, tlačítko obnovy profilu ve Vzhledu, pulzující zkušební pole po dokončení nastavení, Waiting jen s obrysem znaku (nová barva `char_outline_color`) a začátky přechodů, obrys speciálních kláves pevně v akcentu, tloušťka čáry stopy podle nastavení, pomalejší a zvýrazněný banner uloženého slova.
+
 ## 1.41 – 2026-11-27
 Na hlavní obrazovce bliká obrys dalšího kroku nastavení (povolit klávesnici, pak ji vybrat) a po dokončení zhasne, podržení návrhu v liště ukáže další dvě slova, obrys znaku ve Waiting drží průhlednost i barvu obrysu, zapsán audit a první měření výkonu (docs/audit-1.41.md).
 

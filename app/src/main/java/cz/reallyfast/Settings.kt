@@ -111,6 +111,7 @@ class Settings(val json: JSONObject) {
     val outlinePassedColor: String get() = json.optString("outline_passed_color", "")
     val outlineWidthDp: Int get() = json.optInt("outline_width_dp", 2).coerceIn(1, 6)
     val charOutline: Boolean get() = json.optBoolean("char_outline", false)
+    val charOutlineColor: String get() = json.optString("char_outline_color", "")
 
     /** Obrys specialnich klaves (Shift, ?123, Backspace) v barve akcentu. */
     val specialOutline: Boolean get() = json.optBoolean("special_outline", true)

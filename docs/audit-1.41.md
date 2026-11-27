@@ -55,7 +55,7 @@ slova po zalomení řádku ani po odeslání zprávy v Messengeru zatím není o
 
 | Sada | Počet | Stav |
 |---|---|---|
-| Rust `cargo test --lib` | 204 | prošly |
+| Rust `cargo test --lib` | 205 | prošly |
 | JVM (`:app:testDebugUnitTest`: most, kódy `OP_*`, odemykání) | 20 | prošly |
 
 Nové testy z těchto verzí: osobní slova a pořadí návrhů, doplnění diakritiky (`auto_accent`), učení z vybraných oprav, rozšířený seznam návrhů,
