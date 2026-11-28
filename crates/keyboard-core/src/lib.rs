@@ -86,6 +86,7 @@ pub const OP_AUTO_ACCENT: i32 = 51;
 pub const OP_PENDING_STYLES: i32 = 52;
 pub const OP_PLACE_STYLE: i32 = 53;
 pub const OP_DISCARD_STYLES: i32 = 54;
+pub const OP_STYLE_DEFAULT: i32 = 55;
 
 /// Priznaky pro swipe / suggest.
 pub const FLAG_CAPITALIZE: i64 = 1;
@@ -241,6 +242,14 @@ impl Engine {
         let Some(i) = style_index(slot) else { return };
         let Some(saved) = self.settings.style_slots.get(i).and_then(|v| v.as_object()).cloned() else { return };
         let s = self.settings.with_style(&saved);
+        self.set_settings(s);
+    }
+
+    /// Nacte VYCHOZI vzhled slotu `slot` (ne ulozeny): ulozeny slot se nemeni, ostatni nastaveni zustane.
+    pub fn load_default_style(&mut self, slot: i64) {
+        let Some(i) = style_index(slot) else { return };
+        let Some(d) = settings::default_style_slot(i) else { return };
+        let s = self.settings.with_style(&d);
         self.set_settings(s);
     }
 
@@ -960,6 +969,10 @@ pub fn dispatch(op: i32, a: &[u8], b: &[u8], num: i64) -> Vec<u8> {
             e.load_style(num);
             e.settings().to_json().into_bytes()
         }
+        OP_STYLE_DEFAULT => {
+            e.load_default_style(num);
+            e.settings().to_json().into_bytes()
+        }
         OP_INFO => e.info().into_bytes(),
         _ => Vec::new(),
     }
@@ -1002,6 +1015,29 @@ mod tests {
         let mut b = Engine::with_storage(Storage::in_memory(), NOW);
         assert!(b.import_backup(&json) >= 0);
         assert_eq!(b.settings().style_slots, e.settings().style_slots);
+    }
+
+    #[test]
+    fn default_style_ignores_saved_slot() {
+        let mut e = Engine::with_storage(Storage::in_memory(), NOW);
+        let mut s = e.settings().clone();
+        s.theme = "custom".into();
+        s.custom_background = "#123456".into();
+        s.key_radius_dp = 20;
+        s.language = "en".into();
+        e.set_settings(s);
+        e.save_style(1);
+        e.load_default_style(1);
+        // vychozi slot 2 ma jinou accent barvu, ostatni vzhled je vychozi; ulozeny slot zustal
+        assert_eq!(e.settings().theme.as_str(), "dark");
+        assert_eq!(e.settings().accent_color.as_str(), "#60A5FA");
+        assert_ne!(e.settings().key_radius_dp, 20);
+        assert_eq!(e.settings().language, "en");
+        assert_eq!(e.settings().style_slots[1]["custom_background"], "#123456");
+        let before = e.settings().clone();
+        e.load_default_style(9);
+        e.load_default_style(-1);
+        assert_eq!(e.settings(), &before);
     }
 
     /// Engine s ulozenym vzhledem (polomer `radius`) ve slotu `slot`.

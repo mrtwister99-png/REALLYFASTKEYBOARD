@@ -80,6 +80,7 @@ class AppearanceActivity : SettingsScreen() {
     // Zmeny vzhledu od otevreni obrazovky: Ulozit se rozsviti az po zmene.
     private val undoStack = ArrayList<String>()
     private var lastSnap = ""
+    private var changedSinceSave = false
     private var lastChangeAt = 0L
     private var restoring = false
 
@@ -330,7 +331,10 @@ class AppearanceActivity : SettingsScreen() {
         rnd.typeface = Typeface.DEFAULT_BOLD
         rnd.gravity = Gravity.CENTER
         rnd.contentDescription = getString(R.string.style_random)
-        rnd.setOnClickListener { randomStyle() }
+        rnd.setOnClickListener {
+            randomStyle()
+            confetti(rnd)
+        }
         randomBtn = rnd
         val rndLp = LinearLayout.LayoutParams(dp(42f), dp(42f))
         rndLp.rightMargin = dp(8f)
@@ -365,11 +369,10 @@ class AppearanceActivity : SettingsScreen() {
         right.clipChildren = false
         s.setOnClickListener {
             if (saveSlot()) {
-                saveWave.fire(800L)
-                s.animate().cancel()
-                s.animate().scaleX(1.35f).scaleY(1.35f).setDuration(180L).withEndAction {
-                    s.animate().scaleX(1f).scaleY(1f).setDuration(260L).start()
-                }.start()
+                // Tlacitko se zvetsi, zleva nabiha zelena a zprava zluta do stredu, pak se vrati do normalu.
+                saveHolder.animate().cancel()
+                saveHolder.animate().scaleX(1.3f).scaleY(1.3f).setDuration(200L).start()
+                saveWave.fire(900L) { saveHolder.animate().scaleX(1f).scaleY(1f).setDuration(260L).start() }
             }
         }
         right.addView(saveHolder, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, dp(42f)))
@@ -980,7 +983,7 @@ class AppearanceActivity : SettingsScreen() {
         catDefs.add(CatDef(R.string.cat_layout, listOf<(LinearLayout) -> Unit>({ buildLayoutDims(it) }, { buildLayoutPos(it) }, { buildLayoutBottom(it) }), roman, showBar = true))
         catDefs.add(CatDef(R.string.cat_colors, listOf<(LinearLayout) -> Unit>({ buildColors1(it) }, { buildColors2(it) }, { buildColors3(it) }), roman, showBar = true))
         catDefs.add(CatDef(R.string.cat_tap_anim, listOf<(LinearLayout) -> Unit>({ buildTap1(it) }, { buildTap2(it) }, { buildTap3(it) }), roman, showBar = true))
-        catDefs.add(CatDef(R.string.cat_swipe, listOf<(LinearLayout) -> Unit>({ buildSwipe1(it) }, { buildSwipe2(it) }), roman, showBar = true))
+        catDefs.add(CatDef(R.string.cat_swipe, listOf<(LinearLayout) -> Unit>({ buildSwipe1(it) }, { buildSwipe2(it) }, { buildSwipe3(it) }), roman, showBar = true))
         catDefs.add(CatDef(R.string.cat_keys, listOf<(LinearLayout) -> Unit>({ buildCatKeys(it) }), roman, showBar = false))
         catDefs.add(CatDef(R.string.cat_waiting, listOf<(LinearLayout) -> Unit>({ buildCatWaiting(it) }), listOf("IV"), showBar = true, locked = !extraOpen))
         for ((i, d) in catDefs.withIndex()) buildCategory(container, i, d)
@@ -1227,7 +1230,6 @@ class AppearanceActivity : SettingsScreen() {
             val j = RustBridge.settings.json
             j.optBoolean("key_glow") && j.optString("tap_effect") == "paint"
         }
-        colorRow(s, R.string.neon_color, "neon_color")
         colorRow(s, R.string.tap_text_color, "tap_text_color", allowAuto = true)
         colorRow(s, R.string.outline_tap_color, "outline_tap_color", allowAuto = true)
     }
@@ -1235,6 +1237,8 @@ class AppearanceActivity : SettingsScreen() {
     /** 3. II. Druha barva klavesy a znaku po klepnuti. */
     private fun buildTap2(box: LinearLayout) {
         val s = section(box, getString(R.string.cat_tap_2))
+        // Barva klavesy po klepnuti (barva efektu); jeji druha barva je v III.
+        colorRow(s, R.string.tap_key_color, "neon_color")
         colorRow(s, R.string.tap_text_color2, "tap_text_color2", allowAuto = true)
     }
 
@@ -1272,7 +1276,6 @@ class AppearanceActivity : SettingsScreen() {
             { val j = RustBridge.settings.json; if (j.optBoolean("swipe_glow")) j.optString("glow_style") else "none" },
             { v -> if (v == "none") update("swipe_glow", false) else updateAll("swipe_glow" to true, "glow_style" to v) }, "glow_style")
         colorRow(s, R.string.glow_color, "glow_color", allowRainbow = extraOpen)
-        colorRow(s, R.string.glow_color2, "glow_color2", allowAuto = true)
     }
 
     /** 4. II. Barva pruchodu + druhe barvy. */
@@ -1286,6 +1289,12 @@ class AppearanceActivity : SettingsScreen() {
         val applyTrailColors2 = { trailColors2.visibility = if (RustBridge.settings.json.optString("trail_style") == "fire") View.GONE else View.VISIBLE }
         applyTrailColors2()
         fontPainters.add { applyTrailColors2() }
+        colorRow(s, R.string.glow_color2, "glow_color2", allowAuto = true)
+    }
+
+    /** 4. III. Barva pruchodu a barvy pod prstem. */
+    private fun buildSwipe3(box: LinearLayout) {
+        val s = section(box, getString(R.string.cat_swipe_3))
         colorRow(s, R.string.passed_text_color, "passed_text_color", allowAuto = true, dependsOn = "swipe_glow")
         colorRow(s, R.string.outline_passed_color, "outline_passed_color", allowAuto = true, dependsOn = "swipe_glow")
         colorRow(s, R.string.hover_text_color, "hover_text_color", allowAuto = true, dependsOn = "swipe_glow")
@@ -1551,6 +1560,7 @@ class AppearanceActivity : SettingsScreen() {
     private fun trackChange() {
         val cur = RustBridge.settings.json.toString()
         if (cur == lastSnap) return
+        changedSinceSave = true // i zmena mimo vzhled profilu (jazyk, rozlozeni...) rozsviti Ulozit
         val now = SystemClock.uptimeMillis()
         if (undoStack.isEmpty() || now - lastChangeAt > UNDO_MERGE_MS) {
             undoStack.add(lastSnap)
@@ -1561,7 +1571,17 @@ class AppearanceActivity : SettingsScreen() {
     }
 
     /** Ulozit svici, kdyz se vzhled lisi od vybraneho stylu (bez vybraneho stylu po jakekoli zmene). */
-    private fun saveEnabled() = if (chosenSlot in 0 until STYLE_SLOTS) !slotMatches(chosenSlot) else undoStack.isNotEmpty()
+    private fun saveEnabled() = if (chosenSlot in 0 until STYLE_SLOTS) (!slotMatches(chosenSlot) || changedSinceSave) else undoStack.isNotEmpty()
+
+    /** Duhove konfety z tlacitka `from` do vsech stran (pridaji se na celou obrazovku a po skonceni zmizi). */
+    private fun confetti(from: View) {
+        val decor = window.decorView as? ViewGroup ?: return
+        val loc = IntArray(2)
+        from.getLocationInWindow(loc)
+        val v = ConfettiView(this, loc[0] + from.width / 2f, loc[1] + from.height / 2f)
+        decor.addView(v, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
+        v.start { decor.post { decor.removeView(v) } }
+    }
 
     private fun updateActions() {
         val a = accent
@@ -1573,8 +1593,9 @@ class AppearanceActivity : SettingsScreen() {
         restoreBtn.background = rounded(field, dp(21f).toFloat())
         randomBtn.background = rounded(field, dp(21f).toFloat())
         randomBtn.setTextColor(text)
-        restoreBtn.isEnabled = canSave
-        restoreBtn.alpha = if (canSave) 1f else 0.4f
+        // Obnovit jde vzdy: vrati vychozi vzhled vybraneho profilu.
+        restoreBtn.isEnabled = true
+        restoreBtn.alpha = 1f
         saveBtn.isEnabled = canSave
         saveBtn.alpha = if (canSave) 1f else 0.4f
         saveBtn.setTextColor(if (canSave) onA else text)
@@ -1611,6 +1632,7 @@ class AppearanceActivity : SettingsScreen() {
         rememberSlot(i)
         paintSlots()
         if (!slotMatches(i)) loadSlot(i)
+        changedSinceSave = false
         updateActions()
     }
 
@@ -1622,9 +1644,11 @@ class AppearanceActivity : SettingsScreen() {
     /** Obnova vybraneho profilu: zahodi neulozene zmeny a nacte ulozenou podobu (po potvrzeni). */
     private fun askRestoreSlot() {
         val i = chosenSlot
-        if (i !in 0 until STYLE_SLOTS || !restoreBtn.isEnabled) return
+        if (i !in 0 until STYLE_SLOTS) return
         confirmDialog(getString(R.string.style_restore_confirm), getString(R.string.yes), getString(R.string.no), false) {
-            loadSlot(i)
+            RustBridge.loadDefaultStyle(i)
+            Toast.makeText(this, getString(R.string.style_restored_default, i + 1), Toast.LENGTH_SHORT).show()
+            changedSinceSave = true
             paintSlots()
             updateActions()
             restoreIcon.spin()
@@ -1639,6 +1663,7 @@ class AppearanceActivity : SettingsScreen() {
             return false
         }
         RustBridge.saveStyle(i)
+        changedSinceSave = false
         paintSlots()
         Toast.makeText(this, getString(R.string.style_saved, i + 1), Toast.LENGTH_SHORT).show()
         return true

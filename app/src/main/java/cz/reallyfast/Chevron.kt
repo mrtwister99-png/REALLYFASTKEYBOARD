@@ -6,6 +6,7 @@ import android.animation.ValueAnimator
 import android.annotation.SuppressLint
 import android.content.Context
 import android.graphics.Canvas
+import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.Path
 import android.view.View
@@ -385,18 +386,15 @@ class RingWaveView(context: Context) : View(context) {
 }
 
 /**
- * Zlutozeleny pruh, ktery zleva projede pres celou vysku pohledu (orezano na zaoblene tvary tlacitka).
- * Bez vlastni velikosti (jako RingWaveView); shader a cesty se pripravi pri zmene velikosti, v onDraw se jen posouva matice.
+ * Animace tlacitka Ulozit: zleva nabiha zelena a zprava zluta, obe dojedou do stredu a tam konci (pak vybledne).
+ * Orezano na zaoblene tvary tlacitka; bez vlastni velikosti (jako RingWaveView); v onDraw se nic nealokuje.
  */
 class SweepView(context: Context) : View(context) {
-    private val d = resources.displayMetrics.density
     private val paint = Paint(Paint.ANTI_ALIAS_FLAG)
     private val clip = android.graphics.Path()
-    private val matrix = android.graphics.Matrix()
     private val box = android.graphics.RectF()
-    private var shader: android.graphics.LinearGradient? = null
-    private var band = 0f
     private var t = -1f
+    private var onEnd: (() -> Unit)? = null
 
     override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
         val w = if (MeasureSpec.getMode(widthMeasureSpec) == MeasureSpec.EXACTLY) MeasureSpec.getSize(widthMeasureSpec) else 0
@@ -413,6 +411,7 @@ class SweepView(context: Context) : View(context) {
             override fun onAnimationEnd(animation: android.animation.Animator) {
                 t = -1f
                 invalidate()
+                onEnd?.invoke()
             }
         })
     }
@@ -422,31 +421,101 @@ class SweepView(context: Context) : View(context) {
         box.set(0f, 0f, w.toFloat(), h.toFloat())
         clip.reset()
         clip.addRoundRect(box, h / 2f, h / 2f, android.graphics.Path.Direction.CW)
-        band = w * 0.45f
-        val y = ChevronView.YELLOW
-        val g = ChevronView.GREEN
-        shader = android.graphics.LinearGradient(
-            0f, 0f, band, 0f,
-            intArrayOf(y and 0x00FFFFFF, y, g, g and 0x00FFFFFF), floatArrayOf(0f, 0.3f, 0.7f, 1f), android.graphics.Shader.TileMode.CLAMP,
-        )
-        paint.shader = shader
     }
 
-    fun fire(ms: Long) {
+    fun fire(ms: Long, end: () -> Unit) {
         animator.cancel()
+        onEnd = end
         animator.duration = ms
         animator.start()
     }
 
     override fun onDraw(canvas: Canvas) {
-        if (t < 0f || shader == null) return
-        val x = -band + t * (width + band)
-        matrix.setTranslate(x, 0f)
-        shader?.setLocalMatrix(matrix)
+        if (t < 0f) return
+        val fill = (t / 0.7f).coerceAtMost(1f)
+        val fade = if (t < 0.8f) 1f else 1f - (t - 0.8f) / 0.2f
+        val half = width / 2f * fill
+        paint.alpha = (225f * fade).toInt().coerceIn(0, 255)
         canvas.save()
         canvas.clipPath(clip)
-        canvas.drawRect(x, 0f, x + band, height.toFloat(), paint)
+        paint.color = ChevronView.GREEN
+        paint.alpha = (225f * fade).toInt().coerceIn(0, 255)
+        canvas.drawRect(0f, 0f, half, height.toFloat(), paint)
+        paint.color = ChevronView.YELLOW
+        paint.alpha = (225f * fade).toInt().coerceIn(0, 255)
+        canvas.drawRect(width - half, 0f, width.toFloat(), height.toFloat(), paint)
         canvas.restore()
+    }
+
+    override fun onDetachedFromWindow() {
+        animator.cancel()
+        super.onDetachedFromWindow()
+    }
+}
+
+/**
+ * Duhove konfety: z bodu (ox, oy) vyletí na vsechny strany, padaji a mizi. Pohled se pridava na celou obrazovku
+ * a po skonceni zase odebira; vse se pripravi v konstruktoru, v onDraw se nealokuje.
+ */
+class ConfettiView(context: Context, private val ox: Float, private val oy: Float) : View(context) {
+    private val d = resources.displayMetrics.density
+    private val n = 46
+    private val vx = FloatArray(n)
+    private val vy = FloatArray(n)
+    private val rot = FloatArray(n)
+    private val vr = FloatArray(n)
+    private val sz = FloatArray(n)
+    private val col = IntArray(n)
+    private val paint = Paint(Paint.ANTI_ALIAS_FLAG)
+    private var p = 0f
+    private val animator = android.animation.ValueAnimator.ofFloat(0f, 1f)
+
+    init {
+        val r = java.util.Random()
+        val hsv = floatArrayOf(0f, 0.85f, 1f)
+        for (i in 0 until n) {
+            val ang = r.nextFloat() * 2f * Math.PI.toFloat()
+            val speed = (200f + r.nextFloat() * 420f) * d
+            vx[i] = kotlin.math.cos(ang) * speed
+            vy[i] = kotlin.math.sin(ang) * speed - 140f * d
+            rot[i] = r.nextFloat() * 360f
+            vr[i] = (r.nextFloat() - 0.5f) * 900f
+            sz[i] = (5f + r.nextFloat() * 6f) * d
+            hsv[0] = r.nextFloat() * 360f
+            col[i] = Color.HSVToColor(hsv)
+        }
+        isClickable = false
+    }
+
+    fun start(onEnd: () -> Unit) {
+        animator.duration = 1400L
+        animator.addUpdateListener {
+            p = it.animatedValue as Float
+            invalidate()
+        }
+        animator.addListener(object : android.animation.AnimatorListenerAdapter() {
+            override fun onAnimationEnd(animation: android.animation.Animator) {
+                onEnd()
+            }
+        })
+        animator.start()
+    }
+
+    override fun onDraw(canvas: Canvas) {
+        val t = p * 1.4f
+        val fade = if (p > 0.65f) 1f - (p - 0.65f) / 0.35f else 1f
+        val a = (255f * fade).toInt().coerceIn(0, 255)
+        for (i in 0 until n) {
+            val x = ox + vx[i] * t * (1f - 0.3f * t)
+            val y = oy + vy[i] * t + 450f * d * t * t
+            paint.color = col[i]
+            paint.alpha = a
+            canvas.save()
+            canvas.translate(x, y)
+            canvas.rotate(rot[i] + vr[i] * t)
+            canvas.drawRect(-sz[i] / 2f, -sz[i] / 4f, sz[i] / 2f, sz[i] / 4f, paint)
+            canvas.restore()
+        }
     }
 
     override fun onDetachedFromWindow() {

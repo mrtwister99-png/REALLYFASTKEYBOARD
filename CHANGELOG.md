@@ -2,6 +2,9 @@
 
 Jedna věta za verzi, nejnovější nahoře. Čísla verzí odpovídají commitům (`vX.Y: …`).
 
+## 1.57 – 2026-11-28
+Výbuch: rozletí se jen kusy kolem, klávesa zůstane; Obnovit jde vždy a vrací výchozí vzhled profilu (nový `OP_STYLE_DEFAULT`); Uložit se rozsvítí i po změně mimo vzhled (Rychle); Uložit se zvětší, zleva nabíhá zelená a zprava žlutá do středu; R vystřelí duhové konfety; Animace po kliknutí II má Barvu klávesy po klepnutí (`neon_color`); Swipe: I čára a stopa, II druhé barvy čáry a stopy, III barva průchodu a pod prstem.
+
 ## 1.56 – 2026-11-28
 Uložit: zleva projede přes celou výšku tlačítka žlutozelený pruh (a text povyskočí); R má kolem sebe duhový obrys, který nabíhá dokola, odbíhá do nuly a pořád dokola.
 

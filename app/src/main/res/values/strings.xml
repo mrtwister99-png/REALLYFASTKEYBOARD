@@ -206,7 +206,7 @@
     <string name="voice_action_text">Vložit text</string>
     <string name="layout_hint_pos">Pozice malé nápovědy na klávese</string>
     <string name="neon_color">Barva efektu</string>
-    <string name="glow_color">Barva písmen po úspěšném tahu</string>
+    <string name="glow_color">Barva stopy (písmena po úspěšném tahu)</string>
     <string name="appearance_open">Vzhled a rozložení</string>
     <string name="typing_open">Psaní</string>
     <string name="sec_bottom_row">Spodní řada</string>
@@ -242,7 +242,8 @@
     <string name="style_import_replace">Nahradit</string>
     <string name="style_import_skip">Přeskočit</string>
     <string name="style_restore">Obnovit profil</string>
-    <string name="style_restore_confirm">Opravdu chceš tento profil obnovit? Neuložené změny se ztratí.</string>
+    <string name="style_restore_confirm">Vrátit vzhled tohoto profilu na výchozí? Neuložené změny se ztratí (uložený profil se změní až po Uložit).</string>
+    <string name="style_restored_default">Profil %1$d: výchozí vzhled</string>
     <string name="row_edit">Upravit výšku řádků</string>
     <string name="row_edit_hint">Táhni šipky nahoru a dolů. Každá řada má své meze, nejvyšší jde jen kousek nahoru.</string>
     <string name="style_saved">Vzhled uložen do stylu %1$d</string>
@@ -251,7 +252,7 @@
     <string name="style_switch_unsaved">Aktuální styl má neuložené změny. Opravdu chceš změnit styl bez uložení?</string>
     <string name="downgrade_done">Downgrade dokončen!</string>
     <string name="trail_color2">Druhá barva čáry</string>
-    <string name="glow_color2">Druhá barva písmen po tahu</string>
+    <string name="glow_color2">Druhá barva stopy (písmena po tahu)</string>
     <string name="tap_text_color2">Druhá barva znaku po klepnutí</string>
     <string name="outline_tap_color2">Druhá barva obrysu po klepnutí</string>
     <string name="special_outline">Obrys speciálních kláves</string>
@@ -265,6 +266,7 @@
     <string name="outline_tap_color">Barva obrysu po klepnutí</string>
     <string name="outline_hover_color">Barva obrysu pod prstem</string>
     <string name="outline_passed_color">Barva obrysu po přejetí prstem</string>
+    <string name="tap_key_color">Barva klávesy po klepnutí</string>
     <string name="tap_key_color2">Druhá barva klávesy po klepnutí</string>
     <string name="number_divider">Oddělovač</string>
     <string name="number_divider_hint">Čárka mezi číslicemi a písmeny</string>
@@ -350,10 +352,11 @@
     <string name="cat_colors_2">II. Druhé barvy</string>
     <string name="cat_colors_3">III. Barvy číslic</string>
     <string name="cat_tap_1">I. Výběr animace</string>
-    <string name="cat_tap_2">II. Druhá barva znaku</string>
+    <string name="cat_tap_2">II. Barva klávesy a druhá barva znaku</string>
     <string name="cat_tap_3">III. Druhá barva klávesy a obrysu</string>
-    <string name="cat_swipe_1">I. Linka + průchod + úspěšné slovo</string>
-    <string name="cat_swipe_2">II. Druhá barva čáry + barva průchodu</string>
+    <string name="cat_swipe_1">I. Čára a stopa</string>
+    <string name="cat_swipe_2">II. Druhá barva čáry a stopy</string>
+    <string name="cat_swipe_3">III. Barva průchodu a pod prstem</string>
     <string name="cat_keys_hint">Klik na klávesu = úprava písmenka, podržení = makro.</string>
     <string name="sec_fast">Rychle</string>
     <string name="sec_layout_dims">Rozměry</string>

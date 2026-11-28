@@ -206,7 +206,7 @@
     <string name="voice_action_text">Insert text</string>
     <string name="layout_hint_pos">Position of the small hint on the key</string>
     <string name="neon_color">Effect color</string>
-    <string name="glow_color">Letter color after a swipe</string>
+    <string name="glow_color">Trace color (letters after a swipe)</string>
     <string name="appearance_open">Appearance and layout</string>
     <string name="typing_open">Typing</string>
     <string name="sec_bottom_row">Bottom row</string>
@@ -242,7 +242,8 @@
     <string name="style_import_replace">Replace</string>
     <string name="style_import_skip">Skip</string>
     <string name="style_restore">Restore profile</string>
-    <string name="style_restore_confirm">Do you really want to restore this profile\? Unsaved changes will be lost.</string>
+    <string name="style_restore_confirm">Reset this profile\'s look to the default\? Unsaved changes will be lost (the saved profile only changes after Save).</string>
+    <string name="style_restored_default">Profile %1$d: default look</string>
     <string name="row_edit">Edit row positions</string>
     <string name="row_edit_hint">Drag the arrows up and down. Every row has its own limits, the top row can only go up a little.</string>
     <string name="style_saved">Look saved to style %1$d</string>
@@ -251,7 +252,7 @@
     <string name="style_switch_unsaved">The current style has unsaved changes. Do you really want to switch style without saving\?</string>
     <string name="downgrade_done">Downgrade complete!</string>
     <string name="trail_color2">Second line color</string>
-    <string name="glow_color2">Second color of letters after swipe</string>
+    <string name="glow_color2">Second trace color (letters after swipe)</string>
     <string name="tap_text_color2">Second character color after tap</string>
     <string name="outline_tap_color2">Second outline color after tap</string>
     <string name="special_outline">Outline on special keys</string>
@@ -265,6 +266,7 @@
     <string name="outline_tap_color">Outline color after tap</string>
     <string name="outline_hover_color">Outline color under the finger</string>
     <string name="outline_passed_color">Outline color after the finger passes</string>
+    <string name="tap_key_color">Key color after tap</string>
     <string name="tap_key_color2">Second key color after tap</string>
     <string name="number_divider">Divider</string>
     <string name="number_divider_hint">A line between the digits and the letters</string>
@@ -350,10 +352,11 @@
     <string name="cat_colors_2">II. Second colors</string>
     <string name="cat_colors_3">III. Digit colors</string>
     <string name="cat_tap_1">I. Pick animation</string>
-    <string name="cat_tap_2">II. Second char color</string>
+    <string name="cat_tap_2">II. Key color and second character color</string>
     <string name="cat_tap_3">III. Second key &amp; outline color</string>
-    <string name="cat_swipe_1">I. Trail + pass + word</string>
-    <string name="cat_swipe_2">II. Second line color + pass color</string>
+    <string name="cat_swipe_1">I. Line and trace</string>
+    <string name="cat_swipe_2">II. Second color of line and trace</string>
+    <string name="cat_swipe_3">III. Pass color and under the finger</string>
     <string name="cat_keys_hint">Tap a key = edit letter, hold = macro.</string>
     <string name="sec_fast">Quick</string>
     <string name="sec_layout_dims">Dimensions</string>

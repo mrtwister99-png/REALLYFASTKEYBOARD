@@ -1027,15 +1027,6 @@ class KeyboardView(context: Context) : View(context) {
         return if (first == neon) (if (neon2Rainbow) rainbow(random.nextFloat()) else neon2) else neon
     }
 
-    /** Pruhlednost vyplne klavesy pri vybuchu: pri vybuchu zmizi a znovu se narodi. */
-    private fun popKeyAlpha(t: Long): Float = when {
-        t < 0L -> 1f
-        t < POP_BURST_MS -> 1f - t / POP_BURST_MS.toFloat()
-        t < POP_BURST_MS + POP_GAP_MS -> 0f
-        t < POP_BURST_MS + POP_GAP_MS + POP_BORN_MS -> (t - POP_BURST_MS - POP_GAP_MS) / POP_BORN_MS.toFloat()
-        else -> 1f
-    }
-
     private fun tint(cur: Int, x: Int, t: Float): Int {
         if (gradKey && t > 0f) {
             val keep = 1f - t
@@ -1722,15 +1713,13 @@ class KeyboardView(context: Context) : View(context) {
                 }
             }
             if (dimKey) keyColor = tint(keyColor, theme.background, 0.7f)
-            val popKeyA = if (popEffect && k.popAt != 0L) popKeyAlpha(now - k.popAt) else 1f
-            if (popKeyA < 1f) keyColor = (keyColor and 0x00FFFFFF) or ((Color.alpha(keyColor) * popKeyA).toInt().coerceIn(0, 255) shl 24)
             if (gradKey) {
                 // Prechod z barvy klavesy do druhe barvy: platno se posune na stred klavesy, kde je shader vystredeny.
                 canvas.save()
                 canvas.translate(cx, cy)
                 rect.set(-hw, -hh, hw, hh)
                 fill.color = WHITE
-                fill.alpha = (255f * popKeyA).toInt().coerceIn(0, 255)
+                fill.alpha = 255
                 fill.shader = shader
                 canvas.drawRoundRect(rect, radius, radius, fill)
                 fill.shader = null

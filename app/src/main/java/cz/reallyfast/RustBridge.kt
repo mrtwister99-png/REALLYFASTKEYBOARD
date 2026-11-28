@@ -67,6 +67,7 @@ object RustBridge {
     private const val OP_VOICE_SPLIT = 48
     private const val OP_STYLE_SAVE = 49
     private const val OP_STYLE_LOAD = 50
+    private const val OP_STYLE_DEFAULT = 55
     private const val OP_AUTO_ACCENT = 51
     private const val OP_PENDING_STYLES = 52
     private const val OP_PLACE_STYLE = 53
@@ -253,6 +254,9 @@ object RustBridge {
 
     /** Nacte vzhled ze slotu stylu 0..4; ostatni nastaveni zustane. */
     fun loadStyle(slot: Int) = settingsChanged(call(OP_STYLE_LOAD, null, null, slot.toLong()))
+
+    /** Nacte VYCHOZI vzhled slotu 0..4 (ulozeny slot se nemeni); ostatni nastaveni zustane. */
+    fun loadDefaultStyle(slot: Int) = settingsChanged(call(OP_STYLE_DEFAULT, null, null, slot.toLong()))
 
     // ------------------------------------------------------------------ rozlozeni a psani
 

@@ -399,6 +399,11 @@ fn default_style_slots() -> &'static [StyleSlot] {
     })
 }
 
+/// Vychozi vzhled slotu `i` (0..STYLE_SLOTS): 1 = vychozi vzhled, 2-5 = vychozi vzhled s jinou barvou.
+pub fn default_style_slot(i: usize) -> Option<StyleSlot> {
+    default_style_slots().get(i).cloned()
+}
+
 /// Drivejsi vychozi sloty 2-5 (index 0 = slot 2); jen pro rozpoznani nezmenenych a jejich nahrazeni.
 fn legacy_style_slots() -> &'static [StyleSlot] {
     static SLOTS: OnceLock<Vec<StyleSlot>> = OnceLock::new();
