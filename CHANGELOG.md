@@ -2,6 +2,9 @@
 
 Jedna věta za verzi, nejnovější nahoře. Čísla verzí odpovídají commitům (`vX.Y: …`).
 
+## 1.58 – 2026-11-28
+Neon a Výbuch jako shadery (AGSL): Neon má mekkou záři kolem klávesy kreslenou pod všemi klávesami, Výbuch jiskry a kusy výplně jedním průchodem shaderu místo desítek malých kreseb; staré kreslení je pryč a aplikace vyžaduje Android 13+ (`minSdk` 33).
+
 ## 1.57 – 2026-11-28
 Výbuch: rozletí se jen kusy kolem, klávesa zůstane; Obnovit jde vždy a vrací výchozí vzhled profilu (nový `OP_STYLE_DEFAULT`); Uložit se rozsvítí i po změně mimo vzhled (Rychle); Uložit se zvětší, zleva nabíhá zelená a zprava žlutá do středu; R vystřelí duhové konfety; Animace po kliknutí II má Barvu klávesy po klepnutí (`neon_color`); Swipe: I čára a stopa, II druhé barvy čáry a stopy, III barva průchodu a pod prstem.
 

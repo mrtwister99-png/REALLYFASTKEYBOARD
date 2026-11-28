@@ -263,9 +263,6 @@ class KeyboardView(context: Context) : View(context) {
         private const val POP_GAP_MS = 110L
         private const val POP_BORN_MS = 330L
         // Jiskry vybuchu: kazda ma nahodny smer, rychlost, zpozdeni, dobu letu, zakriveni drahy a velikost (z popSeed).
-        private const val POP_SPARKS = 18
-        private const val POP_CHUNKS = 7
-        private const val POP_CHUNK_MS = 460L
         private const val POP_SPARK_MAX_DELAY_MS = 90
         private const val POP_SPARK_MIN_LIFE_MS = 260
         private const val POP_SPARK_LIFE_SPAN_MS = 480
@@ -508,6 +505,9 @@ class KeyboardView(context: Context) : View(context) {
     private var orbitEffect = false
     private var plasmaEffect = false
     private var plasma: PlasmaFx? = null
+    /** Shadery Neon (zare) a Vybuch (jiskry a kusy); vytvori se jednou, selze-li preklad, efekt se tise nekresli. */
+    private var glowFx: GlowFx? = null
+    private var popFx: PopFx? = null
     private var popEffect = false
     private var fireTrail = false
     private var glowCutStyle = false
@@ -816,6 +816,8 @@ class KeyboardView(context: Context) : View(context) {
         plasmaEffect = s.tapEffect == "plasma" && Build.VERSION.SDK_INT >= 33
         if (plasmaEffect && plasma == null) plasma = makePlasma()
         if (plasma == null) plasmaEffect = false
+        if (glowFx == null) glowFx = try { GlowFx() } catch (_: Throwable) { null }
+        if (popFx == null) popFx = try { PopFx() } catch (_: Throwable) { null }
         popEffect = s.tapEffect == "pop"
         glowFlipStyle = s.glowStyle == "flip"
         bgDir = gradDirCode(s.bgGradDir)
@@ -1571,6 +1573,22 @@ class KeyboardView(context: Context) : View(context) {
             }
         }
 
+        // Neon: zare kolem klaves (shader) se kresli pod vsemi klavesami, aby sousedni klavesy nebyly kryty nerovnomerne.
+        val gfx = glowFx
+        if (gfx != null) {
+            val gpad = 10f * density
+            for (gk in keys) {
+                if (gk.neonAt == 0L || (gk.kind != KIND_CHAR && gk.kind != KIND_SPACE)) continue
+                val ga = neonAmount(gk, now)
+                if (ga <= 0f) continue
+                val gcx = gk.vx + gk.vw / 2f
+                val gcy = gk.y + gk.h / 2f
+                val ghw = gk.vw / 2f - padX
+                val ghh = gk.h / 2f - padY
+                gfx.draw(canvas, gcx - ghw - gpad, gcy - ghh - gpad, 2f * (ghw + gpad), 2f * (ghh + gpad), radius, gpad, ga, if (gk.neonCol != 0) gk.neonCol else neon)
+            }
+        }
+
         for (ki in keys.indices) {
             val k = keys[ki]
             val p = if (k.changedAt == 0L) 0f else pressAmount(k, now)
@@ -1675,11 +1693,6 @@ class KeyboardView(context: Context) : View(context) {
             if (neonA > 0f) {
                 if (k.neonAt > 0L) animating = true
                 if (neonShader == null) keyColor = tint(keyColor, nc, neonA) else neonGradA = neonA
-                // Svetelny okraj: o 3 dp vetsi obrys pod klavesou, jedna plocha bez blur.
-                val g = 3f * density
-                fill.color = (nc and 0x00FFFFFF) or ((90f * neonA).toInt().coerceIn(0, 255) shl 24)
-                rect.set(cx - hw - g, cy - hh - g, cx + hw + g, cy + hh + g)
-                canvas.drawRoundRect(rect, radius + g, radius + g, fill)
             }
             if (k.ghostAt != 0L) {
                 // Duch: za klavesou se rozbehnou 3 dozvuky (obrysy), kazdy o kousek pozdeji, rostou a miznou.
@@ -2103,49 +2116,13 @@ class KeyboardView(context: Context) : View(context) {
                     drawIcon(canvas, k.kind, cx, cy, min(k.vw, k.h) * 0.2f, fg)
                 }
             }
-            if (popTime >= 0L && popTime < POP_CHUNK_MS) {
-                // Vybuch cele klavesy: vetsi kusy vyplne letí od stredu do stran, otaceji se a miznou.
-                val seedC = (k.popSeed * 1000f).toInt()
-                val cq = popTime / POP_CHUNK_MS.toFloat()
-                val cease = 1f - (1f - cq) * (1f - cq)
-                val baseCol = if (k.isDigit && digitKeyCol != 0) digitKeyCol else theme.key
-                for (i in 0 until POP_CHUNKS) {
-                    val ang = (i + sparkRand(seedC, i, 6)) * (2f * PI.toFloat() / POP_CHUNKS)
-                    val reach = hh * (1.4f + 1.6f * sparkRand(seedC, i, 7))
-                    val px = cx + cos(ang) * reach * cease
-                    val py = cy + sin(ang) * reach * cease + hh * 0.8f * cq * cq
-                    val cw = hw * (0.22f + 0.2f * sparkRand(seedC, i, 8))
-                    val ch = hh * (0.3f + 0.25f * sparkRand(seedC, i, 9))
-                    val calpha = (255f * (1f - cq)).toInt().coerceIn(0, 255)
-                    fill.color = (baseCol and 0x00FFFFFF) or (calpha shl 24)
-                    canvas.save()
-                    canvas.rotate(720f * (sparkRand(seedC, i, 10) - 0.5f) * cq, px, py)
-                    rect.set(px - cw, py - ch, px + cw, py + ch)
-                    canvas.drawRoundRect(rect, radius * 0.4f, radius * 0.4f, fill)
-                    canvas.restore()
-                }
-            }
-            if (popTime >= 0L && popTime < POP_SPARK_END_MS) {
-                // Kazda jiskra ma vlastni (nahodny) smer, rychlost, zpozdeni, dobu letu, zakriveni a velikost; nic se neuklada.
-                val seed = (k.popSeed * 1000f).toInt()
-                val white = Theme.blend(nc, WHITE, 0.6f) and 0x00FFFFFF
-                for (i in 0 until POP_SPARKS) {
-                    val delay = (sparkRand(seed, i, 0) * POP_SPARK_MAX_DELAY_MS).toLong()
-                    val life = POP_SPARK_MIN_LIFE_MS + sparkRand(seed, i, 1) * POP_SPARK_LIFE_SPAN_MS
-                    val q = (popTime - delay) / life
-                    if (q <= 0f || q >= 1f) continue
-                    val ang = sparkRand(seed, i, 2) * 2f * PI.toFloat()
-                    val reach = hh * (0.9f + 2.4f * sparkRand(seed, i, 3))
-                    val curve = (sparkRand(seed, i, 4) - 0.5f) * 1.6f
-                    val ease = 1f - (1f - q) * (1f - q)
-                    val d = reach * ease
-                    // Zakriveni: smer se behem letu stoci a dolu ji tahne lehka tiaz.
-                    val a2 = ang + curve * q
-                    val px = cx + cos(a2) * d
-                    val py = cy + sin(a2) * d + hh * 0.9f * q * q
-                    val alpha = ((255f * (1f - q * q)).toInt()).coerceIn(0, 255)
-                    fill.color = (if (i % 3 == 0) white else (nc and 0x00FFFFFF)) or (alpha shl 24)
-                    canvas.drawCircle(px, py, (1f + 3.2f * sparkRand(seed, i, 5)) * density * (1f - 0.7f * q), fill)
+            if (k.popAt != 0L && popTime >= 0L && popTime < POP_TOTAL_MS) {
+                // Vybuch: jiskry a vetsi kusy vyplne klavesy, jeden pruchod shaderu pres ctverec kolem klavesy.
+                val pfx = popFx
+                if (pfx != null) {
+                    val baseCol = if (k.isDigit && digitKeyCol != 0) digitKeyCol else theme.key
+                    val box = hh * 8.6f
+                    pfx.draw(canvas, cx - box / 2f, cy - box / 2f, box, popTime.toFloat(), k.popSeed * 1000f, hw, hh, density, radius, nc, baseCol)
                 }
             }
         }
