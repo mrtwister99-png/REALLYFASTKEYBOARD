@@ -243,6 +243,7 @@ class KeyboardView(context: Context) : View(context) {
         private const val GLITCH_MAX_SHIFT = 0.22f
         // Efekt "barvy": klavesa drzi barvu 3,0-7,5 s a pak za 1,5 s vybledne; barva znaku po klepnuti drzi 2,5 s a vybledne za 0,4 s.
         private const val PAINT_SLOTS = 48
+        private const val PAINT_FLOOD_MS = 420L
         private const val PAINT_MIN_MS = 3000
         private const val PAINT_SPAN_MS = 4500
         private const val PAINT_FADE_MS = 1500f
@@ -508,16 +509,14 @@ class KeyboardView(context: Context) : View(context) {
     /** Shadery Neon (zare) a Vybuch (jiskry a kusy); vytvori se jednou, selze-li preklad, efekt se tise nekresli. */
     private var glowFx: GlowFx? = null
     private var popFx: PopFx? = null
+    private var orbitFx: OrbitFx? = null
+    private var ghostFx: GhostFx? = null
+    private var paintFx: PaintFx? = null
     private var popEffect = false
     private var fireTrail = false
     private var glowCutStyle = false
     private var flyCut = false
     private var flySeed = 0
-    private val orbitPath = Path()
-    private val orbitSeg = Path()
-    private val orbitMeasure = android.graphics.PathMeasure()
-    private val orbitPos = FloatArray(2)
-    private val orbitPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE; strokeCap = Paint.Cap.ROUND }
     private val ghostPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE }
     private var glowFlyStyle = false
     // Efekt "barvy": pevna tabulka obarvenych klaves podle `src` (index barvy, cas obarveni, doba drzeni); jen v pameti.
@@ -576,7 +575,6 @@ class KeyboardView(context: Context) : View(context) {
     private var digitTextShader: LinearGradient? = null
     private var tapTextShader: LinearGradient? = null
     private var tapOutShader: LinearGradient? = null
-    private var neonShader: LinearGradient? = null
     // Smer efektu Slide (kosinus a sinus uhlu) a styl stopy "otoceni pismen".
     private var glowFlipStyle = false
     private var labelExtra = 0f
@@ -818,6 +816,9 @@ class KeyboardView(context: Context) : View(context) {
         if (plasma == null) plasmaEffect = false
         if (glowFx == null) glowFx = try { GlowFx() } catch (_: Throwable) { null }
         if (popFx == null) popFx = try { PopFx() } catch (_: Throwable) { null }
+        if (orbitFx == null) orbitFx = try { OrbitFx() } catch (_: Throwable) { null }
+        if (ghostFx == null) ghostFx = try { GhostFx() } catch (_: Throwable) { null }
+        if (paintFx == null) paintFx = try { PaintFx() } catch (_: Throwable) { null }
         popEffect = s.tapEffect == "pop"
         glowFlipStyle = s.glowStyle == "flip"
         bgDir = gradDirCode(s.bgGradDir)
@@ -973,7 +974,6 @@ class KeyboardView(context: Context) : View(context) {
         tapTextShader = if (tapTextCol2 != 0 && labelSize > 0f) gradShader(if (tapTextCol != 0) tapTextCol else theme.text, tapTextCol2, false, 0, tw, th) else null
         tapOutShader = if (outlineTapCol2 != 0) gradShader(if (outlineTapCol != 0) outlineTapCol else theme.accent, outlineTapCol2, false, 0, kw, kh) else null
         // Prechod uvnitr klavesy jen u obvodu; ostatni efekty druhou barvu strida / losuje (nextNeon).
-        neonShader = if (orbitEffect && (neon2 != 0 || neon2Rainbow)) gradShader(neon, neon2, neon2Rainbow, 0, kw, kh) else null
         val bw = width.toFloat()
         val bh = height.toFloat()
         val bx0 = if (bgDir == 3) bw else 0f
@@ -1006,7 +1006,7 @@ class KeyboardView(context: Context) : View(context) {
     /** Barva dalsiho klepnuti: duha = nahodny odstin, dve barvy = stridani, jinak barva efektu. */
     private fun nextNeon(): Int {
         val has2 = neon2 != 0 || neon2Rainbow
-        // Obvod: druha barva tvori prechod uvnitr klavesy (neonShader), barva efektu je jedna.
+        // Obvod: druha barva tvori prechod po obrysu (shader), barva efektu je jedna.
         if (!has2 || orbitEffect) return neon
         // Glitch losuje barvu pri kazdem zablesku, ostatni efekty se po klepnuti stridaji.
         val second = if (glitchEffect) random.nextBoolean() else { neonToggle = !neonToggle; neonToggle }
@@ -1601,6 +1601,8 @@ class KeyboardView(context: Context) : View(context) {
             val accentKey = marked || k.kind == KIND_ENTER || (k.kind == KIND_SHIFT && shiftState == SHIFT_CAPS)
             var paintA = 0f
             var pIdx = -1
+            var paintFlood = 1f
+            var paintSeed = 0f
             if (paintLive && (k.kind == KIND_CHAR || k.kind == KIND_SPACE)) {
                 var slot = -1
                 for (i in 0 until PAINT_SLOTS) if (paintIdx[i] >= 0 && paintSrc[i] == k.src) {
@@ -1610,9 +1612,14 @@ class KeyboardView(context: Context) : View(context) {
                 if (slot >= 0) {
                     val t = now - paintAt[slot]
                     val hold = paintHold[slot]
+                    paintSeed = (paintAt[slot] and 1023L) / 1023f
                     if (t < hold) {
                         paintA = 1f
                         pIdx = paintIdx[slot]
+                        if (t < PAINT_FLOOD_MS) {
+                            paintFlood = t / PAINT_FLOOD_MS.toFloat()
+                            animating = true
+                        }
                         wakeIn = min(wakeIn, hold - t)
                     } else {
                         val f = (t - hold) / PAINT_FADE_MS
@@ -1665,7 +1672,6 @@ class KeyboardView(context: Context) : View(context) {
                 canvas.drawRoundRect(rect, radius, radius, fill)
             }
             var keyColor = base
-            if (paintA > 0f && !accentKey) keyColor = tint(keyColor, paintCols[pIdx], paintA)
             if (p > 0f) keyColor = tint(keyColor, if (accentKey) theme.text else theme.keyPressed, if (accentKey) 0.25f * p else p)
             if (k.passed) {
                 keyColor = if (passedKeyCol != 0) tint(keyColor, passedKeyCol, 1f) else tint(keyColor, theme.accent, 0.55f)
@@ -1689,39 +1695,22 @@ class KeyboardView(context: Context) : View(context) {
             if (glow > 0f) keyColor = tint(keyColor, gCol, glow)
             val neonA = if (k.neonAt != 0L) neonAmount(k, now) else 0f
             val nc = if (k.neonCol != 0) k.neonCol else neon
-            var neonGradA = 0f
             if (neonA > 0f) {
                 if (k.neonAt > 0L) animating = true
-                if (neonShader == null) keyColor = tint(keyColor, nc, neonA) else neonGradA = neonA
+                keyColor = tint(keyColor, nc, neonA)
             }
             if (k.ghostAt != 0L) {
-                // Duch: za klavesou se rozbehnou 3 dozvuky (obrysy), kazdy o kousek pozdeji, rostou a miznou.
+                // Duch: za klavesou se rozbehnou 3 dozvuky (obrysy, shader), kazdy o kousek pozdeji, rostou a miznou.
                 val gt = now - k.ghostAt
                 if (gt >= GHOST_MS + (GHOST_ECHOES - 1) * GHOST_STEP_MS) {
                     k.ghostAt = 0L
                 } else {
                     animating = true
-                    ghostPaint.strokeWidth = 2f * density
-                    for (e in 0 until GHOST_ECHOES) {
-                        val q = (gt - e * GHOST_STEP_MS) / GHOST_MS.toFloat()
-                        if (q <= 0f || q >= 1f) continue
-                        val grow = (2.5f + 3.5f * (e + 1)) * density * q
-                        val a = (170f * (1f - q) * (1f - q)).toInt().coerceIn(0, 255)
-                        if (neonShader != null) {
-                            canvas.save()
-                            canvas.translate(cx, cy)
-                            ghostPaint.shader = neonShader
-                            ghostPaint.color = (WHITE and 0x00FFFFFF) or (a shl 24)
-                            rect.set(-hw - grow, -hh - grow, hw + grow, hh + grow)
-                            canvas.drawRoundRect(rect, radius + grow, radius + grow, ghostPaint)
-                            ghostPaint.shader = null
-                            canvas.restore()
-                        } else {
-                            val ec = if (e % 2 == 1 && k.ghostCol2 != 0) k.ghostCol2 else nc
-                            ghostPaint.color = (ec and 0x00FFFFFF) or (a shl 24)
-                            rect.set(cx - hw - grow, cy - hh - grow, cx + hw + grow, cy + hh + grow)
-                            canvas.drawRoundRect(rect, radius + grow, radius + grow, ghostPaint)
-                        }
+                    val gfx2 = ghostFx
+                    if (gfx2 != null && gt >= 0L) {
+                        val gpad = 18f * density
+                        val gc2 = if (k.ghostCol2 != 0) k.ghostCol2 else nc
+                        gfx2.draw(canvas, cx - hw - gpad, cy - hh - gpad, 2f * (hw + gpad), 2f * (hh + gpad), radius, gpad, gt.toFloat(), GHOST_MS.toFloat(), GHOST_STEP_MS.toFloat(), nc, gc2, density)
                     }
                 }
             }
@@ -1747,17 +1736,9 @@ class KeyboardView(context: Context) : View(context) {
                 rect.set(cx - hw, cy - hh, cx + hw, cy + hh)
                 canvas.drawRoundRect(rect, radius, radius, fill)
             }
-            if (neonGradA > 0f && cutS > 0f) {
-                // Neon s druhou barvou: prechod uvnitr klavesy (shora dolu).
-                canvas.save()
-                canvas.translate(cx, cy)
-                rect.set(-hw, -hh, hw, hh)
-                fill.color = (WHITE and 0x00FFFFFF) or ((255f * neonGradA).toInt().coerceIn(0, 255) shl 24)
-                fill.shader = neonShader
-                canvas.drawRoundRect(rect, radius, radius, fill)
-                fill.shader = null
-                canvas.restore()
-                rect.set(cx - hw, cy - hh, cx + hw, cy + hh)
+            if (paintA > 0f && !accentKey && pIdx >= 0) {
+                // Barvy: vlna barvy se rozleje po klavese (shader), po case vybledne.
+                paintFx?.draw(canvas, cx - hw, cy - hh, 2f * hw, 2f * hh, radius, paintFlood, paintA, paintSeed, paintCols[pIdx], paintCols[(pIdx + 1) % paintCols.size])
             }
             if (fillSide >= 0 && fillAlpha > 0f) {
                 // Vybarveni: klavesa se zleva / zprava / zdola / shora zaplni barvou, orezano na cast klavesy.
@@ -1860,7 +1841,7 @@ class KeyboardView(context: Context) : View(context) {
             }
 
             if (k.orbitAt != 0L) {
-                // Obvod: tlustsi obrys probehne po cele klavese od nahodneho bodu (0 az 100 %), pak zhasne.
+                // Obvod: zarici obrys (shader) probehne po cele klavese od nahodneho bodu (0 az 100 %), pak zhasne.
                 val ot = now - k.orbitAt
                 if (ot >= ORBIT_TOTAL_MS) {
                     k.orbitAt = 0L
@@ -1870,56 +1851,15 @@ class KeyboardView(context: Context) : View(context) {
                     val prog = 1f - (1f - run) * (1f - run)
                     val fade = if (ot <= ORBIT_RUN_MS + ORBIT_HOLD_MS) 1f else 1f - (ot - ORBIT_RUN_MS - ORBIT_HOLD_MS) / ORBIT_FADE_MS.toFloat()
                     val sw = max(outlineW, density) + 2f * density
-                    val ins = sw / 2f
-                    val rr = max(0f, radius - ins)
-                    orbitPath.reset()
-                    orbitPath.addRoundRect(cx - hw + ins, cy - hh + ins, cx + hw - ins, cy + hh - ins, rr, rr, Path.Direction.CW)
-                    orbitMeasure.setPath(orbitPath, false)
-                    val len = orbitMeasure.length
-                    val start = k.orbitStart * len
-                    val end = start + len * prog
-                    orbitSeg.reset()
-                    if (end <= len) {
-                        orbitMeasure.getSegment(start, end, orbitSeg, true)
-                    } else {
-                        orbitMeasure.getSegment(start, len, orbitSeg, true)
-                        orbitMeasure.getSegment(0f, end - len, orbitSeg, true)
+                    val ofx = orbitFx
+                    if (ofx != null && ot >= 0L) {
+                        val oc2 = if (neon2 != 0 && !neon2Rainbow) neon2 else Theme.blend(nc, WHITE, 0.5f)
+                        val opad = sw * 2.5f
+                        ofx.draw(canvas, cx - hw - opad, cy - hh - opad, 2f * (hw + opad), 2f * (hh + opad), radius, opad, sw, fade.coerceIn(0f, 1f), k.orbitStart, prog, nc, oc2)
                     }
-                    val oa = (255f * fade).toInt().coerceIn(0, 255) shl 24
-                    orbitPaint.strokeWidth = sw
-                    if (neonShader != null) {
-                        orbitSeg.offset(-cx, -cy)
-                        canvas.save()
-                        canvas.translate(cx, cy)
-                        orbitPaint.shader = neonShader
-                        orbitPaint.color = (WHITE and 0x00FFFFFF) or oa
-                        canvas.drawPath(orbitSeg, orbitPaint)
-                        orbitPaint.shader = null
-                        canvas.restore()
-                        orbitSeg.offset(cx, cy)
-                    } else {
-                        orbitPaint.color = (nc and 0x00FFFFFF) or oa
-                        canvas.drawPath(orbitSeg, orbitPaint)
-                    }
-                    // Kolecko v bode startu, odkud obrys vybehl.
-                    orbitMeasure.getPosTan(start, orbitPos, null)
-                    fill.color = (nc and 0x00FFFFFF) or oa
-                    canvas.drawCircle(orbitPos[0], orbitPos[1], sw * 0.9f, fill)
                 }
             }
 
-            if (k.plasmaAt != 0L) {
-                // Plazma: shader jen pres tuhle klavesu, pak zase nic.
-                val pt = now - k.plasmaAt
-                val fx = plasma
-                if (pt >= PLASMA_MS || fx == null) {
-                    k.plasmaAt = 0L
-                } else if (pt >= 0L) {
-                    animating = true
-                    val c2 = if (neon2 != 0 && !neon2Rainbow) (if (nc == neon) neon2 else neon) else Theme.blend(nc, WHITE, 0.55f)
-                    if (Build.VERSION.SDK_INT >= 33) fx.draw(canvas, cx - hw, cy - hh, hw * 2f, hh * 2f, radius, pt / PLASMA_MS.toFloat(), k.plasmaX, k.plasmaY, nc, c2)
-                }
-            }
             if (k.slideAt != 0L) { val st = now - k.slideAt; if (st >= 420L) k.slideAt = 0L else animating = true }
             if (deleteFillStart != 0L && deleteKey === k) {
                 val dt = now - deleteFillStart
