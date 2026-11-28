@@ -70,6 +70,10 @@ class KeyboardView(context: Context) : View(context) {
         /** Efekt Obvod: cas klepnuti (0 = nic) a nahodny bod startu na obrysu (0..1 delky obvodu). */
         var orbitAt = 0L
         var orbitStart = 0f
+        /** Efekt Plazma: cas klepnuti (0 = nic) a bod (0..1 v klavese), odkud se vlna rozbehne. */
+        var plasmaAt = 0L
+        var plasmaX = 0.5f
+        var plasmaY = 0.5f
         /** Efekt Vybuch: cas klepnuti (0 = nic) a nahodne zrno, z ktereho se odvozuje draha kazde jiskry. */
         var popAt = 0L
         var popSeed = 0f
@@ -253,6 +257,7 @@ class KeyboardView(context: Context) : View(context) {
         private const val ORBIT_HOLD_MS = 80L
         private const val ORBIT_FADE_MS = 220L
         private const val ORBIT_TOTAL_MS = ORBIT_RUN_MS + ORBIT_HOLD_MS + ORBIT_FADE_MS
+        private const val PLASMA_MS = 650L
         // Efekt Vybuch: pismeno se rozprskne (BURST), chvili neni (GAP) a znovu se narodi (BORN); jiskry leti SPARK_MS.
         private const val POP_BURST_MS = 170L
         private const val POP_GAP_MS = 110L
@@ -501,6 +506,8 @@ class KeyboardView(context: Context) : View(context) {
     private var glitchEffect = false
     private var ghostEffect = false
     private var orbitEffect = false
+    private var plasmaEffect = false
+    private var plasma: PlasmaFx? = null
     private var popEffect = false
     private var fireTrail = false
     private var glowCutStyle = false
@@ -805,6 +812,10 @@ class KeyboardView(context: Context) : View(context) {
         cutEffect = s.tapEffect == "cut"
         slideEffect = s.tapEffect == "slide"
         orbitEffect = s.tapEffect == "orbit"
+        // Plazma je shader (Android 13+); na starsim systemu nebo kdyz se shader nepodari prelozit se chova jako Neon.
+        plasmaEffect = s.tapEffect == "plasma" && Build.VERSION.SDK_INT >= 33
+        if (plasmaEffect && plasma == null) plasma = makePlasma()
+        if (plasma == null) plasmaEffect = false
         popEffect = s.tapEffect == "pop"
         glowFlipStyle = s.glowStyle == "flip"
         bgDir = gradDirCode(s.bgGradDir)
@@ -1004,6 +1015,13 @@ class KeyboardView(context: Context) : View(context) {
     private var neonToggle = false
 
     /** Druha barva k `first` (barva efektu <-> druha barva); u duhy nahodny odstin. */
+    @android.annotation.TargetApi(33)
+    private fun makePlasma(): PlasmaFx? = try {
+        PlasmaFx()
+    } catch (_: Throwable) {
+        null
+    }
+
     private fun otherNeon(first: Int): Int {
         if (neon2 == 0 && !neon2Rainbow) return first
         return if (first == neon) (if (neon2Rainbow) rainbow(random.nextFloat()) else neon2) else neon
@@ -1888,6 +1906,18 @@ class KeyboardView(context: Context) : View(context) {
                 }
             }
 
+            if (k.plasmaAt != 0L) {
+                // Plazma: shader jen pres tuhle klavesu, pak zase nic.
+                val pt = now - k.plasmaAt
+                val fx = plasma
+                if (pt >= PLASMA_MS || fx == null) {
+                    k.plasmaAt = 0L
+                } else if (pt >= 0L) {
+                    animating = true
+                    val c2 = if (neon2 != 0 && !neon2Rainbow) (if (nc == neon) neon2 else neon) else Theme.blend(nc, WHITE, 0.55f)
+                    if (Build.VERSION.SDK_INT >= 33) fx.draw(canvas, cx - hw, cy - hh, hw * 2f, hh * 2f, radius, pt / PLASMA_MS.toFloat(), k.plasmaX, k.plasmaY, nc, c2)
+                }
+            }
             if (k.slideAt != 0L) { val st = now - k.slideAt; if (st >= 420L) k.slideAt = 0L else animating = true }
             if (deleteFillStart != 0L && deleteKey === k) {
                 val dt = now - deleteFillStart
@@ -3708,6 +3738,11 @@ class KeyboardView(context: Context) : View(context) {
                     k.neonCol = nextNeon()
                     k.popSeed = random.nextFloat() * 2f * PI.toFloat()
                     k.popAt = now
+                } else if (plasmaEffect) {
+                    k.neonCol = nextNeon()
+                    k.plasmaX = 0.15f + random.nextFloat() * 0.7f
+                    k.plasmaY = 0.15f + random.nextFloat() * 0.7f
+                    k.plasmaAt = now
                 } else if (cutEffect) {
                     k.neonCol = nextNeon()
                     k.cutTilt = (random.nextFloat() - 0.5f) * 50f

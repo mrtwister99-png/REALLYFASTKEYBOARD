@@ -10,7 +10,7 @@ pub const LAYOUTS: [&str; 2] = ["qwertz", "qwerty"];
 pub const KEY_PLACES: [&str; 3] = ["left", "right", "hidden"];
 pub const THEMES: [&str; 4] = ["dark", "light", "oled_black", "custom"];
 pub const GLOW_STYLES: [&str; 4] = ["neon", "paint", "ghost", "flip"];
-pub const TAP_EFFECTS: [&str; 8] = ["neon", "glitch", "paint", "ghost", "orbit", "pop", "cut", "slide"];
+pub const TAP_EFFECTS: [&str; 9] = ["neon", "glitch", "paint", "ghost", "orbit", "pop", "cut", "slide", "plasma"];
 /// Vzhled stopy za prstem pri tahu: cara, nebo horici cara (ohen a dohorivajici stopy).
 pub const TRAIL_STYLES: [&str; 4] = ["line", "dashed", "fire", "pixel"];
 /// Zacatek prechodu druhych barev: odkud (shora, zdola, zleva, zprava) se prechod rozbiha.
@@ -1418,7 +1418,7 @@ mod tests {
 
     #[test]
     fn orbit_and_pop_tap_effects_are_valid() {
-        for e in ["orbit", "pop"] {
+        for e in ["orbit", "pop", "cut", "slide", "plasma"] {
             let s = Settings::from_json(&format!(r#"{{"tap_effect":"{e}"}}"#)).unwrap();
             assert_eq!(s.tap_effect, e);
             let back = Settings::from_json(&s.to_json()).unwrap();

@@ -2,6 +2,9 @@
 
 Jedna věta za verzi, nejnovější nahoře. Čísla verzí odpovídají commitům (`vX.Y: …`).
 
+## 1.54 – 2026-11-28
+Nový efekt po klepnutí Plazma: shader (AGSL, Android 13+) zvlněné dvoubarevné kruhové světlo jen přes stisknutou klávesu; na starším systému se chová jako Neon.
+
 ## 1.53 – 2026-11-27
 Uložit ve vzhledu: text povyskočí a přes tlačítko projedou zleva doprava dva křivé pruhy (zelený a žlutý); R losuje každou druhou barvu i směr přechodu zvlášť (od jedné úpravy po všechny); při nahrávání nového povelu je nad lištou návrhů tabulka „Nahraj max. 4 slova!“ a na výběr jsou i klasické povely (smazat slovo, nový řádek, Enter, ukončit diktování).
 

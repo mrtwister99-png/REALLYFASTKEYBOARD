@@ -903,7 +903,7 @@ class AppearanceActivity : SettingsScreen() {
         m["custom_key"] = keyc
         m["custom_text"] = readable()
         m["key_glow"] = true
-        m["tap_effect"] = pick("neon", "glitch", "paint", "ghost", "orbit", "pop", "cut", "slide")
+        m["tap_effect"] = pick("neon", "glitch", "paint", "ghost", "orbit", "pop", "cut", "slide", "plasma")
         m["neon_color"] = hex()
         for (i in 1..6) m["paint_color$i"] = hex()
         m["glow_style"] = pick("neon", "paint", "ghost", "flip")
@@ -1209,8 +1209,8 @@ class AppearanceActivity : SettingsScreen() {
     }
 
     private fun tapEffects(): Pair<List<String>, List<String>> = Pair(
-        listOf("none", "neon", "glitch", "paint", "ghost", "orbit", "pop", "cut", "slide"),
-        listOf(getString(R.string.effect_none), getString(R.string.tap_effect_neon), getString(R.string.tap_effect_glitch), getString(R.string.tap_effect_paint), getString(R.string.tap_effect_ghost), getString(R.string.tap_effect_orbit), getString(R.string.tap_effect_pop), getString(R.string.glow_style_cut), getString(R.string.tap_effect_slide)),
+        listOf("none", "neon", "glitch", "paint", "ghost", "orbit", "pop", "cut", "slide", "plasma"),
+        listOf(getString(R.string.effect_none), getString(R.string.tap_effect_neon), getString(R.string.tap_effect_glitch), getString(R.string.tap_effect_paint), getString(R.string.tap_effect_ghost), getString(R.string.tap_effect_orbit), getString(R.string.tap_effect_pop), getString(R.string.glow_style_cut), getString(R.string.tap_effect_slide), getString(R.string.tap_effect_plasma)),
     )
 
     /** 3. I. Vyber animace + barva (rovnou 3 barvy vybarveni). */

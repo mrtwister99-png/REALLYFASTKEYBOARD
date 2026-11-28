@@ -369,6 +369,7 @@
     <string name="waiting_char_outline">Character outline</string>
     <string name="waiting_char_outline_hint">Char on key gets a thin outline. Without its own color it uses the key outline color (or the accent).</string>
     <string name="tap_effect_slide">Slide</string>
+    <string name="tap_effect_plasma">Plasma</string>
     <string name="font_sample">fAZT! Hello 123</string>
     <string name="tip_number_row">Number row above the letters. Turning it off makes the keyboard shorter.</string>
     <string name="tip_language">Dictionary and suggestions language. The space bar shows the chosen one.</string>
