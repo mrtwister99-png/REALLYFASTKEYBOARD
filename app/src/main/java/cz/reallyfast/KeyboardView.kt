@@ -3261,16 +3261,13 @@ class KeyboardView(context: Context) : View(context) {
     }
 
     /**
-     * Ukazka tahu po domaci rade od pismene a do l (nahled v nastaveni): cara za prstem, prejete klavesy
+     * Ukazka tahu slova "ahoj" (a - h - o - j; nahled v nastaveni): cara za prstem, prejete klavesy
      * (barva pruchodu, obrys, znak) a po konci jejich doznivani; kazde spusteni tah zopakuje.
      */
     fun demoSwipe() {
         if (touchMode != T_NONE) return
-        val ka = demoLetter('a') ?: return
-        val kl = demoLetter('l') ?: return
         val pts = ArrayList<Key>()
-        for (k in keys) if (k.isLetter && abs(k.y - ka.y) < 1f && k.vx >= ka.vx - 1f && k.vx <= kl.vx + 1f) pts.add(k)
-        pts.sortBy { it.vx }
+        for (c in "ahoj") demoKeyFor(c)?.let { pts.add(it) }
         runDemoPath(pts, DEMO_SWIPE_MS, DEMO_SWIPE_STEPS)
     }
 

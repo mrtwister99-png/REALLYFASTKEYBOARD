@@ -385,13 +385,17 @@ class RingWaveView(context: Context) : View(context) {
 }
 
 /**
- * Dva krive pruhy (zeleny a zluty), ktere projedou zleva doprava pres cely pohled (a kousek za nej); zluty o chvili za zelenym.
- * Bez vlastni velikosti (jako RingWaveView), nic se nealokuje pri kresleni.
+ * Zlutozeleny pruh, ktery zleva projede pres celou vysku pohledu (orezano na zaoblene tvary tlacitka).
+ * Bez vlastni velikosti (jako RingWaveView); shader a cesty se pripravi pri zmene velikosti, v onDraw se jen posouva matice.
  */
 class SweepView(context: Context) : View(context) {
     private val d = resources.displayMetrics.density
     private val paint = Paint(Paint.ANTI_ALIAS_FLAG)
-    private val path = android.graphics.Path()
+    private val clip = android.graphics.Path()
+    private val matrix = android.graphics.Matrix()
+    private val box = android.graphics.RectF()
+    private var shader: android.graphics.LinearGradient? = null
+    private var band = 0f
     private var t = -1f
 
     override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
@@ -413,10 +417,19 @@ class SweepView(context: Context) : View(context) {
         })
     }
 
-    init {
-        paint.style = Paint.Style.STROKE
-        paint.strokeCap = Paint.Cap.ROUND
-        isClickable = false
+    override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
+        super.onSizeChanged(w, h, oldw, oldh)
+        box.set(0f, 0f, w.toFloat(), h.toFloat())
+        clip.reset()
+        clip.addRoundRect(box, h / 2f, h / 2f, android.graphics.Path.Direction.CW)
+        band = w * 0.45f
+        val y = ChevronView.YELLOW
+        val g = ChevronView.GREEN
+        shader = android.graphics.LinearGradient(
+            0f, 0f, band, 0f,
+            intArrayOf(y and 0x00FFFFFF, y, g, g and 0x00FFFFFF), floatArrayOf(0f, 0.3f, 0.7f, 1f), android.graphics.Shader.TileMode.CLAMP,
+        )
+        paint.shader = shader
     }
 
     fun fire(ms: Long) {
@@ -425,29 +438,92 @@ class SweepView(context: Context) : View(context) {
         animator.start()
     }
 
-    private fun band(canvas: Canvas, p: Float, color: Int) {
-        if (p <= 0f || p >= 1f) return
-        val w = width.toFloat()
-        val h = height.toFloat()
-        val x = -0.25f * w + p * 1.5f * w
-        path.reset()
-        path.moveTo(x - 0.12f * w, 0f)
-        path.quadTo(x + 0.22f * w, h * 0.5f, x - 0.12f * w, h) // krivy pruh: prohnuty doprava
-        paint.color = color
-        paint.alpha = (255f * kotlin.math.sin(p * Math.PI.toFloat())).toInt().coerceIn(0, 255)
-        paint.strokeWidth = 7f * d
-        canvas.drawPath(path, paint)
-    }
-
     override fun onDraw(canvas: Canvas) {
-        if (t < 0f) return
-        band(canvas, (t / 0.8f).coerceAtMost(1f), ChevronView.GREEN)
-        band(canvas, ((t - 0.2f) / 0.8f), ChevronView.YELLOW)
+        if (t < 0f || shader == null) return
+        val x = -band + t * (width + band)
+        matrix.setTranslate(x, 0f)
+        shader?.setLocalMatrix(matrix)
+        canvas.save()
+        canvas.clipPath(clip)
+        canvas.drawRect(x, 0f, x + band, height.toFloat(), paint)
+        canvas.restore()
     }
 
     override fun onDetachedFromWindow() {
         animator.cancel()
         super.onDetachedFromWindow()
+    }
+}
+
+/**
+ * Duhovy obrys kolem kulateho tlacitka, ktery porad dokola: nabehne cely kolem dokola a pak odbehne zpet do nuly
+ * (zadny obrys) a znovu. Cesta, mericka i shader se pripravi pri zmene velikosti; v onDraw se nic nealokuje.
+ */
+class RainbowRingView(context: Context) : View(context) {
+    private val d = resources.displayMetrics.density
+    private val paint = Paint(Paint.ANTI_ALIAS_FLAG)
+    private val ring = android.graphics.Path()
+    private val seg = android.graphics.Path()
+    private val measure = android.graphics.PathMeasure()
+    private var len = 0f
+    private var t = 0f
+
+    init {
+        paint.style = Paint.Style.STROKE
+        paint.strokeCap = Paint.Cap.ROUND
+        paint.strokeWidth = 2.5f * d
+        isClickable = false
+    }
+
+    private val animator = android.animation.ValueAnimator.ofFloat(0f, 2f).apply {
+        duration = 2600L
+        repeatCount = android.animation.ValueAnimator.INFINITE
+        interpolator = android.view.animation.LinearInterpolator()
+        addUpdateListener {
+            t = it.animatedValue as Float
+            invalidate()
+        }
+    }
+
+    override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
+        val w = if (MeasureSpec.getMode(widthMeasureSpec) == MeasureSpec.EXACTLY) MeasureSpec.getSize(widthMeasureSpec) else 0
+        val h = if (MeasureSpec.getMode(heightMeasureSpec) == MeasureSpec.EXACTLY) MeasureSpec.getSize(heightMeasureSpec) else 0
+        setMeasuredDimension(w, h)
+    }
+
+    override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
+        super.onSizeChanged(w, h, oldw, oldh)
+        val ins = paint.strokeWidth / 2f + d
+        ring.reset()
+        ring.addRoundRect(ins, ins, w - ins, h - ins, h / 2f, h / 2f, android.graphics.Path.Direction.CW)
+        measure.setPath(ring, false)
+        len = measure.length
+        paint.shader = android.graphics.SweepGradient(
+            w / 2f, h / 2f,
+            intArrayOf(0xFFFF3B30.toInt(), 0xFFFFD60A.toInt(), 0xFF34C759.toInt(), 0xFF00C7FF.toInt(), 0xFF5E5CE6.toInt(), 0xFFFF2D95.toInt(), 0xFFFF3B30.toInt()),
+            null,
+        )
+    }
+
+    override fun onAttachedToWindow() {
+        super.onAttachedToWindow()
+        if (!animator.isStarted) animator.start()
+    }
+
+    override fun onDetachedFromWindow() {
+        animator.cancel()
+        super.onDetachedFromWindow()
+    }
+
+    override fun onDraw(canvas: Canvas) {
+        if (len <= 0f) return
+        // 0..1: obrys nabiha od zacatku az dokola; 1..2: odbiha (konec se vraci ke konci), az nezbyde nic.
+        val from = if (t < 1f) 0f else len * (t - 1f)
+        val to = if (t < 1f) len * t else len
+        if (to - from < 1f) return
+        seg.reset()
+        measure.getSegment(from, to, seg, true)
+        canvas.drawPath(seg, paint)
     }
 }
 

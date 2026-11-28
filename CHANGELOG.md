@@ -2,6 +2,12 @@
 
 Jedna věta za verzi, nejnovější nahoře. Čísla verzí odpovídají commitům (`vX.Y: …`).
 
+## 1.56 – 2026-11-28
+Uložit: zleva projede přes celou výšku tlačítka žlutozelený pruh (a text povyskočí); R má kolem sebe duhový obrys, který nabíhá dokola, odbíhá do nuly a pořád dokola.
+
+## 1.55 – 2026-11-28
+Swipe: druhá barva čáry je ve Swipe II (u ohně skrytá), popisky mluví o „čáře“; ukázka tahu v náhledu je jen slovo „ahoj“ (a–h–o–j) místo přejetí od a do l.
+
 ## 1.54 – 2026-11-28
 Nový efekt po klepnutí Plazma: shader (AGSL, Android 13+) zvlněné dvoubarevné kruhové světlo jen přes stisknutou klávesu; na starším systému se chová jako Neon.
 

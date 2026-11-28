@@ -334,7 +334,11 @@ class AppearanceActivity : SettingsScreen() {
         randomBtn = rnd
         val rndLp = LinearLayout.LayoutParams(dp(42f), dp(42f))
         rndLp.rightMargin = dp(8f)
-        right.addView(rnd, rndLp)
+        // Kolem R bezi duhovy obrys: nabehne dokola, odbehne do nuly a znovu.
+        val rndHolder = FrameLayout(this)
+        rndHolder.addView(rnd, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
+        rndHolder.addView(RainbowRingView(this), FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
+        right.addView(rndHolder, rndLp)
         // Obnova profilu: nedokonceny kruh se sipkou na konci; po zeptani vrati ulozenou podobu vybraneho profilu.
         val restore = FrameLayout(this)
         val ricon = RestoreIconView(this, text)
@@ -351,13 +355,12 @@ class AppearanceActivity : SettingsScreen() {
         s.typeface = Typeface.DEFAULT_BOLD
         s.setPadding(dp(24f), 0, dp(24f), 0)
         saveBtn = s
-        // Tlacitko Ulozit v obalu: po ulozeni text povyskoci (zvetsi se) a pres tlacitko projedou zleva doprava dva krive pruhy, zeleny a zluty.
+        // Tlacitko Ulozit v obalu: po ulozeni text povyskoci (zvetsi se) a pres celou vysku tlacitka projede zleva doprava zlutozeleny pruh.
         val saveHolder = FrameLayout(this)
         saveHolder.clipChildren = false
         saveHolder.addView(s, FrameLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, dp(42f)))
         val saveWave = SweepView(this)
         val swp = FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
-        swp.setMargins(-dp(18f), -dp(6f), -dp(18f), -dp(6f))
         saveHolder.addView(saveWave, swp)
         right.clipChildren = false
         s.setOnClickListener {
@@ -1259,7 +1262,6 @@ class AppearanceActivity : SettingsScreen() {
         trailColors.orientation = LinearLayout.VERTICAL
         s.addView(trailColors, rowParams())
         colorRow(trailColors, R.string.trail_color, "trail_color", allowAuto = true)
-        colorRow(trailColors, R.string.trail_color2, "trail_color2", allowAuto = true)
         val applyTrailColors = { trailColors.visibility = if (RustBridge.settings.json.optString("trail_style") == "fire") View.GONE else View.VISIBLE }
         applyTrailColors()
         fontPainters.add { applyTrailColors() }
@@ -1276,6 +1278,14 @@ class AppearanceActivity : SettingsScreen() {
     /** 4. II. Barva pruchodu + druhe barvy. */
     private fun buildSwipe2(box: LinearLayout) {
         val s = section(box, getString(R.string.cat_swipe_2))
+        // Druha barva cary: ohen ma vlastni barvy plamene, takze se u nej skryje.
+        val trailColors2 = LinearLayout(this)
+        trailColors2.orientation = LinearLayout.VERTICAL
+        s.addView(trailColors2, rowParams())
+        colorRow(trailColors2, R.string.trail_color2, "trail_color2", allowAuto = true)
+        val applyTrailColors2 = { trailColors2.visibility = if (RustBridge.settings.json.optString("trail_style") == "fire") View.GONE else View.VISIBLE }
+        applyTrailColors2()
+        fontPainters.add { applyTrailColors2() }
         colorRow(s, R.string.passed_text_color, "passed_text_color", allowAuto = true, dependsOn = "swipe_glow")
         colorRow(s, R.string.outline_passed_color, "outline_passed_color", allowAuto = true, dependsOn = "swipe_glow")
         colorRow(s, R.string.hover_text_color, "hover_text_color", allowAuto = true, dependsOn = "swipe_glow")

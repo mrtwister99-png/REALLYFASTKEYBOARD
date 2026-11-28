@@ -134,7 +134,7 @@ Počet nastavení: **94**.
 | `text_color2` | *(prázdné)* | `#RRGGBB`, `rainbow` nebo prázdné | Druhá barva znaků: přechod shora (barva textu) dolů. | Barvy II |
 | `background_color2` | *(prázdné)* | `#RRGGBB`, `rainbow` nebo prázdné | Druhá barva pozadí: přechod shora dolů; poslední odstín je i pod klávesnicí a v navigační liště. | Barvy II |
 | `neon_color2` | *(prázdné)* | `#RRGGBB`, `rainbow` nebo prázdné | Druhá barva efektu po klepnutí: Neon, Výbuch, Řez a Slide střídají obě barvy, Glitch losuje barvu u každého záblesku, Duch střídá barvu dozvuků; Obvod ji má jako přechod uvnitř klávesy. `rainbow` = náhodný odstín. | Animace po kliknutí III |
-| `trail_color2` | *(prázdné)* | `#RRGGBB` nebo prázdné | Druhá barva stopy: konec stopy za prstem přechází do této barvy. | Swipe I |
+| `trail_color2` | *(prázdné)* | `#RRGGBB` nebo prázdné | Druhá barva čáry (stopy za prstem): konec čáry přechází do této barvy. | Swipe II |
 | `glow_color2` | *(prázdné)* | `#RRGGBB` nebo prázdné | Druhá barva písmen po tahu: písmena slova se střídají mezi `glow_color` a touto barvou (1., 3. … první barva, 2., 4. … druhá). | Swipe I |
 | `tap_text_color2` | *(prázdné)* | `#RRGGBB` nebo prázdné | Druhá barva znaku po klepnutí: klepnutí střídají obě barvy. | Animace po kliknutí II |
 | `outline_color2` | *(prázdné)* | `#RRGGBB`, `rainbow` nebo prázdné | Druhá barva obrysu: přechod shora (barva obrysu) dolů. | Barvy II |

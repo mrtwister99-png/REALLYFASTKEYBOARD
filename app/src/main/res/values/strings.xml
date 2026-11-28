@@ -250,7 +250,7 @@
     <string name="style_pick_first">Nejdřív nahoře vyberte styl 1–5</string>
     <string name="style_switch_unsaved">Aktuální styl má neuložené změny. Opravdu chceš změnit styl bez uložení?</string>
     <string name="downgrade_done">Downgrade dokončen!</string>
-    <string name="trail_color2">Druhá barva stopy</string>
+    <string name="trail_color2">Druhá barva čáry</string>
     <string name="glow_color2">Druhá barva písmen po tahu</string>
     <string name="tap_text_color2">Druhá barva znaku po klepnutí</string>
     <string name="outline_tap_color2">Druhá barva obrysu po klepnutí</string>
@@ -296,7 +296,7 @@
     <string name="hint_color">Barva nápovědy</string>
     <string name="hint_size">Velikost nápovědy</string>
     <string name="tap_effect_orbit">Obvod</string>
-    <string name="trail_style_label">Vzhled stopy</string>
+    <string name="trail_style_label">Vzhled čáry</string>
     <string name="trail_style_line">Čára</string>
     <string name="trail_style_fire">Oheň</string>
     <string name="tap_effect_pop">Výbuch</string>
@@ -316,7 +316,7 @@
     <string name="paint_color2">Barva 2</string>
     <string name="paint_color3">Barva 3</string>
     <string name="notice_ok">OK</string>
-    <string name="trail_color">Barva stopy</string>
+    <string name="trail_color">Barva čáry</string>
     <string name="text_color2">Druhá barva znaků</string>
     <string name="label_pos">Pozice hlavního znaku na klávese</string>
     <string name="label_adjust">Nastavit pozici znaku</string>
@@ -353,7 +353,7 @@
     <string name="cat_tap_2">II. Druhá barva znaku</string>
     <string name="cat_tap_3">III. Druhá barva klávesy a obrysu</string>
     <string name="cat_swipe_1">I. Linka + průchod + úspěšné slovo</string>
-    <string name="cat_swipe_2">II. Barva průchodu</string>
+    <string name="cat_swipe_2">II. Druhá barva čáry + barva průchodu</string>
     <string name="cat_keys_hint">Klik na klávesu = úprava písmenka, podržení = makro.</string>
     <string name="sec_fast">Rychle</string>
     <string name="sec_layout_dims">Rozměry</string>

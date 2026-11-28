@@ -250,7 +250,7 @@
     <string name="style_pick_first">First select style 1–5 above</string>
     <string name="style_switch_unsaved">The current style has unsaved changes. Do you really want to switch style without saving\?</string>
     <string name="downgrade_done">Downgrade complete!</string>
-    <string name="trail_color2">Second trail color</string>
+    <string name="trail_color2">Second line color</string>
     <string name="glow_color2">Second color of letters after swipe</string>
     <string name="tap_text_color2">Second character color after tap</string>
     <string name="outline_tap_color2">Second outline color after tap</string>
@@ -296,7 +296,7 @@
     <string name="hint_color">Hint color</string>
     <string name="hint_size">Hint size</string>
     <string name="tap_effect_orbit">Orbit</string>
-    <string name="trail_style_label">Trail look</string>
+    <string name="trail_style_label">Line look</string>
     <string name="trail_style_line">Line</string>
     <string name="trail_style_fire">Fire</string>
     <string name="tap_effect_pop">Burst</string>
@@ -316,7 +316,7 @@
     <string name="paint_color2">Color 2</string>
     <string name="paint_color3">Color 3</string>
     <string name="notice_ok">OK</string>
-    <string name="trail_color">Trail color</string>
+    <string name="trail_color">Line color</string>
     <string name="text_color2">Second character color</string>
     <string name="label_pos">Position of the main character on the key</string>
     <string name="label_adjust">Adjust character position</string>
@@ -353,7 +353,7 @@
     <string name="cat_tap_2">II. Second char color</string>
     <string name="cat_tap_3">III. Second key &amp; outline color</string>
     <string name="cat_swipe_1">I. Trail + pass + word</string>
-    <string name="cat_swipe_2">II. Pass color</string>
+    <string name="cat_swipe_2">II. Second line color + pass color</string>
     <string name="cat_keys_hint">Tap a key = edit letter, hold = macro.</string>
     <string name="sec_fast">Quick</string>
     <string name="sec_layout_dims">Dimensions</string>
