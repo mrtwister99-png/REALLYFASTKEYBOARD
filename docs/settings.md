@@ -100,7 +100,7 @@ Počet nastavení: **94**.
 | `swipe_glow` | `true` | zap / vyp | Rozsvícení kláves při tahu a animace po úspěšném tahu (zapíná se výběrem animace, „Žádná“ ji vypne). | Hlavní → Animace po úspěšném tahu |
 | `key_glow` | `true` | zap / vyp | Efekt po klepnutí (zapíná se výběrem efektu). | Hlavní → Efekt při klepnutí |
 | `tap_effect` | `neon` | `neon`, `glitch`, `paint`, `ghost`, `orbit`, `pop`, `cut`, `slide`, `plasma` | Který efekt se spustí po klepnutí (když je zapnutý `key_glow`). `orbit` (obrys proběhne kolem klávesy) a `pop` (písmeno se rozprskne na jiskry s náhodnými směry, rychlostmi, časy a zakřivením drah a znovu se zrodí); `plasma` je shader. Neon (záře kolem klávesy), Výbuch (jiskry a kusy) i Plazma jsou shadery (AGSL), aplikace proto vyžaduje Android 13+. | Hlavní → Efekt při klepnutí (rozbalovací seznam) |
-| `neon_color` | `#0080FF` | `#RRGGBB` | Barva efektu po klepnutí (Neon, Glitch, Duch). | Animace po kliknutí II (Barva klávesy po klepnutí) |
+| `neon_color` | `#0080FF` | `#RRGGBB` | Barva efektu po klepnutí (Neon, Glitch, Duch). | Animace po kliknutí I (Barva efektu) |
 | `glow_style` | `neon` | `neon`, `paint`, `ghost`, `flip` | Animace po úspěšném tahu (když je zapnutý `swipe_glow`): Neon, Výplň (`paint`), Text (`ghost` = písmena složí slovo nad klávesnicí), Otočení písmen (`flip` = písmena slova se za sebou otočí o 90–180°). Starší hodnoty se převedou na `neon`. | Animace → Swipe I |
 | `glow_color` | `#0080FF` | `#RRGGBB` nebo `rainbow` | Barva písmen po úspěšném tahu. Smí být `rainbow`. | Hlavní (duha jen s Waiting) |
 
@@ -122,9 +122,9 @@ Počet nastavení: **94**.
 | `paint_color1` | `#0080FF` | `#RRGGBB` | Efekt Barvy: první barva v pořadí. | Pokročilé → Efekty |
 | `paint_color2` | `#FF5100` | `#RRGGBB` | Efekt Barvy: druhá barva v pořadí. | Pokročilé → Efekty |
 | `paint_color3` | `#6A02E8` | `#RRGGBB` | Efekt Barvy: třetí barva v pořadí. | Pokročilé → Efekty |
-| `paint_color4` | `#22C55E` | `#RRGGBB` | Efekt Barvy: čtvrtá barva v pořadí. | Animace po kliknutí III |
-| `paint_color5` | `#FFD60A` | `#RRGGBB` | Efekt Barvy: pátá barva v pořadí. | Animace po kliknutí III |
-| `paint_color6` | `#EC4899` | `#RRGGBB` | Efekt Barvy: šestá barva v pořadí. | Animace po kliknutí III |
+| `paint_color4` | `#22C55E` | `#RRGGBB` | Efekt Barvy: čtvrtá barva v pořadí. | Animace po kliknutí II |
+| `paint_color5` | `#FFD60A` | `#RRGGBB` | Efekt Barvy: pátá barva v pořadí. | Animace po kliknutí II |
+| `paint_color6` | `#EC4899` | `#RRGGBB` | Efekt Barvy: šestá barva v pořadí. | Animace po kliknutí II |
 
 ## Druhé barvy
 
@@ -133,10 +133,10 @@ Počet nastavení: **94**.
 | `key_color2` | *(prázdné)* | `#RRGGBB`, `rainbow` nebo prázdné | Druhá barva kláves: přechod shora (barva klávesy) dolů. | Barvy II |
 | `text_color2` | *(prázdné)* | `#RRGGBB`, `rainbow` nebo prázdné | Druhá barva znaků: přechod shora (barva textu) dolů. | Barvy II |
 | `background_color2` | *(prázdné)* | `#RRGGBB`, `rainbow` nebo prázdné | Druhá barva pozadí: přechod shora dolů; poslední odstín je i pod klávesnicí a v navigační liště. | Barvy II |
-| `neon_color2` | *(prázdné)* | `#RRGGBB`, `rainbow` nebo prázdné | Druhá barva efektu po klepnutí: Neon, Výbuch, Řez a Slide střídají obě barvy, Glitch losuje barvu u každého záblesku, Duch střídá barvu dozvuků; Obvod ji má jako přechod uvnitř klávesy. `rainbow` = náhodný odstín. | Animace po kliknutí III |
+| `neon_color2` | *(prázdné)* | `#RRGGBB`, `rainbow` nebo prázdné | Druhá barva efektu po klepnutí: Neon, Výbuch, Řez a Slide střídají obě barvy, Glitch losuje barvu u každého záblesku, Duch střídá barvu dozvuků; Obvod ji má jako přechod uvnitř klávesy. `rainbow` = náhodný odstín. | Animace po kliknutí II |
 | `trail_color2` | *(prázdné)* | `#RRGGBB` nebo prázdné | Druhá barva čáry (stopy za prstem): konec čáry přechází do této barvy. | Swipe II |
 | `glow_color2` | *(prázdné)* | `#RRGGBB` nebo prázdné | Druhá barva písmen po tahu: písmena slova se střídají mezi `glow_color` a touto barvou (1., 3. … první barva, 2., 4. … druhá). | Swipe II |
-| `tap_text_color2` | *(prázdné)* | `#RRGGBB` nebo prázdné | Druhá barva znaku po klepnutí: klepnutí střídají obě barvy. | Animace po kliknutí II |
+| `tap_text_color2` | *(prázdné)* | `#RRGGBB` nebo prázdné | Druhá barva znaku po klepnutí: klepnutí střídají obě barvy. | Animace po kliknutí III |
 | `outline_color2` | *(prázdné)* | `#RRGGBB`, `rainbow` nebo prázdné | Druhá barva obrysu: přechod shora (barva obrysu) dolů. | Barvy II |
 | `outline_tap_color2` | *(prázdné)* | `#RRGGBB` nebo prázdné | Druhá barva obrysu po klepnutí: klepnutí střídají obě barvy. | Animace po kliknutí III |
 
@@ -144,10 +144,10 @@ Počet nastavení: **94**.
 
 | Klíč | Výchozí | Rozsah / hodnoty | Co dělá | Kde v aplikaci |
 |---|---|---|---|---|
-| `tap_text_color` | *(prázdné)* | `#RRGGBB` nebo prázdné | Barva znaku po klepnutí (drží asi 2,5 s, pak 0,4 s bledne); prázdná = vypnuto. | Animace po kliknutí I |
+| `tap_text_color` | *(prázdné)* | `#RRGGBB` nebo prázdné | Barva znaku po klepnutí (drží asi 2,5 s, pak 0,4 s bledne); prázdná = vypnuto. | Animace po kliknutí II |
 | `hover_text_color` | *(prázdné)* | `#RRGGBB` nebo prázdné | Barva znaku klávesy pod prstem při tahu; prázdná = automatická. Funguje jen se zapnutým `swipe_glow`. | Swipe III |
 | `passed_text_color` | *(prázdné)* | `#RRGGBB` nebo prázdné | Barva znaku kláves, přes které prst přejel při tahu (po tahu bledne asi 0,5 s). Funguje jen se zapnutým `swipe_glow`. | Swipe III |
-| `outline_tap_color` | *(prázdné)* | `#RRGGBB` nebo prázdné | Barva obrysu po klepnutí (drží asi 2,5 s, pak 0,4 s bledne). | Animace po kliknutí I |
+| `outline_tap_color` | *(prázdné)* | `#RRGGBB` nebo prázdné | Barva obrysu po klepnutí (drží asi 2,5 s, pak 0,4 s bledne). | Animace po kliknutí II |
 | `outline_hover_color` | *(prázdné)* | `#RRGGBB` nebo prázdné | Barva obrysu klávesy pod prstem. Funguje jen se zapnutým `swipe_glow`. | Swipe III |
 | `outline_passed_color` | *(prázdné)* | `#RRGGBB` nebo prázdné | Barva obrysu kláves, přes které prst přejel při tahu. Funguje jen se zapnutým `swipe_glow`. | Swipe III |
 

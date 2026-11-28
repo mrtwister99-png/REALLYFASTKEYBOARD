@@ -2,6 +2,9 @@
 
 Jedna věta za verzi, nejnovější nahoře. Čísla verzí odpovídají commitům (`vX.Y: …`).
 
+## 1.59 – 2026-11-28
+Animace po kliknutí přerovnaná: I efekt + barva efektu, II barva znaku + barva obrysu + druhá barva efektu (u Barev i barvy 4–6), III druhá barva obrysu + druhá barva znaku; Uložit kreslí zelenou (zleva) a žlutou (zprava) přímo v tlačítku jako vrchní vrstvu, dojedou do středu a vyblednou.
+
 ## 1.58 – 2026-11-28
 Neon a Výbuch jako shadery (AGSL): Neon má mekkou záři kolem klávesy kreslenou pod všemi klávesami, Výbuch jiskry a kusy výplně jedním průchodem shaderu místo desítek malých kreseb; staré kreslení je pryč a aplikace vyžaduje Android 13+ (`minSdk` 33).
 

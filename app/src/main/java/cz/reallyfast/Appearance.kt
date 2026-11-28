@@ -354,28 +354,25 @@ class AppearanceActivity : SettingsScreen() {
         val rlp0 = LinearLayout.LayoutParams(dp(42f), dp(42f))
         rlp0.rightMargin = dp(8f)
         right.addView(restore, rlp0)
-        val s = label(getString(R.string.save), 15f)
+        val s = SaveButton(this)
+        s.text = getString(R.string.save)
+        s.setTextColor(text)
+        s.setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, 15f)
         s.gravity = Gravity.CENTER
         s.typeface = Typeface.DEFAULT_BOLD
         s.setPadding(dp(24f), 0, dp(24f), 0)
         saveBtn = s
-        // Tlacitko Ulozit v obalu: po ulozeni text povyskoci (zvetsi se) a pres celou vysku tlacitka projede zleva doprava zlutozeleny pruh.
-        val saveHolder = FrameLayout(this)
-        saveHolder.clipChildren = false
-        saveHolder.addView(s, FrameLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, dp(42f)))
-        val saveWave = SweepView(this)
-        val swp = FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
-        saveHolder.addView(saveWave, swp)
+        // Po ulozeni se tlacitko zvetsi a barvy (zelena zleva, zluta zprava) ho zaplni jako vrchni vrstva.
         right.clipChildren = false
         s.setOnClickListener {
             if (saveSlot()) {
                 // Tlacitko se zvetsi, zleva nabiha zelena a zprava zluta do stredu, pak se vrati do normalu.
-                saveHolder.animate().cancel()
-                saveHolder.animate().scaleX(1.3f).scaleY(1.3f).setDuration(200L).start()
-                saveWave.fire(900L) { saveHolder.animate().scaleX(1f).scaleY(1f).setDuration(260L).start() }
+                s.animate().cancel()
+                s.animate().scaleX(1.3f).scaleY(1.3f).setDuration(200L).start()
+                s.play(1000L) { s.animate().scaleX(1f).scaleY(1f).setDuration(260L).start() }
             }
         }
-        right.addView(saveHolder, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, dp(42f)))
+        right.addView(s, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, dp(42f)))
         top.addView(right, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, dp(42f)))
         header.addView(top, rowParams())
 
@@ -1230,28 +1227,27 @@ class AppearanceActivity : SettingsScreen() {
             val j = RustBridge.settings.json
             j.optBoolean("key_glow") && j.optString("tap_effect") == "paint"
         }
-        colorRow(s, R.string.tap_text_color, "tap_text_color", allowAuto = true)
-        colorRow(s, R.string.outline_tap_color, "outline_tap_color", allowAuto = true)
+        colorRow(s, R.string.neon_color, "neon_color")
     }
 
-    /** 3. II. Druha barva klavesy a znaku po klepnuti. */
+    /** 3. II. Barva znaku, barva obrysu a druha barva efektu po klepnuti. */
     private fun buildTap2(box: LinearLayout) {
         val s = section(box, getString(R.string.cat_tap_2))
-        // Barva klavesy po klepnuti (barva efektu); jeji druha barva je v III.
-        colorRow(s, R.string.tap_key_color, "neon_color")
-        colorRow(s, R.string.tap_text_color2, "tap_text_color2", allowAuto = true)
-    }
-
-    /** 3. III. Druha barva obrysu po klepnuti. */
-    private fun buildTap3(box: LinearLayout) {
-        val s = section(box, getString(R.string.cat_tap_3))
+        colorRow(s, R.string.tap_text_color, "tap_text_color", allowAuto = true)
+        colorRow(s, R.string.outline_tap_color, "outline_tap_color", allowAuto = true)
         // Druha barva efektu: Neon a Duch ji strida, Glitch losuje; Barvy maji dalsi tri barvy; Vybuch a Rez ji pouzivaji take.
         colorRow(s, R.string.tap_key_color2, "neon_color2", allowAuto = true, allowRainbow = true)
         colorDotsRow(s, listOf(R.string.paint_color4 to "paint_color4", R.string.paint_color5 to "paint_color5", R.string.paint_color6 to "paint_color6")) {
             val j = RustBridge.settings.json
             j.optBoolean("key_glow") && j.optString("tap_effect") == "paint"
         }
+    }
+
+    /** 3. III. Druha barva obrysu a druha barva znaku po klepnuti. */
+    private fun buildTap3(box: LinearLayout) {
+        val s = section(box, getString(R.string.cat_tap_3))
         colorRow(s, R.string.outline_tap_color2, "outline_tap_color2", allowAuto = true)
+        colorRow(s, R.string.tap_text_color2, "tap_text_color2", allowAuto = true)
     }
 
     /** 4. I. Linka + pruchod + uspesne slovo. */

@@ -266,8 +266,7 @@
     <string name="outline_tap_color">Barva obrysu po klepnutí</string>
     <string name="outline_hover_color">Barva obrysu pod prstem</string>
     <string name="outline_passed_color">Barva obrysu po přejetí prstem</string>
-    <string name="tap_key_color">Barva klávesy po klepnutí</string>
-    <string name="tap_key_color2">Druhá barva klávesy po klepnutí</string>
+    <string name="tap_key_color2">Druhá barva efektu</string>
     <string name="number_divider">Oddělovač</string>
     <string name="number_divider_hint">Čárka mezi číslicemi a písmeny</string>
     <string name="swipe_adapt_reset_confirm">Smazat přizpůsobení swipe tvému stylu psaní? Klávesnice se začne učit od začátku.</string>
@@ -352,8 +351,8 @@
     <string name="cat_colors_2">II. Druhé barvy</string>
     <string name="cat_colors_3">III. Barvy číslic</string>
     <string name="cat_tap_1">I. Výběr animace</string>
-    <string name="cat_tap_2">II. Barva klávesy a druhá barva znaku</string>
-    <string name="cat_tap_3">III. Druhá barva klávesy a obrysu</string>
+    <string name="cat_tap_2">II. Znak, obrys a druhá barva efektu</string>
+    <string name="cat_tap_3">III. Druhá barva obrysu a znaku</string>
     <string name="cat_swipe_1">I. Čára a stopa</string>
     <string name="cat_swipe_2">II. Druhá barva čáry a stopy</string>
     <string name="cat_swipe_3">III. Barva průchodu a pod prstem</string>

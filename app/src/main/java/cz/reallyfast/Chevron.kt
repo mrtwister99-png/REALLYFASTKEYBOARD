@@ -386,21 +386,16 @@ class RingWaveView(context: Context) : View(context) {
 }
 
 /**
- * Animace tlacitka Ulozit: zleva nabiha zelena a zprava zluta, obe dojedou do stredu a tam konci (pak vybledne).
- * Orezano na zaoblene tvary tlacitka; bez vlastni velikosti (jako RingWaveView); v onDraw se nic nealokuje.
+ * Tlacitko Ulozit: po `play` se pres nej (jako vrchni vrstva, nad pozadim i textem) zleva rozbehne zelena a zprava zluta,
+ * obe dojedou do stredu, chvili tam zustanou a vybledne. Barvy se kresli primo v tlacitku (orezane na zaoblene tvary),
+ * takze nezavisi na rozmerech zadneho jineho pohledu; v onDraw se nic nealokuje.
  */
-class SweepView(context: Context) : View(context) {
+class SaveButton(context: Context) : android.widget.TextView(context) {
     private val paint = Paint(Paint.ANTI_ALIAS_FLAG)
     private val clip = android.graphics.Path()
     private val box = android.graphics.RectF()
     private var t = -1f
     private var onEnd: (() -> Unit)? = null
-
-    override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
-        val w = if (MeasureSpec.getMode(widthMeasureSpec) == MeasureSpec.EXACTLY) MeasureSpec.getSize(widthMeasureSpec) else 0
-        val h = if (MeasureSpec.getMode(heightMeasureSpec) == MeasureSpec.EXACTLY) MeasureSpec.getSize(heightMeasureSpec) else 0
-        setMeasuredDimension(w, h)
-    }
 
     private val animator = android.animation.ValueAnimator.ofFloat(0f, 1f).apply {
         addUpdateListener {
@@ -411,7 +406,9 @@ class SweepView(context: Context) : View(context) {
             override fun onAnimationEnd(animation: android.animation.Animator) {
                 t = -1f
                 invalidate()
-                onEnd?.invoke()
+                val e = onEnd
+                onEnd = null
+                e?.invoke()
             }
         })
     }
@@ -423,7 +420,9 @@ class SweepView(context: Context) : View(context) {
         clip.addRoundRect(box, h / 2f, h / 2f, android.graphics.Path.Direction.CW)
     }
 
-    fun fire(ms: Long, end: () -> Unit) {
+    /** Spusti animaci barev; `end` se zavola po jejim konci (i kdyz ji prerusi dalsi `play`, ale pak az po tom novem). */
+    fun play(ms: Long, end: () -> Unit) {
+        onEnd = null
         animator.cancel()
         onEnd = end
         animator.duration = ms
@@ -431,18 +430,19 @@ class SweepView(context: Context) : View(context) {
     }
 
     override fun onDraw(canvas: Canvas) {
+        super.onDraw(canvas)
         if (t < 0f) return
-        val fill = (t / 0.7f).coerceAtMost(1f)
+        val fill = (t / 0.65f).coerceAtMost(1f)
         val fade = if (t < 0.8f) 1f else 1f - (t - 0.8f) / 0.2f
         val half = width / 2f * fill
-        paint.alpha = (225f * fade).toInt().coerceIn(0, 255)
+        val a = (255f * fade).toInt().coerceIn(0, 255)
         canvas.save()
         canvas.clipPath(clip)
         paint.color = ChevronView.GREEN
-        paint.alpha = (225f * fade).toInt().coerceIn(0, 255)
+        paint.alpha = a
         canvas.drawRect(0f, 0f, half, height.toFloat(), paint)
         paint.color = ChevronView.YELLOW
-        paint.alpha = (225f * fade).toInt().coerceIn(0, 255)
+        paint.alpha = a
         canvas.drawRect(width - half, 0f, width.toFloat(), height.toFloat(), paint)
         canvas.restore()
     }
