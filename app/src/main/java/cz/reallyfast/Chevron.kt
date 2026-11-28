@@ -693,6 +693,7 @@ class GlitchThumb(private val sizePx: Int, private val color: Int, private val h
     private val rect = android.graphics.RectF()
     private val star = Path()
     private var glitching = false
+    private var held = false
     private val reset = Runnable {
         glitching = false
         invalidateSelf()
@@ -713,6 +714,14 @@ class GlitchThumb(private val sizePx: Int, private val color: Int, private val h
         linePaint.strokeJoin = Paint.Join.ROUND
     }
 
+    /** Prst drzi posuvnik: ctverecek je jen obrys (bez vyplne). */
+    fun setHeld(h: Boolean) {
+        if (held == h) return
+        held = h
+        invalidateSelf()
+        host.invalidate()
+    }
+
     /** Na `ms` zmeni tvar na hvezdicku. */
     fun glitch(ms: Long) {
         glitching = true
@@ -727,9 +736,18 @@ class GlitchThumb(private val sizePx: Int, private val color: Int, private val h
         val cx = b.exactCenterX()
         val cy = b.exactCenterY()
         if (!glitching) {
-            fillPaint.color = color
             rect.set(cx - sizePx / 2f, cy - sizePx / 2f, cx + sizePx / 2f, cy + sizePx / 2f)
-            canvas.drawRoundRect(rect, 3f * d, 3f * d, fillPaint)
+            if (held) {
+                // Chyceny posuvnik: jen obrys, bez vyplne.
+                val sw = 2f * d
+                linePaint.strokeWidth = sw
+                linePaint.color = color
+                rect.inset(sw / 2f, sw / 2f)
+                canvas.drawRoundRect(rect, 3f * d, 3f * d, linePaint)
+            } else {
+                fillPaint.color = color
+                canvas.drawRoundRect(rect, 3f * d, 3f * d, fillPaint)
+            }
             return
         }
         val big = sizePx * 2f

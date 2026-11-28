@@ -290,9 +290,11 @@ abstract class SettingsScreen : BaseScreen() {
             }
 
             override fun onStartTrackingTouch(sb: SeekBar) {
+                thumb.setHeld(true)
                 onSettingTouched(key, col)
             }
             override fun onStopTrackingTouch(sb: SeekBar) {
+                thumb.setHeld(false)
                 commit(sb.progress * step + min)
             }
         })

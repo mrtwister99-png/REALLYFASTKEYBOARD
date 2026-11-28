@@ -2,6 +2,9 @@
 
 Jedna věta za verzi, nejnovější nahoře. Čísla verzí odpovídají commitům (`vX.Y: …`).
 
+## 1.62 – 2026-11-28
+Chycený čtvereček posuvníku se změní na samotný obrys bez výplně a po puštění se výplň vrátí.
+
 ## 1.61 – 2026-11-28
 Swipe: vlna (shader) při přejetí klávesy z místa dotyku, rozprsknutí čáry na jiskry po úspěšném tahu a dvojitý červený pulz přejetých kláves při špatném tahu (dost dlouhý, ale nerozpoznaný); ukázka tahu v nastavení vlnu i rozprsknutí ukazuje. Opraven Duch (uniform `step` je vestavěná funkce shaderu) a záře Obvodu zůstává uvnitř klávesy.
 
