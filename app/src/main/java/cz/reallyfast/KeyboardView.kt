@@ -1854,7 +1854,7 @@ class KeyboardView(context: Context) : View(context) {
                     val ofx = orbitFx
                     if (ofx != null && ot >= 0L) {
                         val oc2 = if (neon2 != 0 && !neon2Rainbow) neon2 else Theme.blend(nc, WHITE, 0.5f)
-                        val opad = sw * 2.5f
+                        val opad = 0f // svit zustava uvnitr klavesy
                         ofx.draw(canvas, cx - hw - opad, cy - hh - opad, 2f * (hw + opad), 2f * (hh + opad), radius, opad, sw, fade.coerceIn(0f, 1f), k.orbitStart, prog, nc, oc2)
                     }
                 }

@@ -61,8 +61,9 @@ class OrbitFx {
                 float2 q = abs(q0) - (hs - pad) + rad;
                 float dd = length(max(q, 0.0)) + min(max(q.x, q.y), 0.0) - rad;
                 float dl = abs(dd + sw * 0.5) - sw * 0.5;
-                float line = 1.0 - smoothstep(-0.5, 0.8, dl);
-                float glow = exp(-max(dl, 0.0) / (sw * 1.6)) * 0.45;
+                float line = (1.0 - smoothstep(-0.5, 0.8, dl)) * (1.0 - smoothstep(-0.5, 0.5, dd + 0.0));
+                float inside = 1.0 - smoothstep(-0.5, 0.5, dd);
+                float glow = exp(-max(dl, 0.0) / (sw * 2.2)) * 0.5 * inside;
                 float u = atan(q0.y, q0.x) / 6.2831853 + 0.5;
                 float s = fract(u - start);
                 float inArc = 1.0;
@@ -97,7 +98,7 @@ class GhostFx {
         shader.setFloatUniform("rad", radius)
         shader.setFloatUniform("gt", gt)
         shader.setFloatUniform("ms", ms)
-        shader.setFloatUniform("step", step)
+        shader.setFloatUniform("stp", step)
         shader.setFloatUniform("dens", dens)
         shader.setRgb("c1", c1)
         shader.setRgb("c2", c2)
@@ -114,7 +115,7 @@ class GhostFx {
             uniform float rad;
             uniform float gt;
             uniform float ms;
-            uniform float step;
+            uniform float stp;
             uniform float dens;
             uniform float3 c1;
             uniform float3 c2;
@@ -126,7 +127,7 @@ class GhostFx {
                 float acc = 0.0;
                 for (int i = 0; i < 3; i++) {
                     float e = float(i);
-                    float q = (gt - e * step) / ms;
+                    float q = (gt - e * stp) / ms;
                     if (q > 0.0 && q < 1.0) {
                         float grow = (2.5 + 3.5 * (e + 1.0)) * dens * q;
                         float2 kh = hs - pad + grow;
