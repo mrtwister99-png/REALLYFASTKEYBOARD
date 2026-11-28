@@ -72,6 +72,11 @@ class KeyboardView(context: Context) : View(context) {
         var orbitStart = 0f
         /** Efekt Plazma: cas klepnuti (0 = nic) a bod (0..1 v klavese), odkud se vlna rozbehne. */
         var plasmaAt = 0L
+        /** Vlna pri prejeti klavesy / pulz pri spatnem tahu: cas (0 = nic), bod (0..1 v klavese) a priznak spatneho tahu. */
+        var ringAt = 0L
+        var ringX = 0.5f
+        var ringY = 0.5f
+        var ringBad = false
         var plasmaX = 0.5f
         var plasmaY = 0.5f
         /** Efekt Vybuch: cas klepnuti (0 = nic) a nahodne zrno, z ktereho se odvozuje draha kazde jiskry. */
@@ -259,6 +264,10 @@ class KeyboardView(context: Context) : View(context) {
         private const val ORBIT_FADE_MS = 220L
         private const val ORBIT_TOTAL_MS = ORBIT_RUN_MS + ORBIT_HOLD_MS + ORBIT_FADE_MS
         private const val PLASMA_MS = 650L
+        private const val RING_MS = 450L
+        private const val RING_BAD_MS = 800L
+        private const val TRAIL_BURST_MS = 800L
+        private const val TRAIL_BURST_N = 32
         // Efekt Vybuch: pismeno se rozprskne (BURST), chvili neni (GAP) a znovu se narodi (BORN); jiskry leti SPARK_MS.
         private const val POP_BURST_MS = 170L
         private const val POP_GAP_MS = 110L
@@ -512,6 +521,16 @@ class KeyboardView(context: Context) : View(context) {
     private var orbitFx: OrbitFx? = null
     private var ghostFx: GhostFx? = null
     private var paintFx: PaintFx? = null
+    private var ringFx: RingFx? = null
+    private var burstFx: BurstFx? = null
+    // Rozprsknuti cary: 32 bodu podel cary (v souradnicich ohraniceni), cas zacatku a ohraniceni.
+    private val burstPts = FloatArray(TRAIL_BURST_N * 2)
+    private var burstAt = 0L
+    private var burstL = 0f
+    private var burstT = 0f
+    private var burstW = 0f
+    private var burstH = 0f
+    private var burstSeed = 0f
     private var popEffect = false
     private var fireTrail = false
     private var glowCutStyle = false
@@ -819,6 +838,8 @@ class KeyboardView(context: Context) : View(context) {
         if (orbitFx == null) orbitFx = try { OrbitFx() } catch (_: Throwable) { null }
         if (ghostFx == null) ghostFx = try { GhostFx() } catch (_: Throwable) { null }
         if (paintFx == null) paintFx = try { PaintFx() } catch (_: Throwable) { null }
+        if (ringFx == null) ringFx = try { RingFx() } catch (_: Throwable) { null }
+        if (burstFx == null) burstFx = try { BurstFx() } catch (_: Throwable) { null }
         popEffect = s.tapEffect == "pop"
         glowFlipStyle = s.glowStyle == "flip"
         bgDir = gradDirCode(s.bgGradDir)
@@ -1860,6 +1881,18 @@ class KeyboardView(context: Context) : View(context) {
                 }
             }
 
+            if (k.ringAt != 0L) {
+                // Vlna pri prejeti klavesy / pulz pri spatnem tahu (shader), orezano na klavesu.
+                val rt = now - k.ringAt
+                val rdur = if (k.ringBad) RING_BAD_MS else RING_MS
+                if (rt >= rdur) {
+                    k.ringAt = 0L
+                } else if (rt >= 0L) {
+                    animating = true
+                    val rc = if (k.ringBad) 0xFFFF3B30.toInt() else if (trailCol != 0 && !fireTrail) (trailCol and 0x00FFFFFF) or 0xFF000000.toInt() else theme.accent
+                    ringFx?.draw(canvas, cx - hw, cy - hh, 2f * hw, 2f * hh, radius, rt / rdur.toFloat(), k.ringX * 2f * hw, k.ringY * 2f * hh, if (k.ringBad) 2f else 1f, rc)
+                }
+            }
             if (k.slideAt != 0L) { val st = now - k.slideAt; if (st >= 420L) k.slideAt = 0L else animating = true }
             if (deleteFillStart != 0L && deleteKey === k) {
                 val dt = now - deleteFillStart
@@ -2086,6 +2119,7 @@ class KeyboardView(context: Context) : View(context) {
         if (spotOn) drawSpot(canvas, now, radius)
         if (drawGlitch(canvas, now)) animating = true
         if (drawTrail(canvas, now)) animating = true
+        if (drawBurst(canvas, now)) animating = true
         if (drawPreview(canvas, now)) animating = true
         drawPopup(canvas)
         drawMenu(canvas)
@@ -3211,7 +3245,7 @@ class KeyboardView(context: Context) : View(context) {
                     val head = min(pts.size - 1, ((n - 1f) / (DEMO_TRAIL_POINTS - 1f) * (pts.size - 1) + 0.5f).toInt())
                     for (i in 0..head) {
                         val k = pts[i]
-                        if (!k.passed) { k.passed = true; k.passAt = SystemClock.uptimeMillis(); k.passTarget = 0f }
+                        if (!k.passed) { startRipple(k, k.vx + k.vw / 2f, k.y + k.h / 2f); k.passed = true; k.passAt = SystemClock.uptimeMillis(); k.passTarget = 0f }
                     }
                     hoverKey = pts[head]
                 }
@@ -3222,6 +3256,7 @@ class KeyboardView(context: Context) : View(context) {
             trailHeld = false
             val endAt = SystemClock.uptimeMillis()
             trailEndedAt = endAt
+            startBurst(endAt)
             // Po konci tahu prejete klavesy doznivaji, stejne jako po skutecnem tahu.
             val fade = passedTextCol != 0 || outlinePassedCol != 0 || passedKeyCol != 0
             for (k in pts) {
@@ -3694,6 +3729,82 @@ class KeyboardView(context: Context) : View(context) {
     private var voicePlayTouch = false
     private var voiceAgainTouch2 = false
 
+    /** Vlna po prejeti klavesy `k` z bodu (x, y); jen s animacemi. */
+    private fun startRipple(k: Key, x: Float, y: Float) {
+        if (!animate || ringFx == null) return
+        k.ringAt = SystemClock.uptimeMillis()
+        k.ringBad = false
+        k.ringX = ((x - k.vx) / max(1f, k.vw)).coerceIn(0f, 1f)
+        k.ringY = ((y - k.y) / max(1f, k.h)).coerceIn(0f, 1f)
+    }
+
+    /** Spatny tah (dost dlouhy, ale nerozpoznany): prejete klavesy dvakrat cervene zapulzuji. */
+    private fun badPulse(start: Key) {
+        if (!animate || ringFx == null || sampleCount < 2) return
+        var len = 0f
+        for (i in 1 until sampleCount) len += hypot(samples[i * 3] - samples[(i - 1) * 3], samples[i * 3 + 1] - samples[(i - 1) * 3 + 1])
+        if (len < 2.2f * unitW) return // kratky tah = jen sklouznuty prst pri klepnuti
+        val now = SystemClock.uptimeMillis()
+        val last = keyAt(samples[(sampleCount - 1) * 3], samples[(sampleCount - 1) * 3 + 1])
+        for (key in keys) {
+            if (key.passed || key === start || key === last) {
+                key.ringAt = now
+                key.ringBad = true
+                key.ringX = 0.5f
+                key.ringY = 0.5f
+            }
+        }
+        invalidate()
+    }
+
+    /** Rozprsknuti cary: z 32 bodu podel poslednich vzorku cary se rozletí jiskry. */
+    private fun startBurst(now: Long) {
+        if (!animate || !drawTrailEnabled || burstFx == null || trailCount < 2) return
+        val first = max(0, trailCount - TRAIL_POINTS)
+        val n = trailCount - first
+        var minX = Float.MAX_VALUE
+        var minY = Float.MAX_VALUE
+        var maxX = -Float.MAX_VALUE
+        var maxY = -Float.MAX_VALUE
+        for (i in 0 until TRAIL_BURST_N) {
+            val si = first + (i * (n - 1)) / (TRAIL_BURST_N - 1)
+            val x = samples[si * 3]
+            val y = samples[si * 3 + 1]
+            burstPts[i * 2] = x
+            burstPts[i * 2 + 1] = y
+            if (x < minX) minX = x
+            if (x > maxX) maxX = x
+            if (y < minY) minY = y
+            if (y > maxY) maxY = y
+        }
+        val m = 60f * density
+        burstL = minX - m
+        burstT = minY - m
+        burstW = maxX - minX + 2f * m
+        burstH = maxY - minY + 2f * m
+        for (i in 0 until TRAIL_BURST_N) {
+            burstPts[i * 2] -= burstL
+            burstPts[i * 2 + 1] -= burstT
+        }
+        burstSeed = random.nextFloat() * 1000f
+        burstAt = now
+        invalidate()
+    }
+
+    private fun drawBurst(canvas: Canvas, now: Long): Boolean {
+        if (burstAt == 0L) return false
+        val t = now - burstAt
+        if (t >= TRAIL_BURST_MS) {
+            burstAt = 0L
+            return false
+        }
+        if (t < 0L) return true
+        val c1 = if (trailCol != 0 && !fireTrail) (trailCol and 0x00FFFFFF) or 0xFF000000.toInt() else theme.accent
+        val c2 = if (trailCol2 != 0) (trailCol2 and 0x00FFFFFF) or 0xFF000000.toInt() else Theme.blend(c1, WHITE, 0.6f)
+        burstFx?.draw(canvas, burstL, burstT, burstW, burstH, t.toFloat(), burstSeed, density, burstPts, c1, c2)
+        return true
+    }
+
     private fun cancelTouch() {
         handler.removeCallbacks(longPress)
         handler.removeCallbacks(repeat)
@@ -3977,16 +4088,17 @@ class KeyboardView(context: Context) : View(context) {
                     undoPaint(k)
                     endPreview()
                     if (glowEnabled) {
+                        startRipple(k, downX, downY)
                         k.passed = true; k.passAt = SystemClock.uptimeMillis(); k.passTarget = 0f
                         hoverKey = k
-                        keyAt(x, y)?.let { if (it.isLetter) { it.passed = true; it.passAt = SystemClock.uptimeMillis(); it.passTarget = 0f; hoverKey = it } }
+                        keyAt(x, y)?.let { if (it.isLetter) { if (!it.passed) startRipple(it, x, y); it.passed = true; it.passAt = SystemClock.uptimeMillis(); it.passTarget = 0f; hoverKey = it } }
                     }
                     trailCount = sampleCount
                     invalidate()
                 }
             }
             T_SWIPE -> {
-                if (glowEnabled) keyAt(x, y)?.let { if (it.isLetter) { it.passed = true; it.passAt = SystemClock.uptimeMillis(); it.passTarget = 0f; hoverKey = it } }
+                if (glowEnabled) keyAt(x, y)?.let { if (it.isLetter) { if (!it.passed) startRipple(it, x, y); it.passed = true; it.passAt = SystemClock.uptimeMillis(); it.passTarget = 0f; hoverKey = it } }
                 trailCount = sampleCount
                 invalidate()
             }
@@ -4046,7 +4158,13 @@ class KeyboardView(context: Context) : View(context) {
                     l.onBeforeSwipe()
                     val words = RustBridge.swipe(samples, sampleCount * 3, shiftState != SHIFT_OFF, preview)
                     // Prazdny vysledek = prilis kratky / pomaly tah -> bereme jako tap.
-                    if (words.isEmpty()) l.onKeyTap(k) else l.onSwipeWords(words)
+                    if (words.isEmpty()) {
+                        badPulse(k)
+                        l.onKeyTap(k)
+                    } else {
+                        startBurst(SystemClock.uptimeMillis())
+                        l.onSwipeWords(words)
+                    }
                 } else if (!longPressFired) {
                     l.onKeyTap(k)
                 }
